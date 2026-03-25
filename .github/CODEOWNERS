@@ -1,0 +1,32 @@
+# CODEOWNERS - Branch Protection via Code Ownership
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# All changes require approval from the repository owner (@flucido).
+# This file works with the "Require review from Code Owners" branch
+# protection rule to enforce mandatory reviews.
+
+# Global ownership - all files require @flucido's approval
+* @flucido
+
+# GitHub configuration (workflows, rulesets, etc.)
+.github/ @flucido
+
+# Core framework code
+oss_framework/ @flucido
+
+# Data pipeline and ingestion code
+src/ @flucido
+
+# Infrastructure and deployment
+docker-compose.yml @flucido
+k8s-deployment.yaml @flucido
+k8s_deploy.py @flucido
+
+# Schema and data contracts
+schema/ @flucido
+
+# Scripts and automation
+scripts/ @flucido
+
+# Security and compliance
+SECURITY.md @flucido
