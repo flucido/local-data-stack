@@ -50,6 +50,8 @@ These rulesets enforce strict branch protection to ensure all code changes are r
 
 **Bypass actors**: None.
 
+> **Note**: The rules in this ruleset intentionally overlap with `main-branch-protection.json` for the `main` branch. This provides defense-in-depth — even if the main-specific ruleset is modified, the baseline protections (no deletions, no force pushes, signed commits) remain enforced through this ruleset.
+
 ## How to Apply
 
 ### Option 1: Using the provided script
