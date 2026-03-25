@@ -1,0 +1,12 @@
+# Model YAML
+# Reference documentation: https://docs.rilldata.com/reference/project-files/models
+
+type: model
+materialize: true
+
+connector: local_duckdb
+
+sql: |
+  -- Class Effectiveness Model
+  -- Source: Parquet export from dbt model v_class_section_comparison
+  SELECT * FROM read_parquet('data/class_effectiveness.parquet')

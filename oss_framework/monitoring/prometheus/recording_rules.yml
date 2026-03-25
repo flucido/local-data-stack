@@ -1,0 +1,144 @@
+# ============================================================================
+# Prometheus Recording Rules
+# ============================================================================
+# Pre-computed metrics to improve dashboard query performance
+# These rules create new time series from existing metrics
+
+groups:
+  # ========================================================================
+  # CPU Metrics
+  # ========================================================================
+  - name: cpu_recording_rules
+    interval: 15s
+    rules:
+      - record: instance:node_cpu_utilisation:rate1m
+        expr: (100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[1m])))) * 100
+
+      - record: instance:node_cpu_utilisation:rate5m
+        expr: (100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])))) * 100
+
+      - record: instance:node_cpu_utilisation:rate15m
+        expr: (100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[15m])))) * 100
+
+  # ========================================================================
+  # Memory Metrics
+  # ========================================================================
+  - name: memory_recording_rules
+    interval: 15s
+    rules:
+      - record: instance:node_memory_utilisation:percentage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100
+
+      - record: instance:node_memory_swap_utilisation:percentage
+        expr: ((node_memory_SwapTotal_bytes - node_memory_SwapFree_bytes) / node_memory_SwapTotal_bytes) * 100
+
+  # ========================================================================
+  # Disk Metrics
+  # ========================================================================
+  - name: disk_recording_rules
+    interval: 15s
+    rules:
+      - record: instance:node_disk_utilisation:percentage
+        expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.lusterfs|squashfs|vfat"} / node_filesystem_size_bytes)) * 100
+
+      - record: instance:node_inode_utilisation:percentage
+        expr: (1 - (node_filesystem_files_free / node_filesystem_files)) * 100
+
+      - record: instance:node_disk_io_time_ms:rate1m
+        expr: rate(node_disk_io_time_ms_total[1m])
+
+      - record: instance:node_disk_io_time_weighted_ms:rate1m
+        expr: rate(node_disk_io_time_weighted_ms_total[1m])
+
+  # ========================================================================
+  # Network Metrics
+  # ========================================================================
+  - name: network_recording_rules
+    interval: 15s
+    rules:
+      - record: instance:node_network_receive_bytes:rate1m
+        expr: rate(node_network_receive_bytes_total[1m])
+
+      - record: instance:node_network_transmit_bytes:rate1m
+        expr: rate(node_network_transmit_bytes_total[1m])
+
+      - record: instance:node_network_receive_errs:rate1m
+        expr: rate(node_network_receive_errs_total[1m])
+
+      - record: instance:node_network_transmit_errs:rate1m
+        expr: rate(node_network_transmit_errs_total[1m])
+
+  # ========================================================================
+  # Kubernetes Metrics
+  # ========================================================================
+  - name: kubernetes_recording_rules
+    interval: 15s
+    rules:
+      - record: cluster:node_cpu_allocation:utilisation
+        expr: 100 * sum(rate(container_cpu_usage_seconds_total{container!=""}[5m])) / sum(kube_node_status_allocatable{resource="cpu"})
+
+      - record: cluster:node_memory_allocation:utilisation
+        expr: 100 * sum(container_memory_usage_bytes{container!=""}) / sum(kube_node_status_allocatable{resource="memory"})
+
+      - record: pod:container_cpu_usage:rate1m
+        expr: sum(rate(container_cpu_usage_seconds_total{container!=""}[1m])) by (namespace, pod, container)
+
+      - record: pod:container_memory_usage:bytes
+        expr: sum(container_memory_usage_bytes{container!=""}) by (namespace, pod, container)
+
+  # ========================================================================
+  # Application Metrics
+  # ========================================================================
+  - name: application_recording_rules
+    interval: 15s
+    rules:
+      - record: http:request_duration_seconds:histogram_quantile:0p99:1m
+        expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[1m]))
+
+      - record: http:request_duration_seconds:histogram_quantile:0p95:1m
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[1m]))
+
+      - record: http:request_duration_seconds:histogram_quantile:0p50:1m
+        expr: histogram_quantile(0.50, rate(http_request_duration_seconds_bucket[1m]))
+
+      - record: http:requests_total:rate1m
+        expr: sum(rate(http_requests_total[1m])) by (job, handler, method)
+
+      - record: http:requests_total:error_rate:rate1m
+        expr: sum(rate(http_requests_total{status=~"5.."}[1m])) by (job, handler, method) / sum(rate(http_requests_total[1m])) by (job, handler, method)
+
+  # ========================================================================
+  # Database Metrics
+  # ========================================================================
+  - name: database_recording_rules
+    interval: 15s
+    rules:
+      - record: pg:connections:percentage
+        expr: (sum(pg_stat_activity_count) by (datname)) / (pg_settings_max_connections) * 100
+
+      - record: pg:transactions_per_second
+        expr: rate(pg_stat_database_xact_commit[1m]) + rate(pg_stat_database_xact_rollback[1m])
+
+      - record: pg:blocks_hit_ratio
+        expr: 1 - (rate(pg_stat_database_blks_read[1m]) / (rate(pg_stat_database_blks_hit[1m]) + rate(pg_stat_database_blks_read[1m])))
+
+      - record: pg:cache_hit_ratio
+        expr: sum(rate(pg_stat_database_heap_blks_hit[1m])) / (sum(rate(pg_stat_database_heap_blks_hit[1m])) + sum(rate(pg_stat_database_heap_blks_read[1m])))
+
+  # ========================================================================
+  # Composite Metrics
+  # ========================================================================
+  - name: composite_recording_rules
+    interval: 15s
+    rules:
+      - record: up:count
+        expr: count(up == 1)
+
+      - record: up:sum
+        expr: sum(up)
+
+      - record: instance:count
+        expr: count(count by (instance) (up))
+
+      - record: job:up:count
+        expr: count by (job) (up == 1)

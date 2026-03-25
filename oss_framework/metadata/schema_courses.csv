@@ -1,0 +1,19 @@
+Entity,Attribute,DataType,Pseudonymization,Description
+courses,course_id,VARCHAR,no-op,Unique course identifier from SIS
+courses,school_id,VARCHAR,no-op,School offering the course
+courses,course_code,VARCHAR,no-op,Course code (e.g., ELA101)
+courses,course_name,VARCHAR,no-op,Human-readable course name
+courses,course_description,VARCHAR,no-op,Course description
+courses,subject_area,VARCHAR,no-op,Subject area (Math/ELA/Science/Social Studies/etc)
+courses,grade_level,VARCHAR,no-op,Target grade level
+courses,credit_value,FLOAT,no-op,Credit hours for the course
+courses,course_type,VARCHAR,no-op,Type (regular/honors/AP/IB/CTE/special ed)
+courses,teacher_id,VARCHAR,hash,Primary instructor identifier
+courses,max_enrollment,INT,no-op,Maximum student enrollment
+courses,min_enrollment,INT,no-op,Minimum student enrollment
+courses,term,VARCHAR,no-op,Academic term (semester/trimester/year)
+courses,start_date,DATE,no-op,Course start date
+courses,end_date,DATE,no-op,Course end date
+courses,status,VARCHAR,no-op,Course status (active/inactive/cancelled)
+courses,_loaded_date,TIMESTAMP,no-op,Date record was loaded
+courses,_updated_date,TIMESTAMP,no-op,Date record was last updated

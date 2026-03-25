@@ -1,0 +1,54 @@
+# Python caches and virtual environments
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Environment files
+.env
+
+# Local databases and generated data
+*.duckdb
+*.db
+*.db.wal
+*.parquet
+*.zip
+AeriesTestData2_2026/
+data/
+rill_project/tmp/
+
+# Keep the public sample data and empty data directories
+!oss_framework/data/
+oss_framework/data/**
+!oss_framework/data/.gitkeep
+!oss_framework/data/stage1/
+!oss_framework/data/stage1/.gitkeep
+!oss_framework/data/stage2/
+!oss_framework/data/stage2/.gitkeep
+!oss_framework/data/stage3/
+!oss_framework/data/stage3/.gitkeep
+!oss_framework/data/sample_data/
+!oss_framework/data/sample_data/*.parquet
+
+# dbt / coverage artifacts
+.user.yml
+oss_framework/dbt/dbt_packages/
+oss_framework/dbt/logs/
+oss_framework/dbt/target/
+.coverage
+coverage.xml
+htmlcov/
+
+# OS / editor noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log

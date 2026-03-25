@@ -1,0 +1,112 @@
+name: Deploy to Kubernetes
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment (dev, staging, prod)'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/sis-pipeline
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    environment:
+      name: ${{ github.event.inputs.environment || 'dev' }}
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set environment variables
+      run: |
+        if [[ "${{ github.event.inputs.environment }}" == "prod" ]]; then
+          echo "KUBE_NAMESPACE=sis-analytics-prod" >> $GITHUB_ENV
+        elif [[ "${{ github.event.inputs.environment }}" == "staging" ]]; then
+          echo "KUBE_NAMESPACE=sis-analytics-staging" >> $GITHUB_ENV
+        else
+          echo "KUBE_NAMESPACE=sis-analytics-dev" >> $GITHUB_ENV
+        fi
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+
+    - name: Configure kubectl
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
+        chmod 600 ~/.kube/config
+        kubectl config set-context --current --namespace=${{ env.KUBE_NAMESPACE }}
+
+    - name: Create namespace if not exists
+      run: |
+        kubectl create namespace ${{ env.KUBE_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Apply ConfigMaps and Secrets
+      run: |
+        kubectl apply -f oss_framework/k8s/00-namespace-configmap-secrets.yaml -n ${{ env.KUBE_NAMESPACE }}
+
+    - name: Deploy PostgreSQL
+      run: |
+        kubectl apply -f oss_framework/k8s/01-postgres-statefulset.yaml -n ${{ env.KUBE_NAMESPACE }}
+        kubectl wait --for=condition=ready pod -l app=postgres -n ${{ env.KUBE_NAMESPACE }} --timeout=300s
+
+    - name: Update Pipeline image reference
+      run: |
+        sed -i "s|sis-pipeline:latest|${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}|g" oss_framework/k8s/02-pipeline-deployment.yaml
+
+    - name: Deploy Pipeline
+      run: |
+        kubectl apply -f oss_framework/k8s/02-pipeline-deployment.yaml -n ${{ env.KUBE_NAMESPACE }}
+        kubectl wait --for=condition=available --timeout=300s deployment/sis-pipeline -n ${{ env.KUBE_NAMESPACE }}
+
+    - name: Deploy Dashboards
+      run: |
+        kubectl apply -f oss_framework/k8s/03-dashboards-deployment.yaml -n ${{ env.KUBE_NAMESPACE }}
+        kubectl wait --for=condition=available --timeout=600s deployment --all -n ${{ env.KUBE_NAMESPACE }}
+
+    - name: Verify deployment
+      run: |
+        echo "=== Deployments ==="
+        kubectl get deployment -n ${{ env.KUBE_NAMESPACE }}
+        
+        echo "=== Services ==="
+        kubectl get svc -n ${{ env.KUBE_NAMESPACE }}
+        
+        echo "=== Pods ==="
+        kubectl get pods -n ${{ env.KUBE_NAMESPACE }}
+        
+        echo "=== PVCs ==="
+        kubectl get pvc -n ${{ env.KUBE_NAMESPACE }}
+
+    - name: Post deployment notification
+      if: always()
+      run: |
+        echo "Deployment to ${{ env.KUBE_NAMESPACE }} completed"
+        echo "Access services via:"
+        kubectl get svc -n ${{ env.KUBE_NAMESPACE }} -o wide
+
+    - name: Rollback on failure
+      if: failure()
+      run: |
+        echo "Deployment failed. Attempting rollback..."
+        kubectl rollout undo deployment/sis-pipeline -n ${{ env.KUBE_NAMESPACE }} || true
+        kubectl rollout undo deployment/grafana -n ${{ env.KUBE_NAMESPACE }} || true
+        kubectl rollout undo deployment/metabase -n ${{ env.KUBE_NAMESPACE }} || true
+        kubectl rollout undo deployment/superset -n ${{ env.KUBE_NAMESPACE }} || true

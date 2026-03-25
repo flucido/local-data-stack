@@ -1,0 +1,122 @@
+
+# dbt_project.yml - Local Data Stack Analytics
+# 100% local DuckDB transformations - no cloud dependencies
+# dbt_project.yml - OSS Framework Student Analytics
+# Stage 2 Feature Engineering Configuration
+
+name: 'local_data_stack'
+version: '1.0.0'
+config-version: 2
+
+# Profile connection settings
+profile: 'duckdb_oss'
+
+# Paths
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+seed-paths: ["seeds"]
+analysis-paths: ["analyses"]
+docs-paths: ["docs"]
+
+# Output directory
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+  - "logs"
+
+# Seeding
+seeds:
+  local_data_stack:
+    +schema: 'seeds'
+    school_cds_mapping_seed:
+      +column_types:
+        school_id: varchar
+        cds_code: varchar
+        match_method: varchar
+        match_confidence: double
+
+# Model defaults
+models:
+  local_data_stack:
+    # Global defaults
+    +enabled: true
+    +on_schema_change: 'fail'
+
+    # Staging layer - minimal transformation
+    staging:
+      +materialized: table
+      +tags: ['staging']
+      +pre-hook: "{{ log('Building staging layer...', info=true) }}"
+      +post-hook: "{{ log('Staging layer complete', info=true) }}"
+
+    # Core mart layer - dimension & fact tables
+    mart_core:
+      +materialized: table
+      +tags: ['core']
+      +schema: 'mart_core'
+      +on_schema_change: 'fail'
+      core:
+        +schema: 'core'
+        +pre-hook: "{{ log('Building core dimensions and facts...', info=true) }}"
+        +post-hook: "{{ log('Core mart complete', info=true) }}"
+
+    # Feature engineering layer
+    mart_features:
+      +materialized: table
+      +tags: ['features']
+      +schema: 'mart_features'
+      features:
+        +schema: 'features'
+        +pre-hook: "{{ log('Building feature engineering models...', info=true) }}"
+        +post-hook: "{{ log('Features complete', info=true) }}"
+
+    # Privacy/pseudonymization layer
+    mart_privacy:
+      +materialized: table
+      +tags: ['privacy']
+      +schema: 'mart_privacy'
+      privacy:
+        +schema: 'privacy'
+        +pre-hook: "{{ log('Building pseudonymization layer...', info=true) }}"
+        +post-hook: "{{ log('Privacy layer complete', info=true) }}"
+
+    # Risk scoring layer
+    mart_scoring:
+      +materialized: table
+      +tags: ['scoring']
+      +schema: 'mart_scoring'
+      scoring:
+        +schema: 'scoring'
+        +pre-hook: "{{ log('Building risk scoring models...', info=true) }}"
+        +post-hook: "{{ log('Scoring complete', info=true) }}"
+
+    # Analytics layer - DuckDB optimized
+    mart_analytics:
+      +tags: ['analytics']
+      # Removed +schema: 'mart_analytics' to prevent duplication - only use nested 'analytics' schema
+      aggregations:
+        +materialized: table
+        +post-hook: "ANALYZE {{ this }}"
+      analytics:
+        +schema: 'analytics'
+        +materialized: table
+        +post-hook: "ANALYZE {{ this }}"
+
+    # Export layer - Rill Parquet exports
+    exports:
+      +materialized: external
+      +tags: ['rill_export']
+      +format: 'parquet'
+# Variable defaults
+vars:
+  salt_pii: 'oea_2026'
+  hash_algorithm: 'md5'
+  attendance_risk_threshold: 85
+  chronic_absence_threshold: 10
+
+# Dispatch macro resolution order
+dispatch:
+  - macro_namespace: dbt_utils
+    search_order: ['dbt_utils', 'dbt']

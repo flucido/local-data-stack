@@ -1,0 +1,4 @@
+school_id,cds_code,match_method,match_confidence
+SCH1,01611990109835,manual,1.0
+SCH2,01612590000000,manual,1.0
+SCH3,01612790000000,manual,1.0

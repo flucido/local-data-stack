@@ -1,0 +1,125 @@
+{
+  "name": "3_ingest_transform_normalize",
+  "description": "Ingestion stage: Transform and normalize Stage 1 data into Stage 2A. Flattens JSON, applies standard naming, validates schema.",
+  "properties": {
+    "activities": [
+      {
+        "name": "Normalize_Students_Data",
+        "type": "Notebook",
+        "typeProperties": {
+          "notebook": {
+            "referenceName": "normalize_students_notebook",
+            "type": "NotebookReference"
+          },
+          "parameters": {
+            "environment": "@pipeline().parameters.environment",
+            "operation": "transform"
+          }
+        }
+      },
+      {
+        "name": "Normalize_Courses_Data",
+        "type": "Notebook",
+        "typeProperties": {
+          "notebook": {
+            "referenceName": "normalize_courses_notebook",
+            "type": "NotebookReference"
+          },
+          "parameters": {
+            "environment": "@pipeline().parameters.environment",
+            "operation": "transform"
+          }
+        }
+      },
+      {
+        "name": "Normalize_Enrollment_Data",
+        "type": "Notebook",
+        "typeProperties": {
+          "notebook": {
+            "referenceName": "normalize_enrollment_notebook",
+            "type": "NotebookReference"
+          },
+          "parameters": {
+            "environment": "@pipeline().parameters.environment",
+            "operation": "transform"
+          }
+        }
+      },
+      {
+        "name": "Flatten_Engagement_Events",
+        "type": "Notebook",
+        "typeProperties": {
+          "notebook": {
+            "referenceName": "flatten_engagement_notebook",
+            "type": "NotebookReference"
+          },
+          "parameters": {
+            "environment": "@pipeline().parameters.environment",
+            "operation": "flatten_json"
+          }
+        }
+      },
+      {
+        "name": "Validate_Stage2A_Schema",
+        "type": "Notebook",
+        "typeProperties": {
+          "notebook": {
+            "referenceName": "validate_stage2a_schema",
+            "type": "NotebookReference"
+          },
+          "parameters": {
+            "environment": "@pipeline().parameters.environment"
+          }
+        },
+        "dependsOn": [
+          {
+            "activity": "Normalize_Students_Data",
+            "dependencyConditions": ["Succeeded"]
+          },
+          {
+            "activity": "Normalize_Courses_Data",
+            "dependencyConditions": ["Succeeded"]
+          },
+          {
+            "activity": "Normalize_Enrollment_Data",
+            "dependencyConditions": ["Succeeded"]
+          },
+          {
+            "activity": "Flatten_Engagement_Events",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ]
+      },
+      {
+        "name": "Generate_Data_Quality_Report",
+        "type": "Notebook",
+        "typeProperties": {
+          "notebook": {
+            "referenceName": "generate_quality_report",
+            "type": "NotebookReference"
+          },
+          "parameters": {
+            "environment": "@pipeline().parameters.environment",
+            "stage": "stage2a"
+          }
+        },
+        "dependsOn": [
+          {
+            "activity": "Validate_Stage2A_Schema",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ]
+      }
+    ],
+    "parameters": {
+      "workspace": {
+        "type": "string",
+        "description": "Workspace identifier"
+      },
+      "environment": {
+        "type": "string",
+        "description": "Environment name"
+      }
+    }
+  }
+}

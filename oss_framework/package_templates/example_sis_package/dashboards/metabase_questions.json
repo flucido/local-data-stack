@@ -1,0 +1,548 @@
+{
+  "export_format_version": "1.0.0",
+  "created_by": "SIS Package Generator",
+  "created_at": "2024",
+  "description": "Metabase question templates for SIS analytics",
+  "questions": [
+    {
+      "name": "District Active Students Count",
+      "description": "Total number of currently enrolled active students",
+      "database": "SIS Analytics (PostgreSQL)",
+      "table": "stage_3.district_summary",
+      "type": "scalar",
+      "query": {
+        "source_table": null,
+        "filter": [],
+        "aggregation": [
+          [
+            "count"
+          ]
+        ],
+        "data": {
+          "database": 2,
+          "type": "query",
+          "query": {
+            "source-table": "STAGE3_DISTRICT_SUMMARY",
+            "aggregation": [
+              [
+                "sum",
+                [
+                  "field",
+                  "ACTIVE_STUDENTS",
+                  {
+                    "base-type": "type/BigInteger"
+                  }
+                ]
+              ]
+            ]
+          }
+        }
+      },
+      "visualization": {
+        "type": "number",
+        "settings": {
+          "number_style": "decimal",
+          "decimals": 0
+        }
+      }
+    },
+    {
+      "name": "Average GPA by Grade Level",
+      "description": "Comparison of average GPA across all grade levels",
+      "database": "SIS Analytics (PostgreSQL)",
+      "table": "stage_3.grade_level_performance",
+      "type": "table",
+      "query": {
+        "data": {
+          "database": 2,
+          "type": "query",
+          "query": {
+            "source-table": "STAGE3_GRADE_PERFORMANCE",
+            "fields": [
+              [
+                "field",
+                "GRADE_LEVEL",
+                {
+                  "base-type": "type/Integer"
+                }
+              ],
+              [
+                "field",
+                "STUDENT_COUNT",
+                {
+                  "base-type": "type/BigInteger"
+                }
+              ],
+              [
+                "field",
+                "AVG_GPA",
+                {
+                  "base-type": "type/Float"
+                }
+              ],
+              [
+                "field",
+                "AVG_ATTENDANCE_RATE",
+                {
+                  "base-type": "type/Float"
+                }
+              ],
+              [
+                "field",
+                "FAILURE_RATE_PERCENT",
+                {
+                  "base-type": "type/Float"
+                }
+              ]
+            ],
+            "order-by": [
+              [
+                "asc",
+                [
+                  "field",
+                  "GRADE_LEVEL",
+                  {
+                    "base-type": "type/Integer"
+                  }
+                ]
+              ]
+            ]
+          }
+        }
+      },
+      "visualization": {
+        "type": "table",
+        "settings": {}
+      }
+    },
+    {
+      "name": "Enrollment Trend by Term",
+      "description": "Number of students and enrollments across academic terms",
+      "database": "SIS Analytics (PostgreSQL)",
+      "table": "stage_3.term_trends",
+      "type": "line",
+      "query": {
+        "data": {
+          "database": 2,
+          "type": "query",
+          "query": {
+            "source-table": "STAGE3_TERM_TRENDS",
+            "breakout": [
+              [
+                "field",
+                "TERM",
+                {
+                  "base-type": "type/Text"
+                }
+              ]
+            ],
+            "aggregation": [
+              [
+                "sum",
+                [
+                  "field",
+                  "UNIQUE_STUDENTS",
+                  {
+                    "base-type": "type/BigInteger"
+                  }
+                ]
+              ],
+              [
+                "sum",
+                [
+                  "field",
+                  "ENROLLMENT_COUNT",
+                  {
+                    "base-type": "type/BigInteger"
+                  }
+                ]
+              ]
+            ],
+            "order-by": [
+              [
+                "desc",
+                [
+                  "field",
+                  "TERM",
+                  {
+                    "base-type": "type/Text"
+                  }
+                ]
+              ]
+            ],
+            "limit": 8
+          }
+        }
+      },
+      "visualization": {
+        "type": "line",
+        "settings": {
+          "x_axis": {
+            "type": "temporal"
+          }
+        }
+      }
+    },
+    {
+      "name": "At-Risk Students by Category",
+      "description": "Distribution of students at risk by category type",
+      "database": "SIS Analytics (PostgreSQL)",
+      "table": "stage_3.at_risk_aggregates",
+      "type": "bar",
+      "query": {
+        "data": {
+          "database": 2,
+          "type": "query",
+          "query": {
+            "source-table": "STAGE3_AT_RISK",
+            "breakout": [
+              [
+                "field",
+                "RISK_CATEGORY",
+                {
+                  "base-type": "type/Text"
+                }
+              ]
+            ],
+            "aggregation": [
+              [
+                "sum",
+                [
+                  "field",
+                  "AFFECTED_STUDENTS",
+                  {
+                    "base-type": "type/BigInteger"
+                  }
+                ]
+              ]
+            ]
+          }
+        }
+      },
+      "visualization": {
+        "type": "bar",
+        "settings": {
+          "x_axis": {
+            "label": "Risk Category"
+          },
+          "y_axis": {
+            "label": "Number of Students"
+          }
+        }
+      }
+    },
+    {
+      "name": "Department Performance Summary",
+      "description": "Performance metrics for each academic department",
+      "database": "SIS Analytics (PostgreSQL)",
+      "table": "stage_3.department_performance",
+      "type": "table",
+      "query": {
+        "data": {
+          "database": 2,
+          "type": "query",
+          "query": {
+            "source-table": "STAGE3_DEPARTMENT_PERFORMANCE",
+            "fields": [
+              [
+                "field",
+                "DEPARTMENT",
+                {
+                  "base-type": "type/Text"
+                }
+              ],
+              [
+                "field",
+                "SUBJECT",
+                {
+                  "base-type": "type/Text"
+                }
+              ],
+              [
+                "field",
+                "COURSE_COUNT",
+                {
+                  "base-type": "type/BigInteger"
+                }
+              ],
+              [
+                "field",
+                "TOTAL_ENROLLMENTS",
+                {
+                  "base-type": "type/BigInteger"
+                }
+              ],
+              [
+                "field",
+                "AVG_GRADE_PERCENT",
+                {
+                  "base-type": "type/Float"
+                }
+              ],
+              [
+                "field",
+                "INTERVENTION_FLAG_PERCENT",
+                {
+                  "base-type": "type/Float"
+                }
+              ]
+            ],
+            "order-by": [
+              [
+                "asc",
+                [
+                  "field",
+                  "DEPARTMENT",
+                  {
+                    "base-type": "type/Text"
+                  }
+                ]
+              ]
+            ]
+          }
+        }
+      },
+      "visualization": {
+        "type": "table",
+        "settings": {}
+      }
+    },
+    {
+      "name": "Course Utilization and Demand",
+      "description": "Course enrollment capacity and demand levels",
+      "database": "SIS Analytics (PostgreSQL)",
+      "table": "stage_3.course_utilization",
+      "type": "table",
+      "query": {
+        "data": {
+          "database": 2,
+          "type": "query",
+          "query": {
+            "source-table": "STAGE3_COURSE_UTILIZATION",
+            "fields": [
+              [
+                "field",
+                "COURSE_ID",
+                {
+                  "base-type": "type/Text"
+                }
+              ],
+              [
+                "field",
+                "COURSE_NAME",
+                {
+                  "base-type": "type/Text"
+                }
+              ],
+              [
+                "field",
+                "DEPARTMENT",
+                {
+                  "base-type": "type/Text"
+                }
+              ],
+              [
+                "field",
+                "CAPACITY",
+                {
+                  "base-type": "type/Integer"
+                }
+              ],
+              [
+                "field",
+                "ACTUAL_ENROLLMENT",
+                {
+                  "base-type": "type/Integer"
+                }
+              ],
+              [
+                "field",
+                "CAPACITY_PERCENT",
+                {
+                  "base-type": "type/Float"
+                }
+              ],
+              [
+                "field",
+                "DEMAND_LEVEL",
+                {
+                  "base-type": "type/Text"
+                }
+              ]
+            ],
+            "filter": [
+              [
+                ">",
+                [
+                  "field",
+                  "CAPACITY_PERCENT",
+                  {
+                    "base-type": "type/Float"
+                  }
+                ],
+                80
+              ]
+            ],
+            "order-by": [
+              [
+                "desc",
+                [
+                  "field",
+                  "CAPACITY_PERCENT",
+                  {
+                    "base-type": "type/Float"
+                  }
+                ]
+              ]
+            ]
+          }
+        }
+      },
+      "visualization": {
+        "type": "table",
+        "settings": {}
+      }
+    },
+    {
+      "name": "Special Programs Effectiveness",
+      "description": "Comparison of outcomes for special education, ELL, and FRPL programs",
+      "database": "SIS Analytics (PostgreSQL)",
+      "table": "stage_3.special_programs_impact",
+      "type": "table",
+      "query": {
+        "data": {
+          "database": 2,
+          "type": "query",
+          "query": {
+            "source-table": "STAGE3_SPECIAL_PROGRAMS",
+            "fields": [
+              [
+                "field",
+                "PROGRAM",
+                {
+                  "base-type": "type/Text"
+                }
+              ],
+              [
+                "field",
+                "PARTICIPANT_COUNT",
+                {
+                  "base-type": "type/BigInteger"
+                }
+              ],
+              [
+                "field",
+                "AVG_GPA",
+                {
+                  "base-type": "type/Float"
+                }
+              ],
+              [
+                "field",
+                "AVG_ATTENDANCE",
+                {
+                  "base-type": "type/Float"
+                }
+              ],
+              [
+                "field",
+                "INTERVENTION_FLAG_PERCENT",
+                {
+                  "base-type": "type/Float"
+                }
+              ]
+            ]
+          }
+        }
+      },
+      "visualization": {
+        "type": "table",
+        "settings": {}
+      }
+    },
+    {
+      "name": "Learning Outcomes by Competency",
+      "description": "Distribution of mastery levels across all competencies/standards",
+      "database": "SIS Analytics (PostgreSQL)",
+      "table": "stage_3.competency_mastery_trends",
+      "type": "scatter",
+      "query": {
+        "data": {
+          "database": 2,
+          "type": "query",
+          "query": {
+            "source-table": "STAGE3_COMPETENCY_MASTERY",
+            "fields": [
+              [
+                "field",
+                "COMPETENCY_NAME",
+                {
+                  "base-type": "type/Text"
+                }
+              ],
+              [
+                "field",
+                "STUDENTS_ASSESSED",
+                {
+                  "base-type": "type/BigInteger"
+                }
+              ],
+              [
+                "field",
+                "ADVANCED_PERCENT",
+                {
+                  "base-type": "type/Float"
+                }
+              ],
+              [
+                "field",
+                "PROFICIENT_PERCENT",
+                {
+                  "base-type": "type/Float"
+                }
+              ],
+              [
+                "field",
+                "DEVELOPING_PERCENT",
+                {
+                  "base-type": "type/Float"
+                }
+              ],
+              [
+                "field",
+                "BEGINNING_PERCENT",
+                {
+                  "base-type": "type/Float"
+                }
+              ]
+            ],
+            "order-by": [
+              [
+                "desc",
+                [
+                  "field",
+                  "STUDENTS_ASSESSED",
+                  {
+                    "base-type": "type/BigInteger"
+                  }
+                ]
+              ]
+            ]
+          }
+        }
+      },
+      "visualization": {
+        "type": "scatter",
+        "settings": {}
+      }
+    }
+  ],
+  "installation_instructions": {
+    "step_1": "Connect Metabase to PostgreSQL database containing SIS data",
+    "step_2": "Go to Admin → Data Model and sync with stage_3 schema",
+    "step_3": "Import these question definitions via Metabase API or admin panel",
+    "step_4": "Create dashboard and add questions to it",
+    "step_5": "Configure row-level security if needed for teacher/admin views",
+    "step_6": "Set refresh rate for questions (typically 6-24 hours for analytics data)"
+  }
+}

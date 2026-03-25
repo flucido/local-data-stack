@@ -1,0 +1,86 @@
+# ============================================================================
+# Loki Configuration
+# ============================================================================
+auth_enabled: false
+
+ingester:
+  max_chunk_age: 1h
+  max_chunk_size: 262144
+  chunk_idle_period: 3m
+  replication_factor: 3
+
+limits_config:
+  enforce_metric_name: false
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: s3
+      schema: v12
+      index:
+        prefix: index_
+        period: 24h
+
+server:
+  http_listen_port: 3100
+  http_server_read_timeout: 600s
+  http_server_write_timeout: 600s
+  grpc_server_max_recv_msg_size: 8388608
+  grpc_server_max_send_msg_size: 8388608
+
+storage_config:
+  aws:
+    region: us-east-1
+    bucketnames: sis-analytics-logs
+    endpoint: s3.amazonaws.com
+    access_key_id: ${AWS_ACCESS_KEY_ID}
+    secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+  index_cache_validity: 5m
+  cache_config:
+    enable_fifocache: true
+    default_validity: 1h
+    memcached:
+      batch_size: 1024
+      parallelism: 100
+
+chunk_store_config:
+  max_look_back_period: 0s
+
+table_manager:
+  retention_deletes_enabled: false
+  poll_interval: 10m
+
+query_range:
+  max_cache_freshness_per_query: 10m
+  align_queries_with_step: true
+  max_retries: 5
+  split_queries_by_interval: 24h
+
+distributor:
+  rate_limit_enabled: true
+  rate_limit: 100000
+  ring:
+    heartbeat_timeout: 5m
+
+querier:
+  engine: prometheus
+  max_concurrent: 20
+  query_ingesters_within: 5m
+
+runtime_config:
+  period: 10s
+
+ingester_client:
+  remote_write_disabled: false
+
+# DNS service discovery for clustering
+memberlist:
+  node_name: ${HOSTNAME}
+  bind_port: 7946
+  dead_node_reclaim_time: 30s
+  retransmit_factor: 4
+  join_members:
+    - loki:7946

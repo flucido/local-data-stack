@@ -1,0 +1,368 @@
+version: 2
+
+models:
+  - name: dim_student_demographics
+    description: >
+      Aggregated student demographics with k-anonymity enforcement (k≥5).
+
+      This model provides privacy-preserving demographic analytics by grouping
+      students into cohorts and suppressing groups smaller than k=5 students.
+
+      Privacy Features:
+      - K-anonymity: Every combination of quasi-identifiers has ≥5 students
+      - No individual student identifiable from demographic attributes
+      - Quasi-identifiers: grade_level, gender, ethnicity, school_id
+
+      FERPA Compliance: Satisfies FERPA requirement that aggregated educational
+      records must not allow re-identification of individual students.
+
+      Use Cases:
+      - District-wide demographic reporting
+      - Equity gap analysis by subgroup
+      - Enrollment trend analysis by demographic cohort
+
+      Note: K-anonymity enforcement is built into the model via HAVING clause.
+      The generic k_anonymity test is not applicable to pre-aggregated data.
+
+    columns:
+      - name: grade_level
+        description: "Student grade level (1-12) - quasi-identifier"
+        data_tests:
+          - not_null
+
+      - name: gender
+        description: "Gender identity - quasi-identifier"
+        data_tests:
+          - not_null
+
+      - name: ethnicity
+        description: "Ethnicity/race category - quasi-identifier"
+        data_tests:
+          - not_null
+
+      - name: school_id
+        description: "School identifier - quasi-identifier"
+        data_tests:
+          - not_null
+
+      - name: student_count
+        description: "Number of students in this demographic cohort (minimum 5 for k-anonymity)"
+        data_tests:
+          - not_null
+
+      - name: special_education_count
+        description: "Count of students with special education services in cohort"
+
+      - name: ell_count
+        description: "Count of English language learners in cohort"
+
+      - name: free_reduced_lunch_count
+        description: "Count of students eligible for free/reduced lunch in cohort"
+
+      - name: homeless_count
+        description: "Count of homeless students in cohort"
+
+      - name: foster_care_count
+        description: "Count of students in foster care in cohort"
+
+  - name: fact_attendance_daily
+    description: >
+      Attendance aggregations by school year, school, and grade level with
+      k-anonymity enforcement (k≥5).
+
+      NOTE: The underlying fact_attendance model provides annual-grain summaries
+      from the Aeries SIS API (not daily records). This model aggregates those
+      annual counts by school/grade for privacy-preserving reporting.
+
+      Privacy Features:
+      - K-anonymity: Every school/grade combination has ≥5 students
+      - No individual attendance patterns identifiable
+      - Quasi-identifiers: school_id, grade_level
+
+      FERPA Compliance: Attendance data aggregated to prevent re-identification.
+
+      Use Cases:
+      - Attendance rate monitoring by school and grade
+      - Chronic absenteeism trend analysis
+      - Grade-level attendance patterns
+
+      Note: K-anonymity enforcement is built into the model via HAVING clause.
+      The generic k_anonymity test is not applicable to pre-aggregated data.
+
+    columns:
+      - name: school_id
+        description: "School identifier - quasi-identifier"
+        data_tests:
+          - not_null
+
+      - name: grade_level
+        description: "Student grade level - quasi-identifier"
+        data_tests:
+          - not_null
+
+      - name: total_students
+        description: "Total number of students in this school/grade combination (minimum 5)"
+        data_tests:
+          - not_null
+
+      - name: present_count
+        description: "Total present days across all students"
+        data_tests:
+          - not_null
+
+      - name: absent_count
+        description: "Total absent days across all students"
+        data_tests:
+          - not_null
+
+      - name: tardy_count
+        description: "Total tardy days across all students"
+
+      - name: excused_count
+        description: "Total excused absence days"
+
+      - name: unexcused_count
+        description: "Total unexcused absence days"
+
+      - name: attendance_rate
+        description: "Attendance rate as ratio (present_days / enrolled_days)"
+        data_tests:
+          - not_null
+
+  - name: dim_students
+    description: >
+      Student dimension with pseudonymized identifiers.
+      Links to privacy layer for secure student identification.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - student_id_hash
+            - academic_year
+    columns:
+      - name: student_id_hash
+        description: "SHA256 hashed student identifier (join key to privacy layer)"
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('priv_student_hashes')
+                field: student_id_hash
+
+      - name: school_id
+        description: "School identifier"
+        data_tests:
+          - not_null
+
+      - name: grade_level
+        description: "Current grade level (1-12)"
+        data_tests:
+          - not_null
+
+      - name: gender
+        description: "Gender identity"
+
+      - name: ethnicity
+        description: "Ethnicity/race category"
+
+      - name: age_years
+        description: "Age in years"
+
+      - name: grade_level_category
+        description: "Grade level grouping: Elementary (1-5), Middle (6-8), High (9-12)"
+
+      - name: special_education_flag
+        description: "Special education services indicator"
+
+      - name: ell_status
+        description: "English learner status"
+
+      - name: free_reduced_lunch_flag
+        description: "Free/reduced lunch eligibility"
+
+      - name: is_currently_enrolled
+        description: "Currently enrolled status (true if no withdrawal date)"
+
+  - name: fact_attendance
+    description: >
+      Annual student attendance summary fact table with pseudonymized identifiers.
+      Grain: One row per student per academic year per school.
+
+      NOTE: The Aeries SIS API provides attendance as annual summaries with
+      aggregate counts (days_enrolled, days_present, days_absent, etc.), not
+      daily records. The attendance_rate is a 0-1 ratio (not a percentage).
+      Downstream models should multiply by 100 when displaying as percentage.
+
+    columns:
+      - name: student_id_hash
+        description: "SHA256 hashed student identifier"
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('priv_student_hashes')
+                field: student_id_hash
+
+      - name: school_id
+        description: "School identifier"
+        data_tests:
+          - not_null
+
+      - name: academic_year
+        description: "Academic year of this attendance summary"
+        data_tests:
+          - not_null
+
+      - name: days_enrolled
+        description: "Total days enrolled in the academic year"
+
+      - name: days_present
+        description: "Total days present"
+
+      - name: days_absent
+        description: "Total days absent"
+
+      - name: attendance_rate
+        description: "Attendance rate as a 0-1 ratio (days_present / days_enrolled)"
+
+  - name: fact_academic_records
+    description: >
+      Academic performance records with pseudonymized student identifiers.
+      Grain: One row per student per course per term.
+
+    columns:
+      - name: academic_record_sk
+        description: "Surrogate key for academic record grain"
+        data_tests:
+          - not_null
+
+      - name: student_id_hash
+        description: "SHA256 hashed student identifier"
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('priv_student_hashes')
+                field: student_id_hash
+
+      - name: school_id
+        description: "School identifier"
+        data_tests:
+          - not_null
+
+      - name: course_id
+        description: "Course identifier"
+        data_tests:
+          - not_null
+
+      - name: term
+        description: "School term/semester"
+        data_tests:
+          - not_null
+
+      - name: school_year
+        description: "Academic year"
+        data_tests:
+          - not_null
+
+      - name: grade
+        description: "Letter grade"
+
+  - name: fact_discipline
+    description: >
+      Discipline incidents with pseudonymized student identifiers.
+      Grain: One row per student per incident per disposition (one incident can have multiple actions/resolutions).
+    data_tests:
+      # Composite uniqueness: one record per student per incident per disposition
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - incident_id
+            - student_id_hash
+            - resolution
+            - academic_year
+    columns:
+      - name: incident_id
+        description: "Incident identifier (not unique - one incident can involve multiple students)"
+        data_tests:
+          - not_null
+
+      - name: student_id_hash
+        description: "SHA256 hashed student identifier"
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('priv_student_hashes')
+                field: student_id_hash
+
+      - name: school_id
+        description: "School identifier"
+        data_tests:
+          - not_null
+
+      - name: incident_date
+        description: "Date of incident"
+        data_tests:
+          - not_null
+
+      - name: severity
+        description: "Severity level"
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Low', 'Medium', 'High']
+
+  - name: fact_enrollment
+    description: >
+      Student enrollment records with pseudonymized identifiers.
+      Grain: One row per enrollment period.
+
+    columns:
+      - name: enrollment_sk
+        description: "Surrogate key for enrollment grain"
+        data_tests:
+          - unique
+          - not_null
+
+      - name: student_id_hash
+        description: "SHA256 hashed student identifier"
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('priv_student_hashes')
+                field: student_id_hash
+
+      - name: school_id
+        description: "School identifier"
+        data_tests:
+          - not_null
+
+      - name: enrollment_date
+        description: "Date student enrolled"
+        data_tests:
+          - not_null
+
+      - name: grade_level
+        description: "Grade level at enrollment"
+        data_tests:
+          - not_null
+
+  - name: dim_schools
+    description: >
+      School dimension table.
+      Grain: One row per school.
+
+    columns:
+      - name: school_id
+        description: "School identifier"
+        data_tests:
+          - unique
+          - not_null
+
+      - name: school_name
+        description: "School name"
+        data_tests:
+          - not_null
+
+      - name: school_type
+        description: "School type/level"

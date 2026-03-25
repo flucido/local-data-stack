@@ -1,0 +1,40 @@
+# Local DuckDB Configuration
+# All data processing happens locally with DuckDB's embedded engine
+
+duckdb_oss:
+  target: 'dev'
+
+  outputs:
+    dev:
+      type: 'duckdb'
+      path: "{{ env_var('DUCKDB_DATABASE_PATH', '../data/oea.duckdb') }}"
+      threads: 4
+      timeout_seconds: 300
+
+      settings:
+        threads: 4
+        memory_limit: '8GB'
+        max_memory: '8GB'
+        default_null_order: 'nulls_last'
+
+      extensions:
+        - delta
+        - httpfs
+        - json
+
+    prod:
+      type: 'duckdb'
+      path: "{{ env_var('DUCKDB_DATABASE_PATH', '../data/oea.duckdb') }}"
+      threads: 8
+      timeout_seconds: 300
+
+      settings:
+        threads: 8
+        memory_limit: '16GB'
+        max_memory: '16GB'
+        default_null_order: 'nulls_last'
+
+      extensions:
+        - delta
+        - httpfs
+        - json

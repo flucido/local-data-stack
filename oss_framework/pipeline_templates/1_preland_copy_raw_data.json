@@ -1,0 +1,158 @@
+{
+  "name": "1_preland_copy_raw_data",
+  "description": "Pre-landing stage: Copy raw data from external sources (SIS, LMS, etc.) without transformation. Temporary storage for validation before ingestion.",
+  "properties": {
+    "activities": [
+      {
+        "name": "Copy_SIS_Data",
+        "type": "Copy",
+        "typeProperties": {
+          "source": {
+            "type": "RestSource",
+            "httpRequestTimeout": "00:30:00",
+            "authenticationType": "Basic",
+            "url": "@pipeline().parameters.sis_api_endpoint",
+            "enablePartitionDiscovery": false
+          },
+          "sink": {
+            "type": "JsonSink",
+            "storeSettings": {
+              "type": "AzureBlobStorageWriteSettings",
+              "copyBehavior": "MergeFiles"
+            },
+            "formatSettings": {
+              "type": "JsonWriteSettings"
+            }
+          },
+          "translator": {
+            "type": "TabularTranslator",
+            "schemaMapping": {}
+          },
+          "enableStaging": false
+        },
+        "inputs": [],
+        "outputs": [
+          {
+            "referenceName": "PreLanding_SIS_Raw",
+            "type": "DatasetReference",
+            "parameters": {
+              "environment": "@pipeline().parameters.environment"
+            }
+          }
+        ]
+      },
+      {
+        "name": "Copy_LMS_Data",
+        "type": "Copy",
+        "typeProperties": {
+          "source": {
+            "type": "RestSource",
+            "httpRequestTimeout": "00:30:00",
+            "authenticationType": "OAuth2ClientCredentials",
+            "url": "@pipeline().parameters.lms_api_endpoint",
+            "enablePartitionDiscovery": false
+          },
+          "sink": {
+            "type": "JsonSink",
+            "storeSettings": {
+              "type": "AzureBlobStorageWriteSettings"
+            }
+          },
+          "enableStaging": false
+        },
+        "inputs": [],
+        "outputs": [
+          {
+            "referenceName": "PreLanding_LMS_Raw",
+            "type": "DatasetReference",
+            "parameters": {
+              "environment": "@pipeline().parameters.environment"
+            }
+          }
+        ]
+      },
+      {
+        "name": "Copy_Directory_Service",
+        "type": "Copy",
+        "typeProperties": {
+          "source": {
+            "type": "RestSource",
+            "httpRequestTimeout": "00:30:00",
+            "url": "@pipeline().parameters.directory_api_endpoint"
+          },
+          "sink": {
+            "type": "JsonSink",
+            "storeSettings": {
+              "type": "AzureBlobStorageWriteSettings"
+            }
+          },
+          "enableStaging": false
+        },
+        "inputs": [],
+        "outputs": [
+          {
+            "referenceName": "PreLanding_Directory_Raw",
+            "type": "DatasetReference",
+            "parameters": {
+              "environment": "@pipeline().parameters.environment"
+            }
+          }
+        ]
+      },
+      {
+        "name": "Log_PreLanding_Completion",
+        "type": "ExecutePipeline",
+        "typeProperties": {
+          "pipeline": {
+            "referenceName": "log_pipeline_execution",
+            "type": "PipelineReference"
+          },
+          "parameters": {
+            "pipeline_name": "@pipeline().Pipeline",
+            "stage": "pre-landing",
+            "status": "completed",
+            "environment": "@pipeline().parameters.environment",
+            "message": "Raw data copied to pre-landing zone. Ready for ingestion."
+          },
+          "waitOnCompletion": true
+        },
+        "dependsOn": [
+          {
+            "activity": "Copy_SIS_Data",
+            "dependencyConditions": ["Succeeded"]
+          },
+          {
+            "activity": "Copy_LMS_Data",
+            "dependencyConditions": ["Succeeded"]
+          },
+          {
+            "activity": "Copy_Directory_Service",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ]
+      }
+    ],
+    "parameters": {
+      "workspace": {
+        "type": "string",
+        "description": "Workspace identifier"
+      },
+      "environment": {
+        "type": "string",
+        "description": "Environment name (dev, test, staging, prod)"
+      },
+      "sis_api_endpoint": {
+        "type": "string",
+        "description": "Student Information System API endpoint"
+      },
+      "lms_api_endpoint": {
+        "type": "string",
+        "description": "Learning Management System API endpoint"
+      },
+      "directory_api_endpoint": {
+        "type": "string",
+        "description": "Directory Service (Active Directory) API endpoint"
+      }
+    }
+  }
+}

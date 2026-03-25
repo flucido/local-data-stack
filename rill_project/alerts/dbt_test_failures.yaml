@@ -1,0 +1,35 @@
+# dbt Test Failures Alert
+# Monitors dbt test execution and alerts on failures
+# Reference: https://docs.rilldata.com/reference/project-files/alerts
+
+type: alert
+display_name: "dbt Test Failure Detection"
+
+# Refresh schedule (every 6 hours after pipeline runs)
+# Aligns with typical pipeline execution schedule
+refresh:
+  cron: "0 */6 * * *"
+
+# Query using resource_status to detect failures
+# Reference: https://docs.rilldata.com/reference/project-files/alerts#resource-status
+data:
+  resource_status:
+    # Only include resources with errors
+    where_error: true
+
+# Email notification configuration
+notify:
+  email:
+    recipients:
+      - "oncall@school.edu"
+      - "data-engineering@school.edu"
+
+# Send recovery notification when tests pass again
+on_recover: true
+
+# Re-notify if failures persist (aggressive for critical issues)
+renotify: true
+renotify_after: "2h"
+
+# Timeout for query execution
+timeout: "1m"

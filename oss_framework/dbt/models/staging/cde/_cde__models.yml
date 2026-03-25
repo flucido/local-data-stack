@@ -1,0 +1,182 @@
+version: 2
+
+models:
+  - name: stg_cde__chronic_absenteeism
+    description: >
+      Staging model for CDE chronic absenteeism data with extensive transformations
+      including CDS code construction, category label expansion, and data quality flags.
+
+      Data source: California Department of Education downloadable files
+      Update frequency: Annual (typically Q3 of following academic year)
+
+      CDS Code Format: 14-character identifier (CCDDDDDSSSSSSS)
+        - CC: 2-digit county code
+        - DDDDD: 5-digit district code
+        - SSSSSSS: 7-digit school code
+
+      Chronic Absenteeism Definition: Students absent >= 10% of instructional days
+
+    columns:
+      - name: cds_code
+        description: "14-character California school identifier (CCDDDDDSSSSSSS)"
+        data_tests:
+          - not_null:
+              arguments:
+                where: "aggregate_level = 'S'"
+
+      - name: academic_year
+        description: "School year in format YYYY-YY (e.g., 2024-25)"
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['2016-17', '2017-18', '2018-19', '2020-21', '2021-22', '2022-23', '2023-24', '2024-25']
+
+      - name: aggregate_level
+        description: "Aggregation level: T=State, C=County, D=District, S=School"
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['T', 'C', 'D', 'S']
+
+      - name: aggregate_level_label
+        description: "Human-readable aggregate level"
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['State', 'County', 'District', 'School']
+
+      - name: reporting_category
+        description: "Demographic subgroup code (TA, RA, RB, RH, SE, etc.) and grade-level codes (GR13, GR46, etc.)"
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['TA', 'RA', 'RB', 'RD', 'RF', 'RH', 'RI', 'RP', 'RT', 'RW', 'GM', 'GF', 'GX', 'SE', 'SD', 'SF', 'SH', 'SM', 'SS', 'GR13', 'GR46', 'GR78', 'GR912', 'GRTK8', 'GRTKKN']
+
+      - name: reporting_category_label
+        description: "Human-readable reporting category label"
+        data_tests:
+          - not_null
+
+      - name: eligible_enrollment
+        description: "Number of students enrolled >= 31 days (NULL when CDE doesn't report this aggregate)"
+        data_tests:
+          - not_null:
+              arguments:
+                where: "eligible_enrollment IS NOT NULL AND NOT is_suppressed"
+
+      - name: chronic_absent_count
+        description: "Number of chronically absent students (NULL when CDE doesn't report this aggregate)"
+        data_tests:
+          - not_null:
+              arguments:
+                where: "chronic_absent_count IS NOT NULL AND NOT is_suppressed"
+
+      - name: chronic_absent_rate_pct
+        description: "Percentage chronically absent (>= 10% absences, NULL when CDE doesn't report this aggregate)"
+        data_tests:
+          - not_null:
+              arguments:
+                where: "chronic_absent_rate_pct IS NOT NULL AND NOT is_suppressed"
+
+      - name: is_suppressed
+        description: "TRUE if data suppressed due to small n (<11 students)"
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]
+
+      - name: is_small_n
+        description: "TRUE if eligible_enrollment < 11 students"
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]
+
+      - name: is_race_ethnicity_subgroup
+        description: "TRUE if reporting_category is race/ethnicity (RA, RB, RD, RF, RH, RI, RP, RW)"
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]
+
+      - name: is_gender_subgroup
+        description: "TRUE if reporting_category is gender (GM, GF, GX)"
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]
+
+      - name: is_atrisk_subgroup
+        description: "TRUE if reporting_category is at-risk (SE, EL, SWD, FOS, HOM)"
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]
+
+      - name: grade_level_group
+        description: "Grade level range (TK/Kindergarten, Grades 1-3, Grades 4-6, Grades 7-8, Grades 9-12, TK-8)"
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['TK/Kindergarten', 'Grades 1-3', 'Grades 4-6', 'Grades 7-8', 'Grades 9-12', 'TK-8', null]
+
+      - name: dlt_loaded_at
+        description: "Timestamp when record was loaded by dlt pipeline"
+        data_tests:
+          - not_null
+
+      - name: source_filename
+        description: "Source filename from CDE download"
+        data_tests:
+          - not_null
+
+  - name: stg_cde__schools
+    description: >
+      Staging model for CDE Public Schools Directory with school metadata,
+      addresses, and operational status.
+
+      Data source: https://www.cde.ca.gov/ds/si/ds/pubschls.asp
+      Update frequency: Updated throughout the year
+
+    columns:
+      - name: cds_code
+        description: "14-character California school identifier"
+        data_tests:
+          - unique
+          - not_null
+
+      - name: school_name
+        description: "Official CDE school name"
+
+      - name: soc_type
+        description: "School Ownership Code type (NULL for some schools)"
+
+      - name: status_type
+        description: "School operational status (Active, Closed, Pending, Merged)"
+        data_tests:
+          - not_null
+
+      - name: city
+        description: "City where school is located"
+        data_tests:
+          - not_null
+
+      - name: county_name
+        description: "County where school is located"
+        data_tests:
+          - not_null
+
+      - name: latitude
+        description: "Geographic latitude coordinate"
+
+      - name: longitude
+        description: "Geographic longitude coordinate"

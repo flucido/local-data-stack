@@ -1,0 +1,171 @@
+{
+  "name": "0_main_orchestrator",
+  "description": "Main orchestrator pipeline for education analytics data processing. Coordinates all stages: pre-landing, landing, ingestion, and refinement.",
+  "properties": {
+    "activities": [
+      {
+        "name": "Check_Parameters",
+        "type": "ExecutePipeline",
+        "typeProperties": {
+          "pipeline": {
+            "referenceName": "validate_parameters",
+            "type": "PipelineReference"
+          },
+          "parameters": {
+            "workspace": "@pipeline().parameters.workspace",
+            "environment": "@pipeline().parameters.environment"
+          },
+          "waitOnCompletion": true
+        },
+        "dependsOn": []
+      },
+      {
+        "name": "Stage_PreLanding",
+        "type": "ExecutePipeline",
+        "typeProperties": {
+          "pipeline": {
+            "referenceName": "1_preland_copy_raw_data",
+            "type": "PipelineReference"
+          },
+          "parameters": {
+            "workspace": "@pipeline().parameters.workspace",
+            "environment": "@pipeline().parameters.environment",
+            "batch_mode": "@pipeline().parameters.batch_mode"
+          },
+          "waitOnCompletion": true
+        },
+        "dependsOn": [
+          {
+            "activity": "Check_Parameters",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ]
+      },
+      {
+        "name": "Stage_Landing",
+        "type": "ExecutePipeline",
+        "typeProperties": {
+          "pipeline": {
+            "referenceName": "2_land_ingest_data",
+            "type": "PipelineReference"
+          },
+          "parameters": {
+            "workspace": "@pipeline().parameters.workspace",
+            "environment": "@pipeline().parameters.environment",
+            "batch_mode": "@pipeline().parameters.batch_mode"
+          },
+          "waitOnCompletion": true
+        },
+        "dependsOn": [
+          {
+            "activity": "Stage_PreLanding",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ]
+      },
+      {
+        "name": "Stage_Ingestion",
+        "type": "ExecutePipeline",
+        "typeProperties": {
+          "pipeline": {
+            "referenceName": "3_ingest_transform_normalize",
+            "type": "PipelineReference"
+          },
+          "parameters": {
+            "workspace": "@pipeline().parameters.workspace",
+            "environment": "@pipeline().parameters.environment"
+          },
+          "waitOnCompletion": true
+        },
+        "dependsOn": [
+          {
+            "activity": "Stage_Landing",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ]
+      },
+      {
+        "name": "Stage_Refinement",
+        "type": "ExecutePipeline",
+        "typeProperties": {
+          "pipeline": {
+            "referenceName": "4_refine_pseudonymize_aggregate",
+            "type": "PipelineReference"
+          },
+          "parameters": {
+            "workspace": "@pipeline().parameters.workspace",
+            "environment": "@pipeline().parameters.environment"
+          },
+          "waitOnCompletion": true
+        },
+        "dependsOn": [
+          {
+            "activity": "Stage_Ingestion",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ]
+      },
+      {
+        "name": "Data_Quality_Check",
+        "type": "ExecutePipeline",
+        "typeProperties": {
+          "pipeline": {
+            "referenceName": "validate_data_quality",
+            "type": "PipelineReference"
+          },
+          "parameters": {
+            "workspace": "@pipeline().parameters.workspace",
+            "environment": "@pipeline().parameters.environment"
+          },
+          "waitOnCompletion": true
+        },
+        "dependsOn": [
+          {
+            "activity": "Stage_Refinement",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ]
+      },
+      {
+        "name": "Send_Success_Notification",
+        "type": "WebActivity",
+        "typeProperties": {
+          "url": "@pipeline().parameters.notification_webhook",
+          "method": "POST",
+          "body": {
+            "status": "SUCCESS",
+            "pipeline": "@pipeline().Pipeline",
+            "run_id": "@pipeline().RunId",
+            "timestamp": "@utcNow()",
+            "message": "Education analytics data pipeline completed successfully"
+          }
+        },
+        "dependsOn": [
+          {
+            "activity": "Data_Quality_Check",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ]
+      }
+    ],
+    "parameters": {
+      "workspace": {
+        "type": "string",
+        "description": "Workspace identifier (e.g., 'production', 'testing', 'development')"
+      },
+      "environment": {
+        "type": "string",
+        "description": "Environment name for configuration lookup"
+      },
+      "batch_mode": {
+        "type": "string",
+        "defaultValue": "delta",
+        "description": "Batch processing mode: delta (incremental), additive (append-only), snapshot (full replacement)"
+      },
+      "notification_webhook": {
+        "type": "string",
+        "description": "Optional webhook URL for completion notifications"
+      }
+    }
+  }
+}

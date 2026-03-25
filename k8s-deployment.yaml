@@ -1,0 +1,224 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: analytics
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgresql
+  namespace: analytics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgresql
+  template:
+    metadata:
+      labels:
+        app: postgresql
+    spec:
+      containers:
+      - name: postgresql
+        image: postgres:16-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          value: "sis_admin"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: postgres-password
+        - name: POSTGRES_DB
+          value: "sis_analytics"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U sis_admin
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgres-data
+        emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql
+  namespace: analytics
+spec:
+  type: ClusterIP
+  selector:
+    app: postgresql
+  ports:
+  - port: 5432
+    targetPort: 5432
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: duckdb-init
+  namespace: analytics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: duckdb-init
+  template:
+    metadata:
+      labels:
+        app: duckdb-init
+    spec:
+      containers:
+      - name: duckdb-init
+        image: python:3.12-slim
+        command:
+        - /bin/bash
+        - -c
+        - |
+          python3 -c "
+          import duckdb
+          conn = duckdb.connect('/data/oea.duckdb')
+          print('✓ DuckDB database initialized')
+          conn.close()
+          "
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: duckdb-data
+          mountPath: /data
+      volumes:
+      - name: duckdb-data
+        emptyDir: {}
+      restartPolicy: OnFailure
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chronic-absenteeism-dashboard
+  namespace: analytics
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: chronic-absenteeism-dashboard
+  template:
+    metadata:
+      labels:
+        app: chronic-absenteeism-dashboard
+    spec:
+      containers:
+      - name: dashboard
+        image: python:3.12-slim
+        ports:
+        - containerPort: 8050
+        env:
+        - name: DUCKDB_PATH
+          value: "/data/oea.duckdb"
+        - name: FLASK_ENV
+          value: "production"
+        command:
+        - python3
+        - /app/chronic_absenteeism_dashboard.py
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8050
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8050
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        volumeMounts:
+        - name: duckdb-data
+          mountPath: /data
+      volumes:
+      - name: duckdb-data
+        emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chronic-absenteeism-dashboard
+  namespace: analytics
+spec:
+  type: LoadBalancer
+  selector:
+    app: chronic-absenteeism-dashboard
+  ports:
+  - port: 8050
+    targetPort: 8050
+    protocol: TCP
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: dashboard-hpa
+  namespace: analytics
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: chronic-absenteeism-dashboard
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: dashboard-pdb
+  namespace: analytics
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: chronic-absenteeism-dashboard

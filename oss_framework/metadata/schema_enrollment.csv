@@ -1,0 +1,23 @@
+Entity,Attribute,DataType,Pseudonymization,Description
+enrollment,enrollment_id,VARCHAR,no-op,Unique enrollment record identifier
+enrollment,student_id,VARCHAR,hash,Student identifier (hashed for privacy)
+enrollment,course_id,VARCHAR,no-op,Course identifier
+enrollment,school_id,VARCHAR,no-op,School identifier
+enrollment,term,VARCHAR,no-op,Academic term (semester/trimester/year)
+enrollment,enrollment_date,DATE,no-op,Date student enrolled in course
+enrollment,completion_date,DATE,no-op,Date student completed course (NULL if ongoing)
+enrollment,enrollment_status,VARCHAR,no-op,Enrollment status (active/completed/dropped/failed/transferred)
+enrollment,final_grade_letter,VARCHAR,no-op,Final letter grade (A/B/C/D/F)
+enrollment,final_grade_numeric,FLOAT,no-op,Final numeric grade (0-100 scale)
+enrollment,credits_earned,FLOAT,no-op,Credits earned for course completion
+enrollment,credits_attempted,FLOAT,no-op,Credits attempted in course
+enrollment,weighted_gpa_impact,FLOAT,no-op,Impact on weighted GPA calculation
+enrollment,attendance_days,INT,no-op,Total days attended
+enrollment,absence_count,INT,no-op,Number of absences
+enrollment,tardy_count,INT,no-op,Number of times tardy
+enrollment,excused_absence_count,INT,no-op,Number of excused absences
+enrollment,unexcused_absence_count,INT,no-op,Number of unexcused absences
+enrollment,engagement_flag,BOOLEAN,no-op,Flag indicating low engagement (based on activities)
+enrollment,academic_risk_flag,BOOLEAN,no-op,Flag indicating academic risk (based on grades/attendance)
+enrollment,_loaded_date,TIMESTAMP,no-op,Date record was loaded into Stage 1
+enrollment,_updated_date,TIMESTAMP,no-op,Date record was last updated

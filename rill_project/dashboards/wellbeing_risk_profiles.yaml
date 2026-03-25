@@ -1,0 +1,105 @@
+# Wellbeing Risk Profiles Dashboard
+# Source: dbt model v_wellbeing_risk_profiles
+# Identifies students at risk across attendance, discipline, and academic domains
+
+type: metrics_view
+title: "Student Wellbeing Risk Profiles"
+model: wellbeing_risk_profiles
+timeseries: _loaded_at
+
+dimensions:
+  - name: student_key
+    label: "Student ID"
+    column: student_key
+    description: "Anonymized student identifier"
+
+  - name: grade_level
+    label: "Grade Level"
+    column: grade_level
+    description: "Current grade level"
+
+  - name: school_id
+    label: "School"
+    column: school_id
+    description: "School identifier"
+
+  - name: wellbeing_risk_level
+    label: "Risk Level"
+    column: wellbeing_risk_level
+    description: "Overall wellbeing risk (Critical, High, Moderate, Low)"
+
+  - name: primary_concern
+    label: "Primary Concern"
+    column: primary_concern
+    description: "Primary area of concern (Attendance, Discipline, Academic, Multiple)"
+
+  - name: high_risk_domain_count
+    label: "High Risk Domain Count"
+    column: high_risk_domain_count
+    description: "Number of domains with high risk (0-3)"
+
+measures:
+  - name: total_students
+    label: "Total Students"
+    expression: COUNT(DISTINCT student_key)
+    format_preset: humanize
+
+  - name: critical_risk_students
+    label: "Critical Risk Students"
+    expression: SUM(CASE WHEN wellbeing_risk_level = 'Critical' THEN 1 ELSE 0 END)
+    format_preset: humanize
+
+  - name: high_risk_students
+    label: "High Risk Students"
+    expression: SUM(CASE WHEN wellbeing_risk_level = 'High' THEN 1 ELSE 0 END)
+    format_preset: humanize
+
+  - name: moderate_risk_students
+    label: "Moderate Risk Students"
+    expression: SUM(CASE WHEN wellbeing_risk_level = 'Moderate' THEN 1 ELSE 0 END)
+    format_preset: humanize
+
+  - name: low_risk_students
+    label: "Low Risk Students"
+    expression: SUM(CASE WHEN wellbeing_risk_level = 'Low' THEN 1 ELSE 0 END)
+    format_preset: humanize
+
+  - name: avg_wellbeing_score
+    label: "Average Wellbeing Risk Score"
+    expression: AVG(wellbeing_risk_score)
+    format_preset: humanize
+
+  - name: avg_attendance_risk
+    label: "Average Attendance Risk Score"
+    expression: AVG(attendance_risk_score)
+    format_preset: humanize
+
+  - name: avg_discipline_risk
+    label: "Average Discipline Risk Score"
+    expression: AVG(discipline_risk_score)
+    format_preset: humanize
+
+  - name: avg_academic_risk
+    label: "Average Academic Risk Score"
+    expression: AVG(academic_risk_score)
+    format_preset: humanize
+
+  - name: multiple_domain_risk
+    label: "Students with Multiple High-Risk Domains"
+    expression: SUM(CASE WHEN high_risk_domain_count >= 2 THEN 1 ELSE 0 END)
+    format_preset: humanize
+
+  - name: attendance_primary_concern
+    label: "Students - Primary Concern: Attendance"
+    expression: SUM(CASE WHEN primary_concern = 'Attendance' THEN 1 ELSE 0 END)
+    format_preset: humanize
+
+  - name: discipline_primary_concern
+    label: "Students - Primary Concern: Discipline"
+    expression: SUM(CASE WHEN primary_concern = 'Discipline' THEN 1 ELSE 0 END)
+    format_preset: humanize
+
+  - name: academic_primary_concern
+    label: "Students - Primary Concern: Academic"
+    expression: SUM(CASE WHEN primary_concern = 'Academic' THEN 1 ELSE 0 END)
+    format_preset: humanize

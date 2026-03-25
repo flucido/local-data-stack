@@ -1,0 +1,15 @@
+type: connector
+name: local_duckdb
+driver: duckdb
+dsn: '{{ env "RILL_DUCKDB_DSN" "../oss_framework/data/oea.duckdb" }}'
+init_sql: |
+  INSTALL delta;
+  LOAD delta;
+  INSTALL httpfs;
+  LOAD httpfs;
+  INSTALL json;
+  LOAD json;
+  SET memory_limit='8GB';
+  SET max_memory='8GB';
+  SET threads=4;
+  SET default_null_order='nulls_last';

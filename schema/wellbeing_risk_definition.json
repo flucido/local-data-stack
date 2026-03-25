@@ -1,0 +1,130 @@
+{
+  "name": "Wellbeing & Mental Health Risk",
+  "description": "Multi-domain risk assessment and support resource tracking",
+  "type": "wellbeing_risk",
+  "target_audience": [
+    "Counselors",
+    "Social Workers"
+  ],
+  "refresh_interval_minutes": 5,
+  "row_level_security": true,
+  "rbac_column": "school_id",
+  "tabs": [
+    {
+      "name": "Risk Dashboard",
+      "cards": [
+        {
+          "position": [
+            0,
+            0
+          ],
+          "size": [
+            3,
+            2
+          ],
+          "title": "High Risk Count",
+          "query": "SELECT COUNT(*) as count\n                            FROM main_analytics.v_wellbeing_risk_profiles\n                            WHERE wellbeing_risk_level = 'High'",
+          "visualization_type": "number",
+          "settings": {
+            "color": "#E53935"
+          }
+        },
+        {
+          "position": [
+            0,
+            3
+          ],
+          "size": [
+            3,
+            2
+          ],
+          "title": "Medium Risk Count",
+          "query": "SELECT COUNT(*) as count\n                            FROM main_analytics.v_wellbeing_risk_profiles\n                            WHERE wellbeing_risk_level = 'Medium'",
+          "visualization_type": "number",
+          "settings": {
+            "color": "#FB8C00"
+          }
+        },
+        {
+          "position": [
+            0,
+            6
+          ],
+          "size": [
+            3,
+            2
+          ],
+          "title": "Multi-Domain Risk Cases",
+          "query": "SELECT COUNT(*) as count\n                            FROM main_analytics.v_wellbeing_risk_profiles\n                            WHERE high_risk_domain_count >= 2",
+          "visualization_type": "number",
+          "settings": {
+            "color": "#2E7D32"
+          }
+        },
+        {
+          "position": [
+            0,
+            9
+          ],
+          "size": [
+            3,
+            2
+          ],
+          "title": "Severe Risk Cases",
+          "query": "SELECT COUNT(*) as count\n                            FROM main_analytics.v_wellbeing_risk_profiles\n                            WHERE wellbeing_risk_score >= 70",
+          "visualization_type": "number",
+          "settings": {
+            "color": "#1565C0"
+          }
+        },
+        {
+          "position": [
+            2,
+            0
+          ],
+          "size": [
+            6,
+            4
+          ],
+          "title": "Risk Domain Breakdown",
+          "query": "SELECT \n                                'Academic' as domain,\n                                SUM(CASE WHEN academic_risk_score >= 70 THEN 1 ELSE 0 END) as count\n                            FROM main_analytics.v_wellbeing_risk_profiles\n                            UNION ALL\n                            SELECT 'Behavioral', SUM(CASE WHEN discipline_risk_score >= 70 THEN 1 ELSE 0 END)\n                            FROM main_analytics.v_wellbeing_risk_profiles\n                            UNION ALL\n                            SELECT 'Attendance', SUM(CASE WHEN attendance_risk_score >= 70 THEN 1 ELSE 0 END)\n                            FROM main_analytics.v_wellbeing_risk_profiles\n                            UNION ALL\n                            SELECT 'Multi-Domain', SUM(CASE WHEN high_risk_domain_count >= 2 THEN 1 ELSE 0 END)\n                            FROM main_analytics.v_wellbeing_risk_profiles",
+          "visualization_type": "bar",
+          "settings": {}
+        },
+        {
+          "position": [
+            2,
+            6
+          ],
+          "size": [
+            6,
+            4
+          ],
+          "title": "My Caseload (by assigned counselor)",
+          "query": "SELECT \n                                wellbeing_risk_level as \"Risk Level\",\n                                COUNT(*) as \"Student Count\"\n                            FROM main_analytics.v_wellbeing_risk_profiles\n                            GROUP BY wellbeing_risk_level\n                            ORDER BY wellbeing_risk_level",
+          "visualization_type": "pie",
+          "settings": {}
+        }
+      ]
+    },
+    {
+      "name": "Support Resources",
+      "cards": [
+        {
+          "position": [
+            0,
+            0
+          ],
+          "size": [
+            12,
+            5
+          ],
+          "title": "Average Risk Scores by Risk Level",
+          "query": "SELECT \n                                wellbeing_risk_level as \"Risk Level\",\n                                COUNT(*) as \"Students\",\n                                ROUND(AVG(attendance_risk_score), 1) as \"Attendance Risk\",\n                                ROUND(AVG(discipline_risk_score), 1) as \"Discipline Risk\",\n                                ROUND(AVG(academic_risk_score), 1) as \"Academic Risk\"\n                            FROM main_analytics.v_wellbeing_risk_profiles\n                            GROUP BY wellbeing_risk_level\n                            ORDER BY wellbeing_risk_level DESC",
+          "visualization_type": "table",
+          "settings": {}
+        }
+      ]
+    }
+  ]
+}

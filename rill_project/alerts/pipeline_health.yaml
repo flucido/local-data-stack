@@ -1,0 +1,46 @@
+# Pipeline Health Monitor Alert
+# Monitors overall pipeline health and project resource status
+# Reference: https://docs.rilldata.com/reference/project-files/alerts
+
+type: alert
+display_name: "Pipeline Health Monitor"
+
+# Refresh schedule (every 10 minutes for near-real-time monitoring)
+refresh:
+  cron: "*/10 * * * *"
+
+# Query using resource_status to detect any project errors
+data:
+  resource_status:
+    # Include all resources with errors
+    where_error: true
+
+# Multi-channel notifications
+notify:
+  # Slack notification for team visibility
+  slack:
+    channels:
+      - "#data-alerts"
+      - "#data-platform"
+    webhooks:
+  
+  # Email notification for permanent record
+  email:
+    recipients:
+      - "platform-team@school.edu"
+      - "data-team@school.edu"
+
+# Send recovery notification when all resources healthy
+on_recover: true
+
+# Re-notify if errors persist (moderate frequency)
+renotify: true
+renotify_after: "1h"
+
+# Intervals configuration for time-series tracking
+intervals:
+  duration: PT15M  # Track 15-minute intervals
+  limit: 96        # Keep last 24 hours (96 x 15min)
+
+# Timeout for query execution
+timeout: "30s"

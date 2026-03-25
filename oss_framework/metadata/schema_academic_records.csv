@@ -1,0 +1,25 @@
+Entity,Attribute,DataType,Pseudonymization,Description
+academic_records,record_id,VARCHAR,no-op,Unique academic record identifier
+academic_records,student_id,VARCHAR,hash,Student identifier (hashed for privacy)
+academic_records,course_id,VARCHAR,no-op,Course identifier
+academic_records,school_id,VARCHAR,no-op,School identifier
+academic_records,term,VARCHAR,no-op,Academic term (semester/trimester/year)
+academic_records,assignment_id,VARCHAR,no-op,Unique assignment identifier
+academic_records,assignment_name,VARCHAR,no-op,Human-readable assignment name
+academic_records,assignment_type,VARCHAR,no-op,Type of assignment (homework/quiz/exam/project/discussion/participation)
+academic_records,assignment_due_date,DATE,no-op,Due date for the assignment
+academic_records,assignment_submission_date,DATE,no-op,Date assignment was submitted (NULL if not submitted)
+academic_records,points_earned,FLOAT,no-op,Points earned on assignment
+academic_records,points_possible,FLOAT,no-op,Total points possible
+academic_records,assignment_grade_percent,FLOAT,no-op,Grade percentage (0-100 scale)
+academic_records,assignment_grade_letter,VARCHAR,no-op,Letter grade for assignment
+academic_records,submission_status,VARCHAR,no-op,Submission status (submitted/missing/excused/incomplete)
+academic_records,on_time_flag,BOOLEAN,no-op,Flag indicating on-time submission
+academic_records,late_days,INT,no-op,Number of days late submission
+academic_records,teacher_id,VARCHAR,hash,Teacher identifier (hashed for privacy)
+academic_records,feedback_provided,BOOLEAN,no-op,Flag indicating teacher feedback was given
+academic_records,feedback_date,DATE,no-op,Date feedback was provided
+academic_records,rubric_score,FLOAT,no-op,Rubric-based assessment score
+academic_records,mastery_level,VARCHAR,no-op,Mastery level (novice/developing/proficient/advanced)
+academic_records,_loaded_date,TIMESTAMP,no-op,Date record was loaded into Stage 1
+academic_records,_updated_date,TIMESTAMP,no-op,Date record was last updated

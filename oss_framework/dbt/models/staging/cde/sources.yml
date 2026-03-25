@@ -1,0 +1,113 @@
+version: 2
+
+sources:
+  - name: cde_raw
+    description: California Department of Education downloadable data files loaded via dlt pipeline
+    schema: cde_raw
+
+    freshness:
+      warn_after: {count: 90, period: day}
+      error_after: {count: 180, period: day}
+    loaded_at_field: _loaded_at
+
+    tables:
+      - name: cde_chronic_absenteeism
+        description: |
+          Chronic absenteeism rates by school and demographic subgroups from CDE.
+          Data updated annually, typically in February following the school year.
+          Includes 145,924 rows for 2024-25 school year with multi-year historical data.
+        columns:
+          - name: academic_year
+            description: School year in format YYYY-YY (e.g., "2024-25")
+
+          - name: aggregate_level
+            description: |
+              Aggregation level:
+              - T: State total
+              - C: County
+              - D: District
+              - S: School (most granular)
+
+          - name: county_code
+            description: 2-digit California county code (01-58)
+
+          - name: district_code
+            description: 5-digit district code within county
+
+          - name: school_code
+            description: 7-digit school code within district
+
+          - name: county_name
+            description: County name
+
+          - name: district_name
+            description: District name
+
+          - name: school_name
+            description: School name
+
+          - name: charter_school
+            description: |
+              Charter school indicator:
+              - Y: Charter school
+              - N: Traditional public school
+              - All: Both types aggregated
+
+          - name: dass
+            description: |
+              Dashboard Alternative School Status (DASS):
+              - Y: Alternative school
+              - N: Traditional school
+              - All: Both types aggregated
+
+          - name: reporting_category
+            description: |
+              Demographic subgroup or aggregate:
+              - TA: Total (All students)
+              - RA: Asian
+              - RB: Black/African American
+              - RF: Filipino
+              - RH: Hispanic/Latino
+              - RI: American Indian/Alaska Native
+              - RP: Native Hawaiian/Pacific Islander
+              - RT: Two or More Races
+              - RW: White
+              - GF: Female
+              - GM: Male
+              - GX: Non-binary
+              - SE: Socioeconomically Disadvantaged
+              - EL: English Learners
+              - RFEP: Reclassified Fluent English Proficient
+              - SWD: Students with Disabilities
+              - HOM: Homeless
+              - FOS: Foster Youth
+              - MIL: Military Connected
+              - GR13, GR46, GR78, GR912, GRTK8, GRTKKN: Grade level ranges
+
+          - name: chronic_absenteeism_eligible_cumulative_enrollment
+            description: |
+              Number of students enrolled for at least 31 days during the school year.
+              Suppressed as "*" if fewer than 11 students (privacy protection).
+
+          - name: chronic_absenteeism_count
+            description: |
+              Count of students who missed 10% or more of instructional days.
+              Suppressed as "*" if fewer than 11 students.
+
+          - name: chronic_absenteeism_rate
+            description: |
+              Percentage of eligible students chronically absent (absent >= 10% of days).
+              Formula: (chronic_absenteeism_count / eligible_enrollment) * 100
+              Suppressed as "*" if fewer than 11 students.
+
+          - name: _loaded_at
+            description: Timestamp when record was loaded by dlt pipeline
+
+          - name: _source_file
+            description: Source filename (e.g., "chronicabsenteeism25.txt")
+
+          - name: _dlt_load_id
+            description: dlt load batch identifier for tracking pipeline runs
+
+          - name: _dlt_id
+            description: dlt-generated unique row identifier

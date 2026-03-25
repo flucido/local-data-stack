@@ -1,0 +1,12 @@
+# Model YAML
+# Reference documentation: https://docs.rilldata.com/reference/project-files/models
+
+type: model
+materialize: true
+
+connector: local_duckdb
+
+sql: |
+  -- Student Wellbeing Risk Profiles Model
+  -- Source: Parquet export from dbt model v_wellbeing_risk_profiles
+  SELECT * FROM read_parquet('data/wellbeing_risk_profiles.parquet')

@@ -1,0 +1,12 @@
+# Model YAML
+# Reference documentation: https://docs.rilldata.com/reference/project-files/models
+
+type: model
+materialize: true
+
+connector: local_duckdb
+
+sql: |
+  -- Equity Outcomes by Demographics Model
+  -- Source: Parquet export from dbt model v_equity_outcomes_by_demographics
+  SELECT * FROM read_parquet('data/equity_outcomes_by_demographics.parquet')

@@ -1,0 +1,110 @@
+version: 2
+
+models:
+  - name: priv_student_hashes
+    description: >
+      Pseudonymized student identifiers with SHA256 hashing and PII masking.
+      This model provides secure, one-way hashed identifiers and masked PII fields
+      for privacy-preserving analytics. Uses SHA256 (more secure than legacy MD5).
+      
+      Privacy Features:
+      - SHA256 hashing for student IDs (64 character hex output)
+      - Name masking (e.g., "Johnson" → "J******")
+      - No raw PII exposed in this model
+      
+      FERPA Compliance: PII is pseudonymized, suitable for internal analytics
+      with proper access controls.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - student_id_hash
+            - academic_year
+    columns:
+      - name: student_id_hash
+        description: "SHA256 hash of student_id_raw - secure pseudonymous identifier"
+        data_tests:
+          - not_null
+      
+      - name: first_name_masked
+        description: "Masked first name (first character + asterisks)"
+        data_tests:
+          - not_null
+      
+      - name: last_name_masked
+        description: "Masked last name (first character + asterisks)"
+        data_tests:
+          - not_null
+      
+      - name: age_at_event
+        description: "Age in years at event time (derived from DOB, not PII)"
+        data_tests:
+          - not_null
+      
+      - name: gender
+        description: "Gender identity - not PII"
+      
+      - name: ethnicity
+        description: "Ethnicity/race category - not PII"
+      
+      - name: grade_level
+        description: "Current grade level - not PII"
+      
+      - name: school_id
+        description: "School identifier - not PII"
+      
+      - name: pseudonymization_timestamp
+        description: "Timestamp when pseudonymization was applied"
+      
+      - name: pseudonymization_method
+        description: "Method used for pseudonymization (SHA256_HASHED_AND_MASKED)"
+
+  - name: priv_pii_lookup_table
+    description: >
+      Secure lookup table mapping hashed identifiers back to raw PII.
+      
+      ⚠️ WARNING: This model contains raw PII and MUST be restricted to authorized
+      personnel only (e.g., registrar, compliance officers).
+      
+      Security Controls:
+      - Materialized in privacy_sensitive schema with restricted access
+      - Used only for re-identification when legally required
+      - Should not be joined to analytics models
+      
+      Use Cases:
+      - FERPA-mandated parent requests for student records
+      - Compliance audits requiring identity verification
+      - Legal discovery requests
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - student_id_hash
+            - academic_year
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - student_id_raw
+            - academic_year
+    columns:
+      - name: student_id_hash
+        description: "SHA256 hashed student ID (join key to pseudonymized models)"
+        data_tests:
+          - not_null
+      
+      - name: student_id_raw
+        description: "⚠️ SENSITIVE: Raw student identifier"
+        data_tests:
+          - not_null
+      
+      - name: first_name_raw
+        description: "⚠️ SENSITIVE: Student first name"
+        data_tests:
+          - not_null
+      
+      - name: last_name_raw
+        description: "⚠️ SENSITIVE: Student last name"
+        data_tests:
+          - not_null
+      
+      - name: date_of_birth_raw
+        description: "⚠️ SENSITIVE: Student date of birth"
+        data_tests:
+          - not_null

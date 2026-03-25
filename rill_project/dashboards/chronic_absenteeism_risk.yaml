@@ -1,0 +1,91 @@
+# Chronic Absenteeism Risk Dashboard
+# Source: dbt model v_chronic_absenteeism_risk
+# Monitors students at risk of chronic absenteeism
+
+type: metrics_view
+title: "Chronic Absenteeism Risk"
+model: chronic_absenteeism_risk
+timeseries: _loaded_at
+
+dimensions:
+  - name: student_key
+    label: "Student ID"
+    column: student_key
+    description: "Anonymized student identifier"
+
+  - name: grade_level
+    label: "Grade Level"
+    column: grade_level
+    description: "Current grade level"
+
+  - name: school_id
+    label: "School"
+    column: school_id
+    description: "School identifier"
+
+  - name: gender
+    label: "Gender"
+    column: gender
+
+  - name: race_ethnicity
+    label: "Race/Ethnicity"
+    column: race_ethnicity
+
+  - name: english_learner
+    label: "English Learner"
+    column: english_learner
+
+  - name: special_education
+    label: "Special Education"
+    column: special_education
+
+  - name: economically_disadvantaged
+    label: "Economically Disadvantaged"
+    column: economically_disadvantaged
+
+  - name: chronic_absence_flag
+    label: "Chronic Absence Flag"
+    column: chronic_absence_flag
+    description: "1 if student has missed 10%+ of school days"
+
+  - name: risk_level
+    label: "Risk Level"
+    column: risk_level
+    description: "low, moderate, high"
+
+  - name: attendance_trend_90d
+    label: "90-Day Trend"
+    column: attendance_trend_90d
+    description: "improving, stable, declining"
+
+measures:
+  - name: total_students
+    label: "Total Students"
+    expression: COUNT(DISTINCT student_key)
+    format_preset: humanize
+
+  - name: chronic_absence_count
+    label: "Chronically Absent Students"
+    expression: SUM(chronic_absence_flag)
+    format_preset: humanize
+
+  - name: chronic_absence_rate
+    label: "Chronic Absence Rate"
+    expression: SUM(chronic_absence_flag) * 1.0 / NULLIF(COUNT(DISTINCT student_key), 0)
+    format_preset: percentage
+
+  - name: avg_attendance_rate_30d
+    label: "Avg 30-Day Attendance Rate"
+    expression: AVG(attendance_rate_30d) / 100.0
+    format_preset: percentage
+
+  - name: avg_risk_score
+    label: "Avg Risk Score"
+    expression: AVG(chronic_absenteeism_risk_score)
+    format_preset: humanize
+
+  - name: high_risk_students
+    label: "High Risk Students"
+    expression: SUM(CASE WHEN risk_level = 'High' THEN 1 ELSE 0 END)
+    format_preset: humanize
+

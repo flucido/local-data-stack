@@ -1,0 +1,333 @@
+# ============================================================================
+# Prometheus Alerting Rules
+# ============================================================================
+# Alert definitions for the SIS Analytics platform
+# Triggered when conditions are met for specified duration
+
+groups:
+  # ========================================================================
+  # Kubernetes Alerts
+  # ========================================================================
+  - name: kubernetes_alerts
+    interval: 30s
+    rules:
+      - alert: KubernetesNodeNotReady
+        expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kubernetes node not ready (instance {{ $labels.node }})"
+          description: "Node {{ $labels.node }} has been unready for more than 5 minutes."
+
+      - alert: KubernetesMemoryPressure
+        expr: kube_node_status_condition{condition="MemoryPressure",status="true"} == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kubernetes memory pressure (instance {{ $labels.node }})"
+          description: "Node {{ $labels.node }} has MemoryPressure condition."
+
+      - alert: KubernetesDiskPressure
+        expr: kube_node_status_condition{condition="DiskPressure",status="true"} == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kubernetes disk pressure (instance {{ $labels.node }})"
+          description: "Node {{ $labels.node }} has DiskPressure condition."
+
+      - alert: KubernetesPodCrashLooping
+        expr: rate(kube_pod_container_status_restarts_total[15m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kubernetes pod crash looping"
+          description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is crash looping."
+
+      - alert: KubernetesPodNotHealthy
+        expr: min_over_time(sum by (namespace, pod) (kube_pod_status_phase{phase=~"Pending|Unknown|Failed"})[15m:1m]) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kubernetes Pod not healthy (pod {{ $labels.namespace }}/{{ $labels.pod }})"
+          description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} has been in a non-running state for more than 15 minutes."
+
+      - alert: KubernetesPersistentvolumeclaimPending
+        expr: kube_persistentvolumeclaim_status_phase{phase="Pending"} == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kubernetes PersistentVolumeClaim pending"
+          description: "PersistentVolumeClaim {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} is pending."
+
+      - alert: KubernetesPersistentVolumeFull
+        expr: (kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kubernetes PersistentVolume full ({{ $value | humanizePercentage }})"
+          description: "PersistentVolume {{ $labels.persistentvolumeclaim }} is {{ $value | humanizePercentage }} full."
+
+      - alert: KubernetesPersistentVolumeInodesFull
+        expr: (kubelet_volume_stats_inodes_free / kubelet_volume_stats_inodes) < 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kubernetes PersistentVolume inodes full ({{ $value | humanizePercentage }})"
+          description: "PersistentVolume {{ $labels.persistentvolumeclaim }} inodes usage is {{ $value | humanizePercentage }}."
+
+      - alert: KubernetesContainerOomKiller
+        expr: (kube_pod_container_status_restarts_total - kube_pod_container_status_restarts_total offset 10m >= 1) and ignoring (reason) min_over_time(kube_pod_container_status_last_terminated_reason{reason="OOMKilled"}[10m]) == 1
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kubernetes Container OOM killer"
+          description: "Container {{ $labels.container }} in pod {{ $labels.namespace }}/{{ $labels.pod }} has been OOMKilled."
+
+      - alert: KubernetesApiServerLatency
+        expr: histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{job="kubernetes-apiservers",verb!="WATCH"}[5m])) by (le, verb)) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kubernetes API server latency (p99)"
+          description: "Kubernetes API server p99 latency is {{ $value }}s for verb {{ $labels.verb }}."
+
+  # ========================================================================
+  # PostgreSQL Alerts
+  # ========================================================================
+  - name: postgres_alerts
+    interval: 30s
+    rules:
+      - alert: PostgresqlDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL down (instance {{ $labels.instance }})"
+          description: "PostgreSQL database is down."
+
+      - alert: PostgresqlSlowQueries
+        expr: pg_slow_queries > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL slow queries (instance {{ $labels.instance }})"
+          description: "PostgreSQL has {{ $value }} slow queries."
+
+      - alert: PostgresqlConnectionUsagePercentage
+        expr: (sum by (datname) (pg_stat_activity_count)) / pg_settings_max_connections * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL connection usage percentage (instance {{ $labels.instance }})"
+          description: "PostgreSQL connection usage is {{ $value }}%."
+
+      - alert: PostgresqlDatabaseNotConnectable
+        expr: pg_database_datconnlimit > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL database not connectable"
+          description: "PostgreSQL database {{ $labels.datname }} is not accepting connections."
+
+      - alert: PostgresqlTooManyConnections
+        expr: sum by (datname) (pg_stat_activity_count) > 200
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL too many connections ({{ $labels.datname }})"
+          description: "PostgreSQL has {{ $value }} connections on database {{ $labels.datname }}."
+
+      - alert: PostgresqlUnavailableWalSegments
+        expr: pg_control_wal_segment_size == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL unavailable WAL segments"
+          description: "PostgreSQL WAL segments are unavailable."
+
+  # ========================================================================
+  # Application Alerts
+  # ========================================================================
+  - name: application_alerts
+    interval: 30s
+    rules:
+      - alert: ApplicationHighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Application high error rate (> 5%)"
+          description: "Application error rate is {{ $value | humanizePercentage }}."
+
+      - alert: ApplicationHighLatency
+        expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Application high latency (p99 > 1s)"
+          description: "Application p99 latency is {{ $value }}s."
+
+      - alert: PipelineExecutionFailure
+        expr: rate(pipeline_executions_failed_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Pipeline execution failure"
+          description: "Pipeline execution failed: {{ $labels.pipeline }}"
+
+      - alert: PipelineExecutionTimeout
+        expr: pipeline_execution_duration_seconds > 3600
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pipeline execution timeout"
+          description: "Pipeline {{ $labels.pipeline }} has been running for more than 1 hour."
+
+      - alert: DataValidationFailure
+        expr: rate(data_validation_failures_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Data validation failure"
+          description: "Data validation failed: {{ $labels.check }}"
+
+  # ========================================================================
+  # Prometheus Alerts
+  # ========================================================================
+  - name: prometheus_alerts
+    interval: 30s
+    rules:
+      - alert: PrometheusDown
+        expr: up{job="prometheus"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Prometheus down"
+          description: "Prometheus is not running."
+
+      - alert: PrometheusHighChurnRate
+        expr: rate(prometheus_tsdb_metric_chunks_created_total[5m]) > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus high churn rate"
+          description: "Prometheus churn rate is {{ $value }}."
+
+      - alert: PrometheusHighCpuUsage
+        expr: (rate(process_cpu_seconds_total[5m]) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus high CPU usage (> 80%)"
+          description: "Prometheus CPU usage is {{ $value }}%."
+
+      - alert: PrometheusHighMemoryUsage
+        expr: (process_resident_memory_bytes / 1024 / 1024 / 1024) > 4
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus high memory usage (> 4GB)"
+          description: "Prometheus memory usage is {{ $value }}GB."
+
+      - alert: PrometheusHighQueueSize
+        expr: increase(prometheus_tsdb_symbol_table_size_bytes[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus high queue size"
+          description: "Prometheus queue size is {{ $value }}."
+
+      - alert: PrometheusScrapeTargetDown
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus scrape target down ({{ $labels.job }})"
+          description: "Prometheus scrape target {{ $labels.instance }} is down."
+
+  # ========================================================================
+  # Node Alerts
+  # ========================================================================
+  - name: node_alerts
+    interval: 30s
+    rules:
+      - alert: NodeHighCpuUsage
+        expr: (100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node high CPU usage (> 80%)"
+          description: "Node {{ $labels.instance }} CPU usage is {{ $value }}%."
+
+      - alert: NodeHighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node high memory usage (> 80%)"
+          description: "Node {{ $labels.instance }} memory usage is {{ $value }}%."
+
+      - alert: NodeHighDiskUsage
+        expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs"} / node_filesystem_size_bytes)) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node high disk usage (> 80%)"
+          description: "Node {{ $labels.instance }} disk usage is {{ $value }}% on {{ $labels.mountpoint }}."
+
+      - alert: NodeHighInodeUsage
+        expr: (1 - (node_filesystem_files_free / node_filesystem_files)) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node high inode usage (> 80%)"
+          description: "Node {{ $labels.instance }} inode usage is {{ $value }}% on {{ $labels.mountpoint }}."
+
+      - alert: NodeNetworkReceiveErrs
+        expr: increase(node_network_receive_errs_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node network receive errors"
+          description: "Node {{ $labels.instance }} has {{ $value }} network receive errors."
+
+      - alert: NodeNetworkTransmitErrs
+        expr: increase(node_network_transmit_errs_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node network transmit errors"
+          description: "Node {{ $labels.instance }} has {{ $value }} network transmit errors."

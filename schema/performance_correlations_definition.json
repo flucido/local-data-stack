@@ -1,0 +1,85 @@
+{
+  "name": "Performance Correlations & Interventions",
+  "description": "Root cause analysis and intervention effectiveness tracking",
+  "type": "performance_correlations",
+  "target_audience": [
+    "Data Analysts",
+    "Researchers"
+  ],
+  "refresh_interval_minutes": 5,
+  "row_level_security": false,
+  "rbac_column": null,
+  "tabs": [
+    {
+      "name": "Root Cause Analysis",
+      "cards": [
+        {
+          "position": [
+            0,
+            0
+          ],
+          "size": [
+            12,
+            5
+          ],
+          "title": "Key Performance Correlations",
+          "query": "SELECT \n                                correlation_pair as \"Correlation\",\n                                ROUND(correlation_coefficient, 3) as \"Strength\",\n                                data_points as \"Data Points\",\n                                expected_direction as \"Expected Direction\",\n                                strength as \"Band\"\n                            FROM main_analytics.v_performance_correlations\n                            ORDER BY ABS(correlation_coefficient) DESC",
+          "visualization_type": "table",
+          "settings": {}
+        }
+      ]
+    },
+    {
+      "name": "Intervention Funnel",
+      "cards": [
+        {
+          "position": [
+            0,
+            0
+          ],
+          "size": [
+            6,
+            4
+          ],
+          "title": "Intervention Status",
+          "query": "SELECT \n                                strength as \"Status\",\n                                COUNT(*) as \"Correlations\"\n                            FROM main_analytics.v_performance_correlations\n                            WHERE strength IS NOT NULL\n                            GROUP BY strength\n                            ORDER BY \"Correlations\" DESC",
+          "visualization_type": "pie",
+          "settings": {}
+        },
+        {
+          "position": [
+            0,
+            6
+          ],
+          "size": [
+            6,
+            4
+          ],
+          "title": "Average Absolute Correlation (%)",
+          "query": "SELECT \n                                expected_direction as \"Type\",\n                                ROUND(AVG(ABS(correlation_coefficient)) * 100.0, 1) as \"Completion %\"\n                            FROM main_analytics.v_performance_correlations\n                            WHERE expected_direction IS NOT NULL\n                            GROUP BY expected_direction\n                            ORDER BY \"Completion %\" DESC",
+          "visualization_type": "bar",
+          "settings": {}
+        }
+      ]
+    },
+    {
+      "name": "ROI Analysis",
+      "cards": [
+        {
+          "position": [
+            0,
+            0
+          ],
+          "size": [
+            12,
+            4
+          ],
+          "title": "Correlation Effect by Direction",
+          "query": "SELECT \n                                expected_direction as \"Intervention Type\",\n                                COUNT(*) as \"Students Served\",\n                                ROUND(AVG(correlation_coefficient), 3) as \"Avg Outcome Improvement\",\n                                ROUND(AVG(ABS(correlation_coefficient)) * 100.0, 1) as \"Success Rate %\"\n                            FROM main_analytics.v_performance_correlations\n                            WHERE expected_direction IS NOT NULL\n                            GROUP BY expected_direction\n                            ORDER BY \"Avg Outcome Improvement\" DESC",
+          "visualization_type": "table",
+          "settings": {}
+        }
+      ]
+    }
+  ]
+}

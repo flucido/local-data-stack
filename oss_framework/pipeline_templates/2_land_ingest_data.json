@@ -1,0 +1,141 @@
+{
+  "name": "2_land_ingest_data",
+  "description": "Landing stage: Organize pre-landing data into Stage 1 with minimal transformation. Creates raw, queryable tables by entity type.",
+  "properties": {
+    "activities": [
+      {
+        "name": "Ingest_Students_Raw",
+        "type": "Notebook",
+        "typeProperties": {
+          "notebook": {
+            "referenceName": "land_students_notebook",
+            "type": "NotebookReference"
+          },
+          "parameters": {
+            "environment": "@pipeline().parameters.environment",
+            "batch_mode": "@pipeline().parameters.batch_mode",
+            "source_path": "/pre_landing/sis/students"
+          }
+        }
+      },
+      {
+        "name": "Ingest_Courses_Raw",
+        "type": "Notebook",
+        "typeProperties": {
+          "notebook": {
+            "referenceName": "land_courses_notebook",
+            "type": "NotebookReference"
+          },
+          "parameters": {
+            "environment": "@pipeline().parameters.environment",
+            "batch_mode": "@pipeline().parameters.batch_mode",
+            "source_path": "/pre_landing/sis/courses"
+          }
+        }
+      },
+      {
+        "name": "Ingest_Enrollment_Raw",
+        "type": "Notebook",
+        "typeProperties": {
+          "notebook": {
+            "referenceName": "land_enrollment_notebook",
+            "type": "NotebookReference"
+          },
+          "parameters": {
+            "environment": "@pipeline().parameters.environment",
+            "batch_mode": "@pipeline().parameters.batch_mode",
+            "source_path": "/pre_landing/sis/enrollment"
+          }
+        }
+      },
+      {
+        "name": "Ingest_Engagement_Events",
+        "type": "Notebook",
+        "typeProperties": {
+          "notebook": {
+            "referenceName": "land_engagement_notebook",
+            "type": "NotebookReference"
+          },
+          "parameters": {
+            "environment": "@pipeline().parameters.environment",
+            "batch_mode": "@pipeline().parameters.batch_mode",
+            "source_path": "/pre_landing/lms/engagement"
+          }
+        }
+      },
+      {
+        "name": "Validate_Stage1_Schema",
+        "type": "Notebook",
+        "typeProperties": {
+          "notebook": {
+            "referenceName": "validate_stage1_schema",
+            "type": "NotebookReference"
+          },
+          "parameters": {
+            "environment": "@pipeline().parameters.environment"
+          }
+        },
+        "dependsOn": [
+          {
+            "activity": "Ingest_Students_Raw",
+            "dependencyConditions": ["Succeeded"]
+          },
+          {
+            "activity": "Ingest_Courses_Raw",
+            "dependencyConditions": ["Succeeded"]
+          },
+          {
+            "activity": "Ingest_Enrollment_Raw",
+            "dependencyConditions": ["Succeeded"]
+          },
+          {
+            "activity": "Ingest_Engagement_Events",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ]
+      },
+      {
+        "name": "Cleanup_PreLanding",
+        "type": "ExecutePipeline",
+        "typeProperties": {
+          "pipeline": {
+            "referenceName": "cleanup_old_data",
+            "type": "PipelineReference"
+          },
+          "parameters": {
+            "stage": "pre-landing",
+            "retention_days": "@pipeline().parameters.preland_retention_days",
+            "environment": "@pipeline().parameters.environment"
+          },
+          "waitOnCompletion": true
+        },
+        "dependsOn": [
+          {
+            "activity": "Validate_Stage1_Schema",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ]
+      }
+    ],
+    "parameters": {
+      "workspace": {
+        "type": "string",
+        "description": "Workspace identifier"
+      },
+      "environment": {
+        "type": "string",
+        "description": "Environment name"
+      },
+      "batch_mode": {
+        "type": "string",
+        "defaultValue": "delta",
+        "description": "delta, additive, or snapshot"
+      },
+      "preland_retention_days": {
+        "type": "int",
+        "defaultValue": 30,
+        "description": "Days to keep pre-landing data before cleanup"
+      }
+    }
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "name": "Equity Outcomes Analysis",
+  "description": "Achievement gap analysis by demographic groups with FERPA protection (min 5 students)",
+  "type": "equity_outcomes",
+  "target_audience": [
+    "District Leadership",
+    "Equity Officers"
+  ],
+  "refresh_interval_minutes": 5,
+  "row_level_security": false,
+  "rbac_column": null,
+  "tabs": [
+    {
+      "name": "Achievement Gap Analysis",
+      "cards": [
+        {
+          "position": [
+            0,
+            0
+          ],
+          "size": [
+            12,
+            5
+          ],
+          "title": "Achievement Outcomes by Demographic",
+          "query": "SELECT \n                                race_ethnicity as \"Race/Ethnicity\",\n                                english_learner as \"English Learner\",\n                                special_education as \"Special Education\",\n                                economically_disadvantaged as \"Economically Disadvantaged\",\n                                cohort_size as \"Student Count\",\n                                ROUND(avg_gpa, 2) as \"Avg GPA\",\n                                ROUND(pct_good_attendance, 1) as \"Good Attendance %\",\n                                ROUND(pct_no_discipline, 1) as \"No Discipline %\"\n                            FROM main_analytics.v_equity_outcomes_by_demographics\n                            WHERE cohort_size >= 5\n                            ORDER BY avg_gpa DESC",
+          "visualization_type": "table",
+          "settings": {}
+        }
+      ]
+    },
+    {
+      "name": "Disparity Index",
+      "cards": [
+        {
+          "position": [
+            0,
+            0
+          ],
+          "size": [
+            6,
+            4
+          ],
+          "title": "Performance Gap Index",
+          "query": "SELECT \n                                race_ethnicity as category,\n                                ROUND(MAX(avg_gpa) - MIN(avg_gpa), 2) as disparity_index\n                            FROM main_analytics.v_equity_outcomes_by_demographics\n                            WHERE cohort_size >= 5\n                            GROUP BY race_ethnicity\n                            ORDER BY disparity_index DESC",
+          "visualization_type": "bar",
+          "settings": {}
+        },
+        {
+          "position": [
+            0,
+            6
+          ],
+          "size": [
+            6,
+            4
+          ],
+          "title": "% GPA 2.5+ by Race/Ethnicity",
+          "query": "SELECT \n                                race_ethnicity as \"Group\",\n                                ROUND(AVG(pct_gpa_2_5_plus), 1) as \"GPA 2.5+ %\"\n                            FROM main_analytics.v_equity_outcomes_by_demographics\n                            WHERE cohort_size >= 5\n                            GROUP BY race_ethnicity\n                            ORDER BY \"GPA 2.5+ %\" DESC",
+          "visualization_type": "bar",
+          "settings": {}
+        }
+      ]
+    },
+    {
+      "name": "Intervention Effectiveness",
+      "cards": [
+        {
+          "position": [
+            0,
+            0
+          ],
+          "size": [
+            12,
+            4
+          ],
+          "title": "Academic Risk by Demographic",
+          "query": "SELECT \n                                race_ethnicity as \"Demographic\",\n                                COUNT(*) as \"Groups\",\n                                ROUND(AVG(cohort_size), 1) as \"Avg Cohort Size\",\n                                ROUND(AVG(pct_below_c), 1) as \"Avg Below C %\"\n                            FROM main_analytics.v_equity_outcomes_by_demographics\n                            WHERE cohort_size >= 5\n                            GROUP BY race_ethnicity\n                            ORDER BY \"Avg Below C %\" DESC",
+          "visualization_type": "table",
+          "settings": {}
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,267 @@
+# ============================================================================
+# Prometheus Configuration
+# ============================================================================
+# Global Prometheus scrape configuration for the SIS Analytics platform
+# Includes scrape configs for Kubernetes, databases, and application metrics
+
+global:
+  # How often to scrape targets by default
+  scrape_interval: 15s
+
+  # How long until a scrape request times out
+  scrape_timeout: 10s
+
+  # How often to evaluate rules
+  evaluation_interval: 15s
+
+  # Attach labels to any time series or alerts
+  external_labels:
+    cluster: 'sis-analytics'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - 'alertmanager:9093'
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - '/etc/prometheus/rules/alerts.yml'
+  - '/etc/prometheus/rules/recording_rules.yml'
+
+# ============================================================================
+# Scrape Configurations
+# ============================================================================
+
+scrape_configs:
+  # ========================================================================
+  # Prometheus itself
+  # ========================================================================
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # ========================================================================
+  # Kubernetes Metrics
+  # ========================================================================
+  - job_name: 'kubernetes-apiservers'
+    kubernetes_sd_configs:
+      - role: endpoints
+    scheme: https
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: default;kubernetes;https
+
+  - job_name: 'kubernetes-nodes'
+    kubernetes_sd_configs:
+      - role: node
+    scheme: https
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - target_label: __address__
+        replacement: kubernetes.default.svc:443
+      - source_labels: [__meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/${1}/proxy/metrics
+
+  - job_name: 'kubernetes-nodes-cadvisor'
+    kubernetes_sd_configs:
+      - role: node
+    scheme: https
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - target_label: __address__
+        replacement: kubernetes.default.svc:443
+      - source_labels: [__meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+    metric_relabel_configs:
+      - action: drop
+        regex: 'container_fs_io_current|container_fs_io_time_recursive_seconds|container_fs_io_time_seconds|container_fs_limit_bytes|container_fs_usage_bytes|container_fs_inodes_free|container_fs_inodes_total'
+        source_labels: [__name__]
+
+  - job_name: 'kubernetes-pods'
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: 'true'
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: kubernetes_pod_name
+
+  - job_name: 'kubernetes-services'
+    kubernetes_sd_configs:
+      - role: service
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_probe]
+        action: keep
+        regex: 'true'
+      - source_labels: [__address__]
+        target_label: __param_target
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+      - source_labels: [__param_target]
+        target_label: instance
+      - action: labelmap
+        regex: __meta_kubernetes_service_label_(.+)
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: kubernetes_name
+
+  # ========================================================================
+  # Prometheus Operator ServiceMonitor (if using Prometheus Operator)
+  # ========================================================================
+  - job_name: 'prometheus-operator'
+    kubernetes_sd_configs:
+      - role: endpoints
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_name]
+        action: keep
+        regex: prometheus-operator
+      - source_labels: [__meta_kubernetes_endpoints_name]
+        action: keep
+        regex: 'prometheus-operator'
+
+  # ========================================================================
+  # Application Metrics
+  # ========================================================================
+  - job_name: 'sis-analytics-pipeline'
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names:
+            - sis-analytics
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        action: keep
+        regex: 'sis-analytics-pipeline'
+      - source_labels: [__meta_kubernetes_pod_port_name]
+        action: keep
+        regex: 'metrics'
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+    scrape_interval: 30s
+
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+    scrape_interval: 30s
+
+  - job_name: 'metabase'
+    static_configs:
+      - targets: ['metabase:3001']
+    scrape_interval: 30s
+
+  - job_name: 'superset'
+    static_configs:
+      - targets: ['superset:8088']
+    scrape_interval: 30s
+
+  # ========================================================================
+  # PostgreSQL Exporter (if deployed)
+  # ========================================================================
+  - job_name: 'postgres-exporter'
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names:
+            - sis-analytics
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        action: keep
+        regex: 'postgres-exporter'
+      - source_labels: [__meta_kubernetes_pod_port_name]
+        action: keep
+        regex: 'metrics'
+    scrape_interval: 30s
+
+  # ========================================================================
+  # Node Exporter (if deployed)
+  # ========================================================================
+  - job_name: 'node-exporter'
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names:
+            - sis-analytics
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        action: keep
+        regex: 'node-exporter'
+      - source_labels: [__meta_kubernetes_pod_port_name]
+        action: keep
+        regex: 'metrics'
+    scrape_interval: 30s
+
+  # ========================================================================
+  # Elasticsearch Exporter (if deployed)
+  # ========================================================================
+  - job_name: 'elasticsearch-exporter'
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names:
+            - sis-analytics
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        action: keep
+        regex: 'elasticsearch-exporter'
+      - source_labels: [__meta_kubernetes_pod_port_name]
+        action: keep
+        regex: 'metrics'
+    scrape_interval: 30s
+
+  # ========================================================================
+  # Custom Metrics (OpenMetrics format)
+  # ========================================================================
+  - job_name: 'openmetrics'
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_format]
+        action: keep
+        regex: 'openmetrics'
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: 'true'
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__

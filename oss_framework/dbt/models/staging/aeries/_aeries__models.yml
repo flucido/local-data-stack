@@ -1,0 +1,341 @@
+version: 2
+
+models:
+  - name: stg_aeries__students
+    description: >
+      Staging model for student demographics and enrollment flags.
+      One record per student with standardized column names and data types.
+      PII fields (_raw suffix) will be hashed in downstream privacy layer.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - student_id_raw
+            - academic_year
+    columns:
+      - name: student_id_raw
+        description: "Raw student identifier (will be pseudonymized in mart_privacy layer)"
+        data_tests:
+          - not_null
+
+      - name: first_name_raw
+        description: "Student first name (PII - will be hashed)"
+        data_tests:
+          - not_null
+
+      - name: last_name_raw
+        description: "Student last name (PII - will be hashed)"
+        data_tests:
+          - not_null
+
+      - name: date_of_birth_raw
+        description: "Date of birth (sensitive PII - will be hashed)"
+        data_tests:
+          - not_null
+
+      - name: gender
+        description: "Gender identity"
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['M', 'F', 'X', 'Male', 'Female', 'Non-binary', 'Unknown']
+
+      - name: ethnicity
+        description: "Ethnicity/race category"
+        data_tests:
+          - not_null
+
+      - name: grade_level
+        description: "Current grade level (1-12)"
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16]
+
+      - name: age
+        description: "Calculated age in years based on date of birth"
+
+      - name: grade_level_category
+        description: "Categorized grade level: Elementary (1-5), Middle (6-8), High (9-12)"
+
+      - name: school_id
+        description: "School identifier"
+        data_tests:
+          - not_null
+
+      - name: special_education_flag
+        description: "Special education enrollment indicator"
+
+      - name: ell_status
+        description: "English learner status"
+
+      - name: free_reduced_lunch_flag
+        description: "Free/reduced lunch eligibility"
+
+      - name: homeless_flag
+        description: "Homeless status indicator"
+
+      - name: foster_care_flag
+        description: "Foster care indicator"
+
+      - name: section_504_flag
+        description: "504 plan indicator"
+
+      - name: home_language
+        description: "Primary home language"
+
+      - name: enrollment_date
+        description: "Initial enrollment date"
+
+      - name: withdrawal_date
+        description: "Withdrawal date (NULL if still enrolled)"
+
+      - name: is_currently_enrolled
+        description: "Boolean flag: true if student is currently enrolled (withdrawal_date IS NULL)"
+
+      - name: created_at
+        description: "Timestamp when record was created in source system"
+
+      - name: updated_at
+        description: "Timestamp when record was last updated in source system"
+
+      - name: dbt_load_timestamp
+        description: "Timestamp when dbt loaded this record"
+
+      - name: dbt_run_timestamp
+        description: "dbt run timestamp"
+
+  - name: stg_aeries__attendance
+    description: >
+      Staging model for daily attendance records.
+      One record per student per day with standardized attendance flags.
+      Preserves grain from source system.
+    columns:
+      - name: student_id_raw
+        description: "Foreign key to students (raw, will be hashed downstream)"
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_aeries__students')
+                field: student_id_raw
+
+      - name: school_id
+        description: "School identifier"
+        data_tests:
+          - not_null
+
+      - name: academic_year
+        description: "Academic year derived from attendance dates"
+        data_tests:
+          - not_null
+
+      - name: day_of_week_name
+        description: "Day of week name (Monday-Sunday)"
+
+      - name: day_of_week_number
+        description: "Day of week number (0=Sunday, 6=Saturday)"
+
+      - name: week_of_year
+        description: "ISO week number of the year"
+
+      - name: month_number
+        description: "Month number (1-12)"
+
+      - name: is_weekend
+        description: "Boolean: true if attendance date is Saturday or Sunday"
+
+      - name: school_quarter
+        description: "School year quarter (1=Aug-Oct, 2=Nov-Jan, 3=Feb-Mar, 4=Apr-Jun)"
+
+      - name: attendance_rate
+        description: "Attendance rate ratio (days_present / days_enrolled)"
+
+      - name: absence_reason
+        description: "Reason for absence"
+
+      - name: present_flag
+        description: "Boolean: true if student was present"
+
+      - name: absent_flag
+        description: "Boolean: true if student was absent"
+
+      - name: tardy_flag
+        description: "Boolean: true if student was tardy"
+
+      - name: excused_flag
+        description: "Boolean: true if absence was excused"
+
+      - name: unexcused_flag
+        description: "Boolean: true if absence was unexcused"
+
+      - name: created_at
+        description: "Timestamp when record was created"
+
+      - name: dbt_load_timestamp
+        description: "Timestamp when dbt loaded this record"
+
+  - name: stg_aeries__academic_records
+    description: >
+      Staging model for academic performance records.
+      One record per student per course per term with grades and scores.
+    columns:
+      - name: student_id_raw
+        description: "Foreign key to students (will be hashed downstream)"
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_aeries__students')
+                field: student_id_raw
+
+      - name: teacher_id
+        description: "Teacher identifier"
+
+      - name: course_id
+        description: "Course identifier"
+        data_tests:
+          - not_null
+
+      - name: section_id
+        description: "Section/class identifier"
+
+      - name: school_id
+        description: "School identifier"
+        data_tests:
+          - not_null
+
+      - name: term
+        description: "School term/semester"
+        data_tests:
+          - not_null
+
+      - name: school_year
+        description: "Academic year (e.g., '2025-2026')"
+        data_tests:
+          - not_null
+
+      - name: grade
+        description: "Letter grade"
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['A', 'A+', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'D-', 'F', 'P', 'NP', 'I', 'W', 'INCOMPLETE', 'NM']
+
+      - name: score
+        description: "Numeric score/percentage"
+
+      - name: created_at
+        description: "Timestamp when record was created"
+
+      - name: dbt_load_timestamp
+        description: "Timestamp when dbt loaded this record"
+
+  - name: stg_aeries__discipline
+    description: >
+      Staging model for discipline incidents.
+      One record per student per incident per disposition (one incident can have multiple actions/resolutions).
+    data_tests:
+      # Composite uniqueness: one record per student per incident per disposition
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - incident_id
+            - student_id_raw
+            - disposition_code
+            - academic_year
+    columns:
+      - name: incident_id
+        description: "Incident identifier (not unique - one incident can involve multiple students)"
+        data_tests:
+          - not_null
+
+      - name: student_id_raw
+        description: "Foreign key to students (will be hashed downstream)"
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_aeries__students')
+                field: student_id_raw
+
+      - name: school_id
+        description: "School where incident occurred"
+        data_tests:
+          - not_null
+
+      - name: incident_date
+        description: "Date of incident"
+        data_tests:
+          - not_null
+
+      - name: short_description
+        description: "Category/description of incident (47 distinct types in real data)"
+
+      - name: severity_category
+        description: "Severity level"
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Low', 'Medium', 'High', 'Unknown']
+
+      - name: resolution
+        description: "Disciplinary action taken"
+
+      - name: suspension_days
+        description: "Number of suspension days (0 if none)"
+
+      - name: created_at
+        description: "Timestamp when record was created"
+
+      - name: dbt_load_timestamp
+        description: "Timestamp when dbt loaded this record"
+
+  - name: stg_aeries__enrollment
+    description: >
+      Staging model for student enrollment records.
+      One record per student enrollment period with status tracking.
+    columns:
+      - name: student_id_raw
+        description: "Foreign key to students (will be hashed downstream)"
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_aeries__students')
+                field: student_id_raw
+
+      - name: school_id
+        description: "School identifier"
+        data_tests:
+          - not_null
+
+      - name: school_year
+        description: "Academic year"
+        data_tests:
+          - not_null
+
+      - name: enrollment_date
+        description: "Date student enrolled"
+        data_tests:
+          - not_null
+
+      - name: withdrawal_date
+        description: "Date student withdrew (NULL if still enrolled)"
+
+      - name: grade_level
+        description: "Grade level at enrollment"
+        data_tests:
+          - not_null
+
+      - name: enrollment_status
+        description: "Current enrollment status"
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['ACTIVE', 'COMPLETED', 'DROPPED', 'FAILED', 'WITHDRAWN']
+
+      - name: created_at
+        description: "Timestamp when record was created"
+
+      - name: dbt_load_timestamp
+        description: "Timestamp when dbt loaded this record"

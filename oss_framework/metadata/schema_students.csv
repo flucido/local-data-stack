@@ -1,0 +1,27 @@
+Entity,Attribute,DataType,Pseudonymization,Description
+students,student_id,VARCHAR,hash,Unique student identifier from SIS
+students,first_name,VARCHAR,mask,Student first name
+students,last_name,VARCHAR,mask,Student last name
+students,middle_name,VARCHAR,mask,Student middle name
+students,date_of_birth,DATE,hash,Student date of birth
+students,gender,VARCHAR,no-op,Student gender (M/F/X/Other)
+students,ethnicity,VARCHAR,no-op,Student ethnicity (for demographics only)
+students,grade_level,INT,no-op,Current grade level (K-12 or 1-16)
+students,school_id,VARCHAR,no-op,School identifier
+students,district_id,VARCHAR,no-op,District identifier
+students,cohort_year,INT,no-op,Graduation cohort year
+students,enrollment_status,VARCHAR,no-op,Current enrollment status (active/inactive/transferred)
+students,special_education,BOOLEAN,no-op,Enrolled in special education services
+students,english_learner,BOOLEAN,no-op,English learner flag
+students,economically_disadvantaged,BOOLEAN,no-op,Economically disadvantaged status
+students,homeless_status,BOOLEAN,no-op,Homeless student indicator
+students,foster_care_status,BOOLEAN,no-op,In foster care indicator
+students,military_family,BOOLEAN,no-op,Military-connected family indicator
+students,phone_number,VARCHAR,mask,Student or guardian contact phone
+students,email_address,VARCHAR,mask,Student or guardian email address
+students,address_line1,VARCHAR,mask,Street address line 1
+students,address_city,VARCHAR,mask,City
+students,address_state,VARCHAR,mask,State
+students,address_zip,VARCHAR,mask,ZIP code
+students,_loaded_date,TIMESTAMP,no-op,Date record was loaded into Stage 1
+students,_updated_date,TIMESTAMP,no-op,Date record was last updated

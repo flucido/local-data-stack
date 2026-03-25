@@ -1,0 +1,190 @@
+{
+  "name": "4_refine_pseudonymize_aggregate",
+  "description": "Refinement stage: Apply business logic, pseudonymization, and aggregations. Creates Stage 2B refined tables and Stage 3 published views.",
+  "properties": {
+    "activities": [
+      {
+        "name": "Apply_Privacy_Rules",
+        "type": "Notebook",
+        "typeProperties": {
+          "notebook": {
+            "referenceName": "apply_privacy_rules_notebook",
+            "type": "NotebookReference"
+          },
+          "parameters": {
+            "environment": "@pipeline().parameters.environment",
+            "metadata_version": "@pipeline().parameters.metadata_version"
+          }
+        }
+      },
+      {
+        "name": "Create_Dimension_Tables",
+        "type": "Notebook",
+        "typeProperties": {
+          "notebook": {
+            "referenceName": "create_dimension_tables_notebook",
+            "type": "NotebookReference"
+          },
+          "parameters": {
+            "environment": "@pipeline().parameters.environment"
+          }
+        },
+        "dependsOn": [
+          {
+            "activity": "Apply_Privacy_Rules",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ]
+      },
+      {
+        "name": "Create_Fact_Tables",
+        "type": "Notebook",
+        "typeProperties": {
+          "notebook": {
+            "referenceName": "create_fact_tables_notebook",
+            "type": "NotebookReference"
+          },
+          "parameters": {
+            "environment": "@pipeline().parameters.environment"
+          }
+        },
+        "dependsOn": [
+          {
+            "activity": "Apply_Privacy_Rules",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ]
+      },
+      {
+        "name": "Engineer_Features",
+        "type": "Notebook",
+        "typeProperties": {
+          "notebook": {
+            "referenceName": "engineer_features_notebook",
+            "type": "NotebookReference"
+          },
+          "parameters": {
+            "environment": "@pipeline().parameters.environment"
+          }
+        },
+        "dependsOn": [
+          {
+            "activity": "Create_Dimension_Tables",
+            "dependencyConditions": ["Succeeded"]
+          },
+          {
+            "activity": "Create_Fact_Tables",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ]
+      },
+      {
+        "name": "Create_Published_Views",
+        "type": "SqlServerStoredProcedure",
+        "typeProperties": {
+          "storedProcedureName": "[dbo].[sp_create_published_views]",
+          "storedProcedureParameters": {
+            "environment": {
+              "value": "@pipeline().parameters.environment",
+              "type": "String"
+            },
+            "execution_timestamp": {
+              "value": "@utcNow()",
+              "type": "DateTime"
+            }
+          }
+        },
+        "linkedServiceName": {
+          "referenceName": "EducationAnalyticsDB",
+          "type": "LinkedServiceReference"
+        },
+        "dependsOn": [
+          {
+            "activity": "Engineer_Features",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ]
+      },
+      {
+        "name": "Validate_Stage2B_Stage3",
+        "type": "Notebook",
+        "typeProperties": {
+          "notebook": {
+            "referenceName": "validate_published_data",
+            "type": "NotebookReference"
+          },
+          "parameters": {
+            "environment": "@pipeline().parameters.environment"
+          }
+        },
+        "dependsOn": [
+          {
+            "activity": "Create_Published_Views",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ]
+      },
+      {
+        "name": "Calculate_KPIs",
+        "type": "Notebook",
+        "typeProperties": {
+          "notebook": {
+            "referenceName": "calculate_kpis_notebook",
+            "type": "NotebookReference"
+          },
+          "parameters": {
+            "environment": "@pipeline().parameters.environment"
+          }
+        },
+        "dependsOn": [
+          {
+            "activity": "Validate_Stage2B_Stage3",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ]
+      },
+      {
+        "name": "Archive_Stage1_Data",
+        "type": "ExecutePipeline",
+        "typeProperties": {
+          "pipeline": {
+            "referenceName": "archive_old_data",
+            "type": "PipelineReference"
+          },
+          "parameters": {
+            "stage": "stage1",
+            "retention_years": "@pipeline().parameters.stage1_retention_years",
+            "environment": "@pipeline().parameters.environment"
+          },
+          "waitOnCompletion": false
+        },
+        "dependsOn": [
+          {
+            "activity": "Calculate_KPIs",
+            "dependencyConditions": ["Succeeded"]
+          }
+        ]
+      }
+    ],
+    "parameters": {
+      "workspace": {
+        "type": "string",
+        "description": "Workspace identifier"
+      },
+      "environment": {
+        "type": "string",
+        "description": "Environment name"
+      },
+      "metadata_version": {
+        "type": "string",
+        "defaultValue": "latest",
+        "description": "Version of metadata/privacy rules to apply"
+      },
+      "stage1_retention_years": {
+        "type": "int",
+        "defaultValue": 2,
+        "description": "Retention period for Stage 1 data in years"
+      }
+    }
+  }
+}

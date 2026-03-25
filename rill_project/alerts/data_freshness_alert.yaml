@@ -1,0 +1,84 @@
+# Data Freshness Alert
+# Monitors analytics data freshness and alerts when data becomes stale
+# Reference: https://docs.rilldata.com/reference/project-files/alerts
+
+type: alert
+display_name: "Data Freshness Alert - Analytics Tables"
+
+# Refresh schedule (every 30 minutes)
+refresh:
+  cron: "*/30 * * * *"
+
+# Query to detect stale data
+data:
+  sql: |
+    WITH data_freshness AS (
+      SELECT 
+        'fct_attendance_daily' AS table_name,
+        MAX(attendance_date) AS last_update,
+        CURRENT_DATE - INTERVAL '2 days' AS threshold,
+        CASE 
+          WHEN MAX(attendance_date) < CURRENT_DATE - INTERVAL '2 days' 
+          THEN 'STALE' 
+          ELSE 'FRESH' 
+        END AS status
+      FROM analytics.fct_attendance_daily
+      
+      UNION ALL
+      
+      SELECT 
+        'fct_student_grades' AS table_name,
+        MAX(grade_date) AS last_update,
+        CURRENT_DATE - INTERVAL '7 days' AS threshold,
+        CASE 
+          WHEN MAX(grade_date) < CURRENT_DATE - INTERVAL '7 days' 
+          THEN 'STALE' 
+          ELSE 'FRESH' 
+        END AS status
+      FROM analytics.fct_student_grades
+      
+      UNION ALL
+      
+      SELECT 
+        'dim_students' AS table_name,
+        MAX(updated_at) AS last_update,
+        CURRENT_DATE - INTERVAL '30 days' AS threshold,
+        CASE 
+          WHEN MAX(updated_at) < CURRENT_DATE - INTERVAL '30 days' 
+          THEN 'STALE' 
+          ELSE 'FRESH' 
+        END AS status
+      FROM analytics.dim_students
+    )
+    
+    SELECT 
+      table_name,
+      last_update,
+      threshold,
+      status,
+      DATEDIFF('day', last_update, CURRENT_DATE) AS days_since_update
+    FROM data_freshness
+    WHERE status = 'STALE'
+    ORDER BY days_since_update DESC
+
+# Email notification configuration
+notify:
+  email:
+    recipients:
+      - "data-team@school.edu"
+      - "analytics-admin@school.edu"
+
+# Send recovery notification when data becomes fresh again
+on_recover: true
+
+# Re-notify if alert remains active
+renotify: true
+renotify_after: "4h"
+
+# Intervals configuration (optional - for time-series data)
+intervals:
+  duration: PT1H  # Check hourly intervals
+  limit: 24       # Keep last 24 hours of history
+
+# Timeout for query execution
+timeout: "30s"

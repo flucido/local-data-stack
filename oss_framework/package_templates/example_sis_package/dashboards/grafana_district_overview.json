@@ -1,0 +1,211 @@
+{
+  "dashboard": {
+    "id": "sis-grafana-overview",
+    "uid": "sis_overview",
+    "title": "SIS District Overview Dashboard",
+    "description": "District-level enrollment, performance, and attendance overview",
+    "tags": [
+      "SIS",
+      "District",
+      "Overview",
+      "Education"
+    ],
+    "timezone": "browser",
+    "schemaVersion": 40,
+    "version": 0,
+    "refresh": "30s",
+    "time": {
+      "from": "now-30d",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Active Students",
+        "type": "stat",
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 0,
+          "y": 0
+        },
+        "targets": [
+          {
+            "format": "table",
+            "rawSql": "SELECT COUNT(DISTINCT student_id_hashed) as active_students FROM stage_3.district_summary;",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "orientation": "auto",
+          "textMode": "auto",
+          "colorMode": "value",
+          "reduceOptions": {
+            "values": false,
+            "fields": "",
+            "calcs": [
+              "lastNotNull"
+            ]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "hideFrom": {
+                "tooltip": false,
+                "viz": false,
+                "legend": false
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "District Average GPA",
+        "type": "stat",
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 6,
+          "y": 0
+        },
+        "targets": [
+          {
+            "format": "table",
+            "rawSql": "SELECT ROUND(AVG(gpa), 2) as avg_gpa FROM stage_3.district_summary;",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "orientation": "auto",
+          "textMode": "auto"
+        }
+      },
+      {
+        "id": 3,
+        "title": "District Attendance Rate",
+        "type": "stat",
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 12,
+          "y": 0
+        },
+        "targets": [
+          {
+            "format": "table",
+            "rawSql": "SELECT ROUND(100.0 * AVG(attendance_rate), 1) as attendance_percent FROM stage_3.district_summary;",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "orientation": "auto",
+          "textMode": "auto"
+        }
+      },
+      {
+        "id": 4,
+        "title": "Students at Risk",
+        "type": "stat",
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 18,
+          "y": 0
+        },
+        "targets": [
+          {
+            "format": "table",
+            "rawSql": "SELECT SUM(affected_students) as at_risk FROM stage_3.at_risk_aggregates;",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "colorMode": "background",
+          "graphMode": "area",
+          "orientation": "auto",
+          "textMode": "auto"
+        }
+      },
+      {
+        "id": 5,
+        "title": "Performance by Grade Level",
+        "type": "graph",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 4
+        },
+        "targets": [
+          {
+            "format": "table",
+            "rawSql": "SELECT grade_level, avg_gpa, avg_attendance_rate FROM stage_3.grade_level_performance ORDER BY grade_level;",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "legend": {
+            "calcs": [],
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "Enrollment Trends by Term",
+        "type": "graph",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 4
+        },
+        "targets": [
+          {
+            "format": "table",
+            "rawSql": "SELECT term, unique_students, enrollment_count FROM stage_3.term_trends ORDER BY term DESC LIMIT 8;",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "legend": {
+            "calcs": [],
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Risk Indicators",
+        "type": "table",
+        "gridPos": {
+          "h": 8,
+          "w": 24,
+          "x": 0,
+          "y": 12
+        },
+        "targets": [
+          {
+            "format": "table",
+            "rawSql": "SELECT risk_category, affected_students, percent_of_active, risk_description FROM stage_3.at_risk_aggregates ORDER BY affected_students DESC;",
+            "refId": "A"
+          }
+        ]
+      }
+    ]
+  }
+}

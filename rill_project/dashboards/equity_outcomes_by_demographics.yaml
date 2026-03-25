@@ -1,0 +1,57 @@
+# Equity Outcomes by Demographics Dashboard
+# Source: dbt model v_equity_outcomes_by_demographics
+# Analyzes outcome disparities across demographic groups
+
+type: metrics_view
+title: "Equity Outcomes by Demographics"
+model: equity_outcomes_by_demographics
+timeseries: _loaded_at
+
+dimensions:
+  - name: race_ethnicity
+    label: "Race/Ethnicity"
+    column: race_ethnicity
+
+  - name: english_learner
+    label: "English Learner"
+    column: english_learner
+
+  - name: special_education
+    label: "Special Education"
+    column: special_education
+
+  - name: economically_disadvantaged
+    label: "Economically Disadvantaged"
+    column: economically_disadvantaged
+
+measures:
+  - name: cohort_size
+    label: "Cohort Size"
+    expression: SUM(cohort_size)
+    format_preset: humanize
+
+  - name: avg_attendance
+    label: "% Good Attendance (>90%)"
+    expression: AVG(pct_good_attendance) / 100.0
+    format_preset: percentage
+
+  - name: avg_no_discipline
+    label: "% No Discipline Incidents"
+    expression: AVG(pct_no_discipline) / 100.0
+    format_preset: percentage
+
+  - name: avg_gpa
+    label: "Average GPA"
+    expression: AVG(avg_gpa)
+    format_preset: humanize
+
+  - name: avg_gpa_above_2_5
+    label: "% GPA 2.5+"
+    expression: AVG(pct_gpa_2_5_plus) / 100.0
+    format_preset: percentage
+
+  - name: avg_below_c
+    label: "% Below C Average"
+    expression: AVG(pct_below_c) / 100.0
+    format_preset: percentage
+

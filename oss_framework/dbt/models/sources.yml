@@ -1,0 +1,220 @@
+
+# models/sources.yml - Define Stage 1 raw data sources
+
+version: 2
+
+sources:
+  - name: raw
+    description: Stage 1 raw landing zone tables from Aeries SIS
+    database: oea
+    description: Stage 1 raw landing zone tables from Aeries SIS
+    description: Stage 1 raw landing zone tables from Aeries SIS
+    schema: main
+
+    freshness:
+      warn_after: {count: 48, period: hour}
+      error_after: {count: 7, period: day}
+    loaded_at_field: created_at
+
+    tables:
+      - name: raw_students
+        description: |
+          Raw student records from Aeries SIS.
+          Contains 3,400 students with 19 attributes including demographics, flags, and enrollment dates.
+        freshness:
+          warn_after: {count: 7, period: day}
+          error_after: {count: 14, period: day}
+        loaded_at_field: updated_at
+        columns:
+          - name: StudentID
+            description: Unique student identifier (SIS)
+            tests:
+              - not_null
+          - name: FirstName
+            description: Student first name (PII)
+          - name: LastName
+            description: Student last name (PII)
+          - name: Birthdate
+            description: Student date of birth (sensitive PII)
+          - name: Gender
+            description: Gender identity
+          - name: ethnicity
+            description: Ethnicity/race category
+          - name: Grade
+            description: Current grade (9-12)
+          - name: SchoolCode
+            description: School identifier
+          - name: special_education
+            description: Special education enrollment flag
+          - name: ell_status
+            description: English learner status
+          - name: free_reduced_lunch
+            description: Free/reduced lunch eligibility
+          - name: homeless
+            description: Homeless status flag
+          - name: foster_care
+            description: Foster care flag
+          - name: section_504
+            description: 504 plan flag
+          - name: home_language
+            description: Primary home language
+          - name: enrollment_date
+            description: Enrollment date
+          - name: withdrawal_date
+            description: Withdrawal date
+          - name: created_at
+            description: Timestamp record was created
+          - name: updated_at
+            description: Timestamp record was updated
+
+      - name: raw_attendance
+        description: |
+          Raw daily attendance records from Aeries SIS.
+          Contains 90,000 records (52.9 per student average) with daily attendance status.
+        columns:
+          - name: StudentID
+            description: Unique attendance record identifier
+          - name: StudentID
+            description: Foreign key to students
+            tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('raw', 'raw_students')
+                    field: StudentID
+          - name: SchoolCode
+            description: School identifier
+          - name: attendance_date
+            description: Date of attendance record
+          - name: attendance_status
+            description: Overall attendance status (present/absent/tardy/excused/unexcused)
+          - name: absence_reason
+            description: Reason for absence
+          - name: present_flag
+            description: Attendance flag (true = present)
+          - name: absent_flag
+            description: Absence flag (true = absent)
+          - name: tardy_flag
+            description: Tardy indicator
+          - name: excused_flag
+            description: Excused absence indicator
+          - name: unexcused_flag
+            description: Unexcused absence indicator
+          - name: created_at
+            description: Timestamp record was created
+          - name: load_date
+            description: Date data was loaded into Stage 1
+
+      - name: raw_academic_records
+        description: |
+          Raw grade records from Aeries SIS.
+          Contains academic performance data including course grades and scores.
+        columns:
+          - name: record_id
+            description: Unique academic record identifier
+          - name: StudentID
+            description: Foreign key to students
+            tests:
+              - not_null
+          - name: SchoolCode
+            description: School identifier
+          - name: CourseID
+            description: Course identifier
+          - name: section_id
+            description: Section/class identifier
+          - name: teacher_id
+            description: Teacher identifier
+          - name: MP_Mark
+            description: Letter grade (A, B, C, D, F, etc.)
+          - name: score
+            description: Numeric score/percentage
+          - name: term
+            description: School term/semester
+          - name: school_year
+            description: Academic year (e.g., "2025-2026")
+          - name: created_at
+            description: Timestamp record was created
+          - name: load_date
+            description: Date data was loaded into Stage 1
+
+      - name: raw_discipline
+        description: |
+          Raw discipline incident records from Aeries SIS.
+          Contains 4,000 records (2-3 per student average).
+        columns:
+          - name: IncidentID
+            description: Unique incident identifier
+          - name: StudentID
+            description: Foreign key to students
+            tests:
+              - not_null
+          - name: SchoolOfIncidentCode
+            description: School where incident occurred
+          - name: incident_date
+            description: Date of incident
+          - name: incident_type
+            description: Category (behavioral/academic/attendance)
+          - name: severity
+            description: Severity level (minor/major/critical)
+          - name: resolution
+            description: Disciplinary action (detention/suspension/etc)
+          - name: suspension_days
+            description: Number of suspension days
+          - name: created_at
+            description: Timestamp record was created
+          - name: load_date
+            description: Date data was loaded into Stage 1
+
+      - name: raw_enrollment
+        description: |
+          Raw course enrollment records from Aeries SIS.
+          Contains student enrollment tracking data.
+        columns:
+          - name: StudentID
+            description: Foreign key to students
+            tests:
+              - not_null
+          - name: SchoolCode
+            description: School identifier
+          - name: school_year
+            description: School year
+          - name: enrollment_date
+            description: Date student enrolled
+          - name: withdrawal_date
+            description: Date student withdrew
+          - name: Grade
+            description: Grade level
+          - name: enrollment_status
+            description: Status (active/completed/dropped/failed)
+          - name: created_at
+            description: Timestamp record was created
+          - name: load_date
+            description: Date data was loaded into Stage 1
+
+
+      - name: raw_aeries_programs
+        description: |
+          Raw program participation records from Aeries SIS.
+          Contains student program enrollments including Special Education, Free/Reduced Lunch,
+          Section 504, Homeless, Foster, GATE, and ELL programs.
+        columns:
+          - name: StudentID
+            description: Foreign key to students
+          - name: ProgramCode
+            description: Program identifier code (e.g., 144=Special Ed, 181=Free Lunch)
+          - name: ProgramDescription
+            description: Human-readable program name
+          - name: EligibilityStartDate
+            description: Date student became eligible for program
+          - name: EligibilityEndDate
+            description: Date student's eligibility ended (NULL if active)
+          - name: ParticipationStartDate
+            description: Date student began participating
+          - name: ParticipationEndDate
+            description: Date student ended participation
+          - name: AcademicYear
+            description: Academic year of the record
+          - name: ExtractedAt
+            description: Timestamp data was extracted from Aeries
+          - name: year
+            description: Partition year

@@ -1,0 +1,199 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pipeline-sa
+  namespace: sis-analytics
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pipeline-role
+  namespace: sis-analytics
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pipeline-rolebinding
+  namespace: sis-analytics
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: pipeline-role
+subjects:
+- kind: ServiceAccount
+  name: pipeline-sa
+  namespace: sis-analytics
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sis-pipeline
+  namespace: sis-analytics
+  labels:
+    app: sis-pipeline
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: sis-pipeline
+  template:
+    metadata:
+      labels:
+        app: sis-pipeline
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: pipeline-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+
+      containers:
+      - name: pipeline
+        image: sis-pipeline:latest
+        imagePullPolicy: Always
+
+        env:
+        - name: POSTGRES_HOST
+          value: "postgres"
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: postgres-config
+              key: POSTGRES_DB
+        - name: POSTGRES_USER
+          valueFrom:
+            configMapKeyRef:
+              name: postgres-config
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_PASSWORD
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: pipeline-config
+              key: LOG_LEVEL
+        - name: PYTHONUNBUFFERED
+          valueFrom:
+            configMapKeyRef:
+              name: pipeline-config
+              key: PYTHONUNBUFFERED
+
+        livenessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "import sys; sys.exit(0)"
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+
+        readinessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "import pandas, sqlalchemy; print('Ready')"
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+
+        volumeMounts:
+        - name: data
+          mountPath: /app/data
+        - name: logs
+          mountPath: /app/logs
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+
+      volumes:
+      - name: data
+        emptyDir: {}
+      - name: logs
+        emptyDir: {}
+      - name: config
+        configMap:
+          name: pipeline-config
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: sis-pipeline
+  namespace: sis-analytics
+  labels:
+    app: sis-pipeline
+spec:
+  ports:
+    - port: 8000
+      targetPort: 8000
+      name: metrics
+  selector:
+    app: sis-pipeline
+
+---
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: sis-pipeline-hpa
+  namespace: sis-analytics
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sis-pipeline
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80

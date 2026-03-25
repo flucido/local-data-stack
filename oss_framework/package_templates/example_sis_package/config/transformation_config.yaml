@@ -1,0 +1,205 @@
+entities:
+  students:
+    # Source table name in SIS
+    source_table: dbo.Students
+    
+    # Target tables in data lake
+    target_tables:
+      stage1: stage1.students
+      stage2a: stage2a.students
+      stage2b: stage2b.students
+    
+    # Field mappings: SIS_COLUMN -> standard_schema_column
+    mappings:
+      student_id: StudentNumber
+      first_name: FirstName
+      last_name: LastName
+      middle_name: MiddleName
+      date_of_birth: BirthDate
+      gender: Gender
+      ethnicity: Ethnicity
+      grade_level: GradeLevel
+      school_id: SchoolCode
+      district_id: DistrictCode
+      cohort_year: CohortYear
+      enrollment_status: Status
+      special_education: SPEDStatus
+      english_learner: ELStatus
+      economically_disadvantaged: EconomicDisadvantaged
+      homeless_status: HomelessStatus
+      foster_care_status: FosterCareStatus
+      military_family: MilitaryFamily
+      phone_number: PhoneNumber
+      email_address: EmailAddress
+      address_line1: Address1
+      address_city: City
+      address_state: State
+      address_zip: ZipCode
+      _sis_modified_date: ModifyDate
+    
+    # Data type specifications
+    type_mappings:
+      student_id: VARCHAR(20)
+      first_name: VARCHAR(100)
+      date_of_birth: DATE
+      grade_level: INT
+      enrollment_status: VARCHAR(30)
+      _sis_modified_date: TIMESTAMP
+    
+    # Pseudonymization rules (applied at Stage 2B)
+    pseudonymization:
+      student_id: hash             # Deterministic, allows linking
+      first_name: mask             # One-way, irreversible
+      last_name: mask
+      middle_name: mask
+      date_of_birth: hash          # FERPA protection
+      gender: no-op                # Non-sensitive
+      grade_level: no-op
+      ethnicity: no-op
+      enrollment_status: no-op
+      special_education: no-op
+      english_learner: no-op
+      economically_disadvantaged: no-op
+      phone_number: mask           # FERPA protection
+      email_address: mask
+      address_line1: mask
+      address_city: mask
+      address_state: mask
+      address_zip: mask
+    
+    # Data validation rules (Stage 2A)
+    validation:
+      # Columns that cannot be null
+      null_check:
+        - student_id
+        - first_name
+        - last_name
+      
+      # Columns that must be unique
+      unique_check:
+        - student_id
+      
+      # Range validation: column: [min, max]
+      range_check:
+        grade_level: [0, 16]
+      
+      # Pattern matching: column: regex
+      pattern_check:
+        student_id: '^[A-Z0-9]{5,10}$'
+        email_address: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+      
+      # Custom SQL checks
+      sql_check: |
+        SELECT student_id FROM stage2a.students 
+        WHERE grade_level < 0 OR grade_level > 16
+
+  courses:
+    source_table: dbo.Courses
+    target_tables:
+      stage1: stage1.courses
+      stage2a: stage2a.courses
+      stage2b: stage2b.courses
+    
+    mappings:
+      course_id: CourseID
+      school_id: SchoolCode
+      course_code: CourseCode
+      course_name: CourseName
+      course_description: CourseDescription
+      subject_area: SubjectArea
+      grade_level: GradeLevel
+      credit_value: Credits
+      course_type: CourseType
+      teacher_id: TeacherID
+      max_enrollment: MaxEnrollment
+      min_enrollment: MinEnrollment
+      term: Term
+      start_date: StartDate
+      end_date: EndDate
+      status: Status
+      _sis_modified_date: ModifyDate
+    
+    pseudonymization:
+      course_id: no-op              # Course codes not sensitive
+      teacher_id: hash              # Protect teacher identity
+      course_name: no-op
+      credit_value: no-op
+      start_date: no-op
+      end_date: no-op
+    
+    validation:
+      null_check:
+        - course_id
+        - course_code
+        - course_name
+      unique_check:
+        - course_id
+      range_check:
+        credit_value: [0, 4]
+        grade_level: [0, 16]
+
+  enrollment:
+    source_table: dbo.Enrollments
+    target_tables:
+      stage1: stage1.enrollment
+      stage2a: stage2a.enrollment
+      stage2b: stage2b.enrollment
+    
+    mappings:
+      enrollment_id: EnrollmentID
+      student_id: StudentID
+      course_id: CourseID
+      school_id: SchoolCode
+      term: Term
+      enrollment_date: EnrollDate
+      completion_date: CompletionDate
+      enrollment_status: Status
+      final_grade_letter: Grade
+      final_grade_numeric: NumericGrade
+      credits_earned: CreditsEarned
+      credits_attempted: CreditsAttempted
+      attendance_days: AttendanceDays
+      absence_count: AbsenceCount
+      tardy_count: TardyCount
+      _sis_modified_date: ModifyDate
+    
+    pseudonymization:
+      enrollment_id: no-op
+      student_id: hash
+      course_id: no-op
+      final_grade_numeric: no-op    # Non-sensitive
+      final_grade_letter: no-op
+      credits_earned: no-op
+      attendance_days: no-op
+      absence_count: no-op
+    
+    validation:
+      null_check:
+        - enrollment_id
+        - student_id
+        - course_id
+      range_check:
+        final_grade_numeric: [0, 100]
+        credits_earned: [0, 4]
+        attendance_days: [0, 365]
+      # Logical validation
+      sql_check: |
+        SELECT enrollment_id FROM stage2a.enrollment
+        WHERE credits_earned > credits_attempted
+        OR completion_date < enrollment_date
+
+# Hash seed for pseudonymization (keep consistent across all runs)
+hash_seed: "your-stable-secret-key-change-in-production"
+
+# Quality threshold parameters
+quality:
+  max_null_percent: 0.05        # Allow up to 5% nulls
+  max_duplicate_percent: 0.01   # Allow up to 1% duplicates
+  min_record_count: 100          # Fail if < 100 records
+  max_error_percent: 0.02        # Fail if > 2% validation errors
+
+# Logging
+logging:
+  level: INFO
+  format: "%(timestamp)s - %(level)s - %(message)s"
+  file: logs/transformation.log

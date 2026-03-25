@@ -1,0 +1,148 @@
+version: "3.9"
+
+services:
+  # PostgreSQL Database - 5-stage SIS analytics schema
+  postgres:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.postgres
+    container_name: sis-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-sis_analytics}
+      POSTGRES_USER: ${DB_USER:-sis_admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secure_password_change_me}
+      POSTGRES_INITDB_ARGS: "-c shared_buffers=256MB -c max_connections=100 -c log_statement=all"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./package_templates/example_sis_package/queries:/docker-entrypoint-initdb.d
+    networks:
+      - sis-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-sis_admin} -d ${DB_NAME:-sis_analytics}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Python ETL Pipeline Runner
+  pipeline:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.pipeline
+      args:
+        PYTHON_VERSION: "3.11"
+    container_name: sis-pipeline
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${DB_NAME:-sis_analytics}
+      POSTGRES_USER: ${DB_USER:-sis_admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secure_password_change_me}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      PYTHONUNBUFFERED: 1
+    entrypoint: ["sh", "-c"]
+    command: "python scripts/run_week1_orchestrator.py && sleep infinity"
+    volumes:
+      - ./:/app
+      - ./logs:/app/logs
+      - ./data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sis-network
+    restart: "no"
+
+  # Grafana - District Overview Dashboard
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: sis-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3005:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - postgres
+    networks:
+      - sis-network
+    restart: unless-stopped
+
+  # Apache Superset - Data Exploration
+  superset:
+    image: apache/superset:3.0.0
+    container_name: sis-superset
+    environment:
+      FLASK_ENV: production
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-dev}
+      SUPERSET_LOAD_EXAMPLES: "no"
+    ports:
+      - "8088:8088"
+    volumes:
+      - superset_data:/app/superset_home
+    command: >
+      sh -c "superset db upgrade && superset fab create-admin --username admin --firstname Admin --lastname User --email admin@example.com --password admin && superset init"
+    depends_on:
+      - postgres
+    networks:
+      - sis-network
+    restart: unless-stopped
+
+  # pgAdmin - Database Management UI
+  pgadmin:
+    image: dpage/pgadmin4:7.8
+    container_name: sis-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - sis-network
+    restart: unless-stopped
+
+  # Prometheus - Metrics Collection (optional)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: sis-prometheus
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    ports:
+      - "9090:9090"
+    networks:
+      - sis-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  grafana_data:
+    driver: local
+  superset_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  prometheus_data:
+    driver: local
+
+networks:
+  sis-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

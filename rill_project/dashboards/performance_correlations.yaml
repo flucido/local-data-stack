@@ -1,0 +1,60 @@
+# Performance Correlations Dashboard
+# Source: dbt model v_performance_correlations
+# Analyzes correlations between different performance metrics
+
+type: metrics_view
+title: "Performance Correlations Analysis"
+model: performance_correlations
+timeseries: _loaded_at
+
+dimensions:
+  - name: correlation_pair
+    label: "Correlation Pair"
+    column: correlation_pair
+    description: "Performance metrics being correlated (e.g., 'Attendance vs GPA')"
+
+  - name: expected_direction
+    label: "Expected Direction"
+    column: expected_direction
+    description: "Expected correlation direction (positive, negative)"
+
+  - name: strength
+    label: "Correlation Strength"
+    column: strength
+    description: "Strength category (Strong, Moderate, Weak)"
+
+measures:
+  - name: total_correlations
+    label: "Total Correlations"
+    expression: COUNT(*)
+    format_preset: humanize
+
+  - name: avg_correlation
+    label: "Average Correlation Coefficient"
+    expression: AVG(correlation_coefficient)
+    format_preset: humanize
+
+  - name: strong_correlations
+    label: "Strong Correlations"
+    expression: SUM(CASE WHEN strength = 'Strong' THEN 1 ELSE 0 END)
+    format_preset: humanize
+
+  - name: moderate_correlations
+    label: "Moderate Correlations"
+    expression: SUM(CASE WHEN strength = 'Moderate' THEN 1 ELSE 0 END)
+    format_preset: humanize
+
+  - name: weak_correlations
+    label: "Weak Correlations"
+    expression: SUM(CASE WHEN strength = 'Weak' THEN 1 ELSE 0 END)
+    format_preset: humanize
+
+  - name: total_data_points
+    label: "Total Data Points Analyzed"
+    expression: SUM(data_points)
+    format_preset: humanize
+
+  - name: avg_data_points
+    label: "Average Data Points per Correlation"
+    expression: AVG(data_points)
+    format_preset: humanize

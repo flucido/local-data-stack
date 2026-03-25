@@ -1,0 +1,102 @@
+[
+  {
+    "name": "chronic_students_at_risk",
+    "query": "SELECT COUNT(*) as count FROM main_analytics.v_chronic_absenteeism_risk WHERE risk_level IN ('Critical', 'High');"
+  },
+  {
+    "name": "chronic_absence_rate",
+    "query": "SELECT ROUND(AVG(CASE WHEN chronic_absence_flag = true THEN 100 ELSE 0 END), 1) as rate FROM main_analytics.v_chronic_absenteeism_risk;"
+  },
+  {
+    "name": "chronic_declining_attendance",
+    "query": "SELECT COUNT(*) as count FROM main_analytics.v_chronic_absenteeism_risk WHERE attendance_trend_90d = 'declining' OR attendance_rate_30d < 85;"
+  },
+  {
+    "name": "chronic_risk_distribution",
+    "query": "SELECT ROUND(chronic_absenteeism_risk_score * 10) / 10 as risk_score, COUNT(*) as student_count FROM main_analytics.v_chronic_absenteeism_risk GROUP BY ROUND(chronic_absenteeism_risk_score * 10) / 10 ORDER BY risk_score;"
+  },
+  {
+    "name": "chronic_risk_breakdown",
+    "query": "SELECT risk_level as risk_classification, COUNT(*) as count FROM main_analytics.v_chronic_absenteeism_risk GROUP BY risk_level ORDER BY risk_level;"
+  },
+  {
+    "name": "chronic_priority_list",
+    "query": "SELECT student_key as student_id, grade_level, school_id, ROUND(chronic_absenteeism_risk_score, 2) as risk_score, risk_level, ROUND(attendance_rate_30d, 1) as attendance_30d, discipline_incidents_30d FROM main_analytics.v_chronic_absenteeism_risk WHERE risk_level IN ('Critical', 'High') ORDER BY chronic_absenteeism_risk_score DESC LIMIT 50;"
+  },
+  {
+    "name": "chronic_trends_analysis",
+    "query": "SELECT grade_level, ROUND(AVG(attendance_rate_30d), 1) as avg_30d, ROUND(AVG(attendance_rate_90d), 1) as avg_90d, ROUND(AVG(chronic_absenteeism_risk_score), 1) as avg_risk FROM main_analytics.v_chronic_absenteeism_risk GROUP BY grade_level ORDER BY grade_level;"
+  },
+  {
+    "name": "equity_achievement_outcomes",
+    "query": "SELECT race_ethnicity, english_learner, special_education, economically_disadvantaged, cohort_size, ROUND(avg_gpa, 2), ROUND(pct_good_attendance, 1), ROUND(pct_no_discipline, 1) FROM main_analytics.v_equity_outcomes_by_demographics WHERE cohort_size >= 5 ORDER BY avg_gpa DESC;"
+  },
+  {
+    "name": "equity_disparity_index",
+    "query": "SELECT race_ethnicity as category, ROUND(MAX(avg_gpa) - MIN(avg_gpa), 2) as disparity_index FROM main_analytics.v_equity_outcomes_by_demographics WHERE cohort_size >= 5 GROUP BY race_ethnicity ORDER BY disparity_index DESC;"
+  },
+  {
+    "name": "equity_gpa_2_5_by_race",
+    "query": "SELECT race_ethnicity as grp, ROUND(AVG(pct_gpa_2_5_plus), 1) as gpa_2_5_pct FROM main_analytics.v_equity_outcomes_by_demographics WHERE cohort_size >= 5 GROUP BY race_ethnicity ORDER BY gpa_2_5_pct DESC;"
+  },
+  {
+    "name": "equity_academic_risk",
+    "query": "SELECT race_ethnicity, COUNT(*) as groups, ROUND(AVG(cohort_size), 1) as avg_cohort_size, ROUND(AVG(pct_below_c), 1) as avg_below_c FROM main_analytics.v_equity_outcomes_by_demographics WHERE cohort_size >= 5 GROUP BY race_ethnicity ORDER BY avg_below_c DESC;"
+  },
+  {
+    "name": "class_perf_vs_peer",
+    "query": "SELECT course_id, school_id, grade_level, ROUND(avg_grade_numeric, 2), ROUND(course_avg_grade, 2), ROUND(grade_diff_from_course_avg, 2), enrollment_count FROM main_analytics.v_class_section_comparison ORDER BY grade_diff_from_course_avg DESC;"
+  },
+  {
+    "name": "class_top10",
+    "query": "SELECT course_id, ROUND(AVG(grade_diff_from_course_avg), 1) as learning_gain FROM main_analytics.v_class_section_comparison GROUP BY course_id ORDER BY learning_gain DESC LIMIT 10;"
+  },
+  {
+    "name": "class_growth_trajectory",
+    "query": "SELECT ROUND(avg_grade_numeric / 0.5) * 0.5 as gain_range, COUNT(*) as class_count FROM main_analytics.v_class_section_comparison GROUP BY ROUND(avg_grade_numeric / 0.5) * 0.5 ORDER BY gain_range;"
+  },
+  {
+    "name": "perf_key_correlations",
+    "query": "SELECT correlation_pair, ROUND(correlation_coefficient, 3), data_points, expected_direction, strength FROM main_analytics.v_performance_correlations ORDER BY ABS(correlation_coefficient) DESC;"
+  },
+  {
+    "name": "perf_intervention_status",
+    "query": "SELECT strength, COUNT(*) as correlations FROM main_analytics.v_performance_correlations WHERE strength IS NOT NULL GROUP BY strength ORDER BY correlations DESC;"
+  },
+  {
+    "name": "perf_completion_rate",
+    "query": "SELECT expected_direction, ROUND(AVG(ABS(correlation_coefficient)) * 100.0, 1) as completion_pct FROM main_analytics.v_performance_correlations WHERE expected_direction IS NOT NULL GROUP BY expected_direction ORDER BY completion_pct DESC;"
+  },
+  {
+    "name": "perf_roi",
+    "query": "SELECT expected_direction, COUNT(*), ROUND(AVG(correlation_coefficient), 3), ROUND(AVG(ABS(correlation_coefficient)) * 100.0, 1) FROM main_analytics.v_performance_correlations WHERE expected_direction IS NOT NULL GROUP BY expected_direction ORDER BY ROUND(AVG(correlation_coefficient), 3) DESC;"
+  },
+  {
+    "name": "wellbeing_high_risk",
+    "query": "SELECT COUNT(*) as count FROM main_analytics.v_wellbeing_risk_profiles WHERE wellbeing_risk_level = 'High';"
+  },
+  {
+    "name": "wellbeing_medium_risk",
+    "query": "SELECT COUNT(*) as count FROM main_analytics.v_wellbeing_risk_profiles WHERE wellbeing_risk_level = 'Medium';"
+  },
+  {
+    "name": "wellbeing_multi_domain",
+    "query": "SELECT COUNT(*) as count FROM main_analytics.v_wellbeing_risk_profiles WHERE high_risk_domain_count >= 2;"
+  },
+  {
+    "name": "wellbeing_severe_risk",
+    "query": "SELECT COUNT(*) as count FROM main_analytics.v_wellbeing_risk_profiles WHERE wellbeing_risk_score >= 70;"
+  },
+  {
+    "name": "wellbeing_domain_breakdown",
+    "query": "SELECT 'Academic' as domain, SUM(CASE WHEN academic_risk_score >= 70 THEN 1 ELSE 0 END) as count FROM main_analytics.v_wellbeing_risk_profiles UNION ALL SELECT 'Behavioral', SUM(CASE WHEN discipline_risk_score >= 70 THEN 1 ELSE 0 END) FROM main_analytics.v_wellbeing_risk_profiles UNION ALL SELECT 'Attendance', SUM(CASE WHEN attendance_risk_score >= 70 THEN 1 ELSE 0 END) FROM main_analytics.v_wellbeing_risk_profiles UNION ALL SELECT 'Multi-Domain', SUM(CASE WHEN high_risk_domain_count >= 2 THEN 1 ELSE 0 END) FROM main_analytics.v_wellbeing_risk_profiles;"
+  },
+  {
+    "name": "wellbeing_caseload",
+    "query": "SELECT wellbeing_risk_level, COUNT(*) as student_count FROM main_analytics.v_wellbeing_risk_profiles GROUP BY wellbeing_risk_level ORDER BY wellbeing_risk_level;"
+  },
+  {
+    "name": "wellbeing_resource_allocation",
+    "query": "SELECT wellbeing_risk_level, COUNT(*) as students, ROUND(AVG(attendance_risk_score), 1), ROUND(AVG(discipline_risk_score), 1), ROUND(AVG(academic_risk_score), 1) FROM main_analytics.v_wellbeing_risk_profiles GROUP BY wellbeing_risk_level ORDER BY wellbeing_risk_level DESC;"
+  }
+]

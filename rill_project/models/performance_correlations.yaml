@@ -1,0 +1,12 @@
+# Model YAML
+# Reference documentation: https://docs.rilldata.com/reference/project-files/models
+
+type: model
+materialize: true
+
+connector: local_duckdb
+
+sql: |
+  -- Performance Correlations Model
+  -- Source: Parquet export from dbt model v_performance_correlations
+  SELECT * FROM read_parquet('data/performance_correlations.parquet')

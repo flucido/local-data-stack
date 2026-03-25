@@ -1,0 +1,85 @@
+# Class Effectiveness Dashboard
+# Source: dbt model v_class_section_comparison
+# Compares class/section performance across schools and courses
+
+type: metrics_view
+title: "Class Effectiveness Analysis"
+model: class_effectiveness
+timeseries: _loaded_at
+
+dimensions:
+  - name: course_id
+    label: "Course"
+    column: course_id
+    description: "Course identifier"
+
+  - name: school_id
+    label: "School"
+    column: school_id
+    description: "School identifier"
+
+  - name: grade_level
+    label: "Grade Level"
+    column: grade_level
+    description: "Grade level for this section"
+
+  - name: term
+    label: "Term"
+    column: term
+    description: "Academic term (Q1, Q2, Q3, Q4)"
+
+  - name: effectiveness_rating
+    label: "Effectiveness Rating"
+    column: effectiveness_rating
+    description: "Overall effectiveness rating (Highly Effective, Effective, Needs Support, Underperforming)"
+
+measures:
+  - name: total_sections
+    label: "Total Sections"
+    expression: COUNT(*)
+    format_preset: humanize
+
+  - name: total_students
+    label: "Total Students Enrolled"
+    expression: SUM(enrollment_count)
+    format_preset: humanize
+
+  - name: avg_class_grade
+    label: "Average Grade (Numeric)"
+    expression: AVG(avg_grade_numeric)
+    format_preset: humanize
+
+  - name: avg_pass_rate
+    label: "Average Pass Rate"
+    expression: AVG(pct_passed) / 100.0
+    format_preset: percentage
+
+  - name: avg_ab_grades
+    label: "Average % A/B Grades"
+    expression: AVG(pct_a_b_grades) / 100.0
+    format_preset: percentage
+
+  - name: avg_ell_pass_rate
+    label: "Average ELL Pass Rate"
+    expression: AVG(pct_passed_ell) / 100.0
+    format_preset: percentage
+
+  - name: avg_sped_pass_rate
+    label: "Average SpEd Pass Rate"
+    expression: AVG(pct_passed_sped) / 100.0
+    format_preset: percentage
+
+  - name: avg_frl_pass_rate
+    label: "Average FRL Pass Rate"
+    expression: AVG(pct_passed_frl) / 100.0
+    format_preset: percentage
+
+  - name: effective_sections
+    label: "Effective Sections"
+    expression: SUM(CASE WHEN effectiveness_rating IN ('Effective', 'Highly Effective') THEN 1 ELSE 0 END)
+    format_preset: humanize
+
+  - name: needs_support_sections
+    label: "Sections Needing Support"
+    expression: SUM(CASE WHEN effectiveness_rating IN ('Needs Support', 'Underperforming') THEN 1 ELSE 0 END)
+    format_preset: humanize

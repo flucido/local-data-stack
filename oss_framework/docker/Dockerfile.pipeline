@@ -1,0 +1,97 @@
+# Multi-stage Docker build for OSS Framework SIS data pipeline
+# Stage 1: Builder - Install dependencies
+# Stage 2: Runtime - Minimal production image
+
+# ============================================
+# STAGE 1: BUILDER
+# ============================================
+FROM python:3.11-slim as builder
+
+LABEL maintainer="Open Education Analytics"
+LABEL description="OSS Framework SIS Data Pipeline - Builder Stage"
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    libssl-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy requirements
+COPY package_templates/example_sis_package/requirements.txt .
+
+# Install Python dependencies
+RUN pip install --upgrade pip setuptools wheel && \
+    pip install -r requirements.txt
+
+# ============================================
+# STAGE 2: RUNTIME
+# ============================================
+FROM python:3.11-slim as runtime
+
+LABEL maintainer="Open Education Analytics"
+LABEL description="OSS Framework SIS Data Pipeline - Runtime Stage"
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/opt/venv/bin:$PATH" \
+    PYTHONPATH="/app:$PYTHONPATH"
+
+# Install runtime dependencies only
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    libssl3 \
+    postgresql-client \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy virtual environment from builder
+COPY --from=builder /opt/venv /opt/venv
+
+# Create app user (security best practice)
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Set working directory
+WORKDIR /app
+
+# Copy application code
+COPY package_templates/example_sis_package/ /app/
+COPY utilities/ /app/utilities/
+COPY tests/ /app/tests/
+
+# Set permissions
+RUN chown -R appuser:appuser /app
+
+# Create directories for logs and data
+RUN mkdir -p /app/logs /app/data && \
+    chown -R appuser:appuser /app/logs /app/data
+
+# Switch to non-root user
+USER appuser
+
+# Health check - verify Python and key dependencies
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import pandas, sqlalchemy; print('OK')" || exit 1
+
+# Default entrypoint - can be overridden by docker-compose or k8s
+ENTRYPOINT ["python"]
+CMD ["-m", "pytest", "tests/", "-v"]
+
+# Labels for metadata
+LABEL version="3.0.0" \
+      build_date="2025-01-26" \
+      vcs_url="https://github.com/microsoft/OpenEduAnalytics" \
+      vcs_ref="main"

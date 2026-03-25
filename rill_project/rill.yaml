@@ -1,0 +1,4 @@
+compiler: rillv1
+display_name: "Local Education Analytics (OSS)"
+description: "Rill dashboards for the local DuckDB analytics marts"
+olap_connector: local_duckdb

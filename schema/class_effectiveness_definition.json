@@ -1,0 +1,66 @@
+{
+  "name": "Class Effectiveness & Teacher Quality",
+  "description": "Class-level learning outcomes with teacher-restricted data access",
+  "type": "class_effectiveness",
+  "target_audience": [
+    "Teachers",
+    "Instructional Coaches"
+  ],
+  "refresh_interval_minutes": 5,
+  "row_level_security": true,
+  "rbac_column": "school_id",
+  "tabs": [
+    {
+      "name": "My Classes",
+      "cards": [
+        {
+          "position": [
+            0,
+            0
+          ],
+          "size": [
+            12,
+            5
+          ],
+          "title": "Class Performance vs Peer Average",
+          "query": "SELECT \n                                course_id as \"Course ID\",\n                                school_id as \"School\",\n                                grade_level as \"Grade\",\n                                ROUND(avg_grade_numeric, 2) as \"Avg Grade\",\n                                ROUND(course_avg_grade, 2) as \"Course Average\",\n                                ROUND(grade_diff_from_course_avg, 2) as \"Difference\",\n                                enrollment_count as \"Student Count\"\n                            FROM main_analytics.v_class_section_comparison\n                            ORDER BY grade_diff_from_course_avg DESC",
+          "visualization_type": "table",
+          "settings": {}
+        }
+      ]
+    },
+    {
+      "name": "Peer Comparison",
+      "cards": [
+        {
+          "position": [
+            0,
+            0
+          ],
+          "size": [
+            6,
+            4
+          ],
+          "title": "My Classes (Top 10)",
+          "query": "SELECT \n                                course_id as class_id,\n                                ROUND(AVG(grade_diff_from_course_avg), 1) as learning_gain\n                            FROM main_analytics.v_class_section_comparison\n                            GROUP BY course_id\n                            ORDER BY learning_gain DESC\n                            LIMIT 10",
+          "visualization_type": "bar",
+          "settings": {}
+        },
+        {
+          "position": [
+            0,
+            6
+          ],
+          "size": [
+            6,
+            4
+          ],
+          "title": "Student Growth Trajectory",
+          "query": "SELECT \n                                ROUND(avg_grade_numeric / 0.5) * 0.5 as gain_range,\n                                COUNT(*) as class_count\n                            FROM main_analytics.v_class_section_comparison\n                            GROUP BY ROUND(avg_grade_numeric / 0.5) * 0.5\n                            ORDER BY gain_range",
+          "visualization_type": "bar",
+          "settings": {}
+        }
+      ]
+    }
+  ]
+}

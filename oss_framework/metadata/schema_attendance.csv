@@ -1,0 +1,22 @@
+Entity,Attribute,DataType,Pseudonymization,Description
+attendance,attendance_id,VARCHAR,no-op,Unique attendance record identifier
+attendance,student_id,VARCHAR,hash,Student identifier (hashed for privacy)
+attendance,school_id,VARCHAR,no-op,School identifier
+attendance,attendance_date,DATE,no-op,Date of attendance record
+attendance,is_present,BOOLEAN,no-op,Flag indicating student was present
+attendance,absence_type,VARCHAR,no-op,Type of absence (excused/unexcused/medical/OSS/ISS/field_trip)
+attendance,absence_reason,VARCHAR,no-op,Reason for absence (illness/appointment/family_emergency/disciplinary)
+attendance,period_or_class,VARCHAR,no-op,Class period or period identifier
+attendance,course_id,VARCHAR,no-op,Course identifier (for period-specific attendance)
+attendance,teacher_id,VARCHAR,hash,Teacher identifier (hashed for privacy)
+attendance,checkin_time,TIME,no-op,Time student checked in
+attendance,checkout_time,TIME,no-op,Time student checked out (if tracked)
+attendance,partial_absence_duration,INT,no-op,Duration of partial absence in minutes
+attendance,tardy_flag,BOOLEAN,no-op,Flag indicating student was tardy
+attendance,early_departure_flag,BOOLEAN,no-op,Flag indicating early departure
+attendance,chronic_absence_flag,BOOLEAN,no-op,Chronic absenteeism indicator (based on threshold)
+attendance,attendance_pattern,VARCHAR,no-op,Attendance pattern trend (improving/declining/stable/at_risk)
+attendance,makeup_assignment_required,BOOLEAN,no-op,Flag indicating makeup work required
+attendance,parent_notification_sent,BOOLEAN,no-op,Flag indicating parent was notified
+attendance,_loaded_date,TIMESTAMP,no-op,Date record was loaded into Stage 1
+attendance,_updated_date,TIMESTAMP,no-op,Date record was last updated

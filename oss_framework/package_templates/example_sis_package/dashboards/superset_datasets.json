@@ -1,0 +1,388 @@
+{
+  "version": "1.0.0",
+  "metadata": {
+    "created_by": "SIS Package Generator",
+    "created_at": "2024",
+    "description": "Superset dataset configurations for SIS analytics"
+  },
+  "datasets": [
+    {
+      "name": "District Summary",
+      "table_name": "stage_3.district_summary",
+      "schema": "public",
+      "description": "District-level enrollment and performance metrics",
+      "columns": [
+        {
+          "name": "active_students",
+          "type": "BIGINT",
+          "description": "Number of currently enrolled active students",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        },
+        {
+          "name": "graduated_students",
+          "type": "BIGINT",
+          "description": "Number of graduated students",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        },
+        {
+          "name": "withdrawn_students",
+          "type": "BIGINT",
+          "description": "Number of withdrawn students",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        },
+        {
+          "name": "district_avg_gpa",
+          "type": "FLOAT",
+          "description": "District average GPA (0.0-4.0)",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        },
+        {
+          "name": "district_avg_attendance_rate",
+          "type": "FLOAT",
+          "description": "District average attendance rate (0.0-1.0)",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        },
+        {
+          "name": "total_courses",
+          "type": "BIGINT",
+          "description": "Total number of courses offered",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        }
+      ],
+      "metrics": [
+        {
+          "name": "count_students",
+          "expression": "COUNT(DISTINCT active_students)",
+          "description": "Count of active students"
+        },
+        {
+          "name": "avg_gpa",
+          "expression": "AVG(district_avg_gpa)",
+          "description": "Average district GPA"
+        },
+        {
+          "name": "avg_attendance",
+          "expression": "AVG(district_avg_attendance_rate)",
+          "description": "Average attendance rate"
+        }
+      ]
+    },
+    {
+      "name": "Grade Level Performance",
+      "table_name": "stage_3.grade_level_performance",
+      "schema": "public",
+      "description": "Performance metrics by grade level",
+      "columns": [
+        {
+          "name": "grade_level",
+          "type": "INTEGER",
+          "description": "Grade level (0-12 or K)",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": true
+        },
+        {
+          "name": "student_count",
+          "type": "BIGINT",
+          "description": "Number of students in grade",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        },
+        {
+          "name": "percent_special_ed",
+          "type": "FLOAT",
+          "description": "Percentage of students with special education",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        },
+        {
+          "name": "percent_english_learner",
+          "type": "FLOAT",
+          "description": "Percentage of English language learners",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        },
+        {
+          "name": "avg_gpa",
+          "type": "FLOAT",
+          "description": "Average GPA for grade level",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        },
+        {
+          "name": "failure_rate_percent",
+          "type": "FLOAT",
+          "description": "Percentage of course failures",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        },
+        {
+          "name": "avg_attendance_rate",
+          "type": "FLOAT",
+          "description": "Average attendance rate (0.0-1.0)",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        },
+        {
+          "name": "chronically_absent_count",
+          "type": "BIGINT",
+          "description": "Number of chronically absent students",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        }
+      ],
+      "metrics": [
+        {
+          "name": "total_students",
+          "expression": "SUM(student_count)",
+          "description": "Total students in grade"
+        },
+        {
+          "name": "avg_performance_gpa",
+          "expression": "AVG(avg_gpa)",
+          "description": "Average GPA"
+        },
+        {
+          "name": "avg_attendance",
+          "expression": "AVG(avg_attendance_rate)",
+          "description": "Average attendance"
+        }
+      ]
+    },
+    {
+      "name": "Department Performance",
+      "table_name": "stage_3.department_performance",
+      "schema": "public",
+      "description": "Performance metrics by department and subject",
+      "columns": [
+        {
+          "name": "department",
+          "type": "VARCHAR",
+          "description": "Academic department (English, Math, Science, etc.)",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": true
+        },
+        {
+          "name": "subject",
+          "type": "VARCHAR",
+          "description": "Subject area",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": true
+        },
+        {
+          "name": "course_count",
+          "type": "BIGINT",
+          "description": "Number of courses in department",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        },
+        {
+          "name": "total_enrollments",
+          "type": "BIGINT",
+          "description": "Total enrollments in department courses",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        },
+        {
+          "name": "avg_grade_percent",
+          "type": "FLOAT",
+          "description": "Average grade percentage (0-100)",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        },
+        {
+          "name": "intervention_flag_percent",
+          "type": "FLOAT",
+          "description": "Percentage flagged for intervention",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        },
+        {
+          "name": "avg_participation_score",
+          "type": "FLOAT",
+          "description": "Average student participation score",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        }
+      ],
+      "metrics": [
+        {
+          "name": "total_courses",
+          "expression": "SUM(course_count)",
+          "description": "Total courses offered"
+        },
+        {
+          "name": "total_enrollments",
+          "expression": "SUM(total_enrollments)",
+          "description": "Total enrollments"
+        },
+        {
+          "name": "avg_grade",
+          "expression": "AVG(avg_grade_percent)",
+          "description": "Average grade performance"
+        }
+      ]
+    },
+    {
+      "name": "Term Trends",
+      "table_name": "stage_3.term_trends",
+      "schema": "public",
+      "description": "Performance trends across academic terms",
+      "columns": [
+        {
+          "name": "term",
+          "type": "VARCHAR",
+          "description": "Academic term (e.g., Fall 2024, Spring 2025)",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": true
+        },
+        {
+          "name": "unique_students",
+          "type": "BIGINT",
+          "description": "Number of unique students in term",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        },
+        {
+          "name": "enrollment_count",
+          "type": "BIGINT",
+          "description": "Total enrollments in term",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        },
+        {
+          "name": "avg_grade_percent",
+          "type": "FLOAT",
+          "description": "Average grade in term",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        },
+        {
+          "name": "failing_enrollments",
+          "type": "BIGINT",
+          "description": "Number of D/F grades",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        },
+        {
+          "name": "avg_attendance_rate",
+          "type": "FLOAT",
+          "description": "Average attendance rate in term",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        },
+        {
+          "name": "intervention_flagged_enrollments",
+          "type": "BIGINT",
+          "description": "Enrollments flagged for intervention",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        }
+      ],
+      "metrics": [
+        {
+          "name": "total_students",
+          "expression": "SUM(unique_students)",
+          "description": "Total unique students"
+        },
+        {
+          "name": "failure_rate_percent",
+          "expression": "100.0 * SUM(failing_enrollments) / NULLIF(SUM(enrollment_count), 0)",
+          "description": "Percentage of failing enrollments"
+        }
+      ]
+    },
+    {
+      "name": "At-Risk Indicators",
+      "table_name": "stage_3.at_risk_aggregates",
+      "schema": "public",
+      "description": "Students at risk by category",
+      "columns": [
+        {
+          "name": "risk_category",
+          "type": "VARCHAR",
+          "description": "Risk category (Attendance, Academic, Demographic)",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": true
+        },
+        {
+          "name": "affected_students",
+          "type": "BIGINT",
+          "description": "Number of students in this risk category",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        },
+        {
+          "name": "percent_of_active",
+          "type": "FLOAT",
+          "description": "Percentage of total active students",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": false
+        },
+        {
+          "name": "risk_description",
+          "type": "VARCHAR",
+          "description": "Description of risk indicator",
+          "is_dttm": false,
+          "filterable": true,
+          "groupby": true
+        }
+      ],
+      "metrics": [
+        {
+          "name": "total_at_risk",
+          "expression": "SUM(affected_students)",
+          "description": "Total at-risk students across all categories"
+        },
+        {
+          "name": "avg_percent_at_risk",
+          "expression": "AVG(percent_of_active)",
+          "description": "Average percentage at risk"
+        }
+      ]
+    }
+  ],
+  "installation_instructions": {
+    "step_1": "Connect Superset to PostgreSQL database with Stage 3 schema",
+    "step_2": "In Superset Admin, go to Data → Databases and add connection",
+    "step_3": "Import these datasets via API or manually create tables",
+    "step_4": "Create charts and dashboards using these datasets",
+    "step_5": "Set data source to 'stage_3' schema for all queries"
+  }
+}

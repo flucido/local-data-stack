@@ -1,0 +1,50 @@
+# Local Data Stack - Docker Compose
+# 100% local development environment with Rill + Jupyter
+
+version: '3.8'
+
+services:
+  # Rill Developer - BI dashboards and analytics
+  rill:
+    image: rilldata/rill:latest
+    container_name: local-data-stack-rill
+    ports:
+      - "9009:9009"
+    volumes:
+      - ./:/app
+      - ./oss_framework/data:/data
+    environment:
+      - RILL_RUNTIME_LOG_LEVEL=info
+      - DUCKDB_DATABASE_PATH=/data/oea.duckdb
+    command: rill start --project /app
+    restart: unless-stopped
+    networks:
+      - local-data-stack
+
+  # JupyterLab - Data exploration and notebook development
+  jupyter:
+    image: jupyter/scipy-notebook:latest
+    container_name: local-data-stack-jupyter
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./:/home/jovyan/work
+      - ./oss_framework/data:/home/jovyan/data
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - DUCKDB_DATABASE_PATH=/home/jovyan/data/oea.duckdb
+      - STAGE1_PATH=/home/jovyan/work/data/stage1
+      - STAGE2_PATH=/home/jovyan/work/data/stage2
+      - STAGE3_PATH=/home/jovyan/work/data/stage3
+    command: start-notebook.sh --NotebookApp.token='' --NotebookApp.password=''
+    restart: unless-stopped
+    networks:
+      - local-data-stack
+
+networks:
+  local-data-stack:
+    driver: bridge
+
+volumes:
+  data:
+    driver: local

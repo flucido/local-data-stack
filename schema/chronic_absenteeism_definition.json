@@ -1,0 +1,140 @@
+{
+  "name": "Chronic Absenteeism Risk",
+  "description": "Real-time identification and monitoring of students at chronic absenteeism risk",
+  "type": "chronic_absenteeism",
+  "target_audience": [
+    "School Administrators",
+    "Counselors"
+  ],
+  "refresh_interval_minutes": 5,
+  "row_level_security": true,
+  "rbac_column": "school_id",
+  "tabs": [
+    {
+      "name": "Overview",
+      "cards": [
+        {
+          "position": [
+            0,
+            0
+          ],
+          "size": [
+            4,
+            2
+          ],
+          "title": "Students at Risk",
+          "query": "SELECT COUNT(*) as count \n                            FROM main_analytics.v_chronic_absenteeism_risk \n                            WHERE risk_level IN ('Critical', 'High')",
+          "visualization_type": "number",
+          "settings": {
+            "color": "#E53935",
+            "fontSize": 32
+          }
+        },
+        {
+          "position": [
+            0,
+            4
+          ],
+          "size": [
+            4,
+            2
+          ],
+          "title": "Chronic Absence Rate (%)",
+          "query": "SELECT ROUND(AVG(CASE WHEN chronic_absence_flag = true THEN 100 ELSE 0 END), 1) as rate\n                            FROM main_analytics.v_chronic_absenteeism_risk",
+          "visualization_type": "gauge",
+          "settings": {
+            "min": 0,
+            "max": 30
+          }
+        },
+        {
+          "position": [
+            0,
+            8
+          ],
+          "size": [
+            4,
+            2
+          ],
+          "title": "Declining Attendance (30d)",
+          "query": "SELECT COUNT(*) as count\n                            FROM main_analytics.v_chronic_absenteeism_risk\n                            WHERE attendance_trend_90d = 'declining' OR attendance_rate_30d < 85",
+          "visualization_type": "number",
+          "settings": {
+            "color": "#FB8C00"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Risk Distribution",
+      "cards": [
+        {
+          "position": [
+            0,
+            0
+          ],
+          "size": [
+            6,
+            4
+          ],
+          "title": "Risk Score Distribution",
+          "query": "SELECT \n                                ROUND(chronic_absenteeism_risk_score * 10) / 10 as risk_score,\n                                COUNT(*) as student_count\n                            FROM main_analytics.v_chronic_absenteeism_risk\n                            GROUP BY ROUND(chronic_absenteeism_risk_score * 10) / 10\n                            ORDER BY risk_score",
+          "visualization_type": "bar",
+          "settings": {}
+        },
+        {
+          "position": [
+            0,
+            6
+          ],
+          "size": [
+            6,
+            4
+          ],
+          "title": "Risk Classification Breakdown",
+          "query": "SELECT \n                                risk_level as risk_classification,\n                                COUNT(*) as count\n                            FROM main_analytics.v_chronic_absenteeism_risk\n                            GROUP BY risk_level\n                            ORDER BY risk_level",
+          "visualization_type": "pie",
+          "settings": {}
+        }
+      ]
+    },
+    {
+      "name": "At-Risk Students",
+      "cards": [
+        {
+          "position": [
+            0,
+            0
+          ],
+          "size": [
+            12,
+            6
+          ],
+          "title": "Priority Intervention List",
+          "query": "SELECT \n                                student_key as \"Student ID\",\n                                grade_level as \"Grade\",\n                                school_id as \"School\",\n                                ROUND(chronic_absenteeism_risk_score, 2) as \"Risk Score\",\n                                risk_level as \"Risk Level\",\n                                ROUND(attendance_rate_30d, 1) as \"Attend Rate (30d) %\",\n                                discipline_incidents_30d as \"Incidents (30d)\"\n                            FROM main_analytics.v_chronic_absenteeism_risk\n                            WHERE risk_level IN ('Critical', 'High')\n                            ORDER BY chronic_absenteeism_risk_score DESC\n                            LIMIT 50",
+          "visualization_type": "table",
+          "settings": {}
+        }
+      ]
+    },
+    {
+      "name": "Trends & Analysis",
+      "cards": [
+        {
+          "position": [
+            0,
+            0
+          ],
+          "size": [
+            12,
+            4
+          ],
+          "title": "Attendance Trend (Last 90 Days)",
+          "query": "SELECT \n                                grade_level as \"Grade\",\n                                ROUND(AVG(attendance_rate_30d), 1) as \"30d Average\",\n                                ROUND(AVG(attendance_rate_90d), 1) as \"90d Average\",\n                                ROUND(AVG(chronic_absenteeism_risk_score), 1) as \"Avg Risk Score\"\n                            FROM main_analytics.v_chronic_absenteeism_risk\n                            GROUP BY grade_level\n                            ORDER BY grade_level",
+          "visualization_type": "table",
+          "settings": {}
+        }
+      ]
+    }
+  ]
+}

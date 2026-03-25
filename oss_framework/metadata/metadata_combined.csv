@@ -1,0 +1,133 @@
+Entity,Attribute,DataType,Pseudonymization,Description
+academic_records,_loaded_date,TIMESTAMP,no-op,Date record was loaded into Stage 1
+academic_records,_updated_date,TIMESTAMP,no-op,Date record was last updated
+academic_records,assignment_due_date,DATE,no-op,Due date for the assignment
+academic_records,assignment_grade_letter,VARCHAR,no-op,Letter grade for assignment
+academic_records,assignment_grade_percent,FLOAT,no-op,Grade percentage (0-100 scale)
+academic_records,assignment_id,VARCHAR,no-op,Unique assignment identifier
+academic_records,assignment_name,VARCHAR,no-op,Human-readable assignment name
+academic_records,assignment_submission_date,DATE,no-op,Date assignment was submitted (NULL if not submitted)
+academic_records,assignment_type,VARCHAR,no-op,Type of assignment (homework/quiz/exam/project/discussion/participation)
+academic_records,course_id,VARCHAR,no-op,Course identifier
+academic_records,feedback_date,DATE,no-op,Date feedback was provided
+academic_records,feedback_provided,BOOLEAN,no-op,Flag indicating teacher feedback was given
+academic_records,late_days,INT,no-op,Number of days late submission
+academic_records,mastery_level,VARCHAR,no-op,Mastery level (novice/developing/proficient/advanced)
+academic_records,on_time_flag,BOOLEAN,no-op,Flag indicating on-time submission
+academic_records,points_earned,FLOAT,no-op,Points earned on assignment
+academic_records,points_possible,FLOAT,no-op,Total points possible
+academic_records,record_id,VARCHAR,no-op,Unique academic record identifier
+academic_records,rubric_score,FLOAT,no-op,Rubric-based assessment score
+academic_records,school_id,VARCHAR,no-op,School identifier
+academic_records,student_id,VARCHAR,hash,Student identifier (hashed for privacy)
+academic_records,submission_status,VARCHAR,no-op,Submission status (submitted/missing/excused/incomplete)
+academic_records,teacher_id,VARCHAR,hash,Teacher identifier (hashed for privacy)
+academic_records,term,VARCHAR,no-op,Academic term (semester/trimester/year)
+attendance,_loaded_date,TIMESTAMP,no-op,Date record was loaded into Stage 1
+attendance,_updated_date,TIMESTAMP,no-op,Date record was last updated
+attendance,absence_reason,VARCHAR,no-op,Reason for absence (illness/appointment/family_emergency/disciplinary)
+attendance,absence_type,VARCHAR,no-op,Type of absence (excused/unexcused/medical/OSS/ISS/field_trip)
+attendance,attendance_date,DATE,no-op,Date of attendance record
+attendance,attendance_id,VARCHAR,no-op,Unique attendance record identifier
+attendance,attendance_pattern,VARCHAR,no-op,Attendance pattern trend (improving/declining/stable/at_risk)
+attendance,checkin_time,TIME,no-op,Time student checked in
+attendance,checkout_time,TIME,no-op,Time student checked out (if tracked)
+attendance,chronic_absence_flag,BOOLEAN,no-op,Chronic absenteeism indicator (based on threshold)
+attendance,course_id,VARCHAR,no-op,Course identifier (for period-specific attendance)
+attendance,early_departure_flag,BOOLEAN,no-op,Flag indicating early departure
+attendance,is_present,BOOLEAN,no-op,Flag indicating student was present
+attendance,makeup_assignment_required,BOOLEAN,no-op,Flag indicating makeup work required
+attendance,parent_notification_sent,BOOLEAN,no-op,Flag indicating parent was notified
+attendance,partial_absence_duration,INT,no-op,Duration of partial absence in minutes
+attendance,period_or_class,VARCHAR,no-op,Class period or period identifier
+attendance,school_id,VARCHAR,no-op,School identifier
+attendance,student_id,VARCHAR,hash,Student identifier (hashed for privacy)
+attendance,tardy_flag,BOOLEAN,no-op,Flag indicating student was tardy
+attendance,teacher_id,VARCHAR,hash,Teacher identifier (hashed for privacy)
+courses,_loaded_date,TIMESTAMP,no-op,Date record was loaded
+courses,_updated_date,TIMESTAMP,no-op,Date record was last updatedEntity,Attribute,DataType,Pseudonymization,Description
+courses,course_code,VARCHAR,no-op,Course code (e.g., ELA101)
+courses,course_description,VARCHAR,no-op,Course description
+courses,course_id,VARCHAR,no-op,Unique course identifier from SIS
+courses,course_name,VARCHAR,no-op,Human-readable course name
+courses,course_type,VARCHAR,no-op,Type (regular/honors/AP/IB/CTE/special ed)
+courses,credit_value,FLOAT,no-op,Credit hours for the course
+courses,end_date,DATE,no-op,Course end date
+courses,grade_level,VARCHAR,no-op,Target grade level
+courses,max_enrollment,INT,no-op,Maximum student enrollment
+courses,min_enrollment,INT,no-op,Minimum student enrollment
+courses,school_id,VARCHAR,no-op,School offering the course
+courses,start_date,DATE,no-op,Course start date
+courses,status,VARCHAR,no-op,Course status (active/inactive/cancelled)
+courses,subject_area,VARCHAR,no-op,Subject area (Math/ELA/Science/Social Studies/etc)
+courses,teacher_id,VARCHAR,hash,Primary instructor identifier
+courses,term,VARCHAR,no-op,Academic term (semester/trimester/year)
+engagement_events,_loaded_date,TIMESTAMP,no-op,Date record was loaded into Stage 1
+engagement_events,_updated_date,TIMESTAMP,no-op,Date record was last updated
+engagement_events,content_interaction_flag,BOOLEAN,no-op,Flag indicating meaningful content interaction
+engagement_events,course_id,VARCHAR,no-op,Course identifier
+engagement_events,device_type,VARCHAR,no-op,Device used (desktop/tablet/mobile/unknown)
+engagement_events,duration_seconds,INT,no-op,Duration of engagement in seconds
+engagement_events,event_id,VARCHAR,no-op,Unique event identifier
+engagement_events,event_timestamp,TIMESTAMP,no-op,Date and time of the event
+engagement_events,event_type,VARCHAR,no-op,Type of engagement event (page_view/assignment_submit/quiz_attempt/discussion_post/resource_download/video_watch)
+engagement_events,interaction_depth,VARCHAR,no-op,Level of interaction (view/interact/submit/complete)
+engagement_events,ip_address_hash,VARCHAR,hash,Hashed IP address for location inference
+engagement_events,lms_session_id,VARCHAR,no-op,LMS session identifier
+engagement_events,platform,VARCHAR,no-op,Platform used (mobile_app/web/api)
+engagement_events,resource_id,VARCHAR,no-op,Identifier of the resource accessed
+engagement_events,resource_name,VARCHAR,no-op,Human-readable name of the resource
+engagement_events,resource_type,VARCHAR,no-op,Type of resource (document/video/assignment/quiz/discussion)
+engagement_events,school_id,VARCHAR,no-op,School identifier
+engagement_events,student_id,VARCHAR,hash,Student identifier (hashed for privacy)
+engagement_events,submission_quality_score,FLOAT,no-op,Quality score for submissions (0-100)
+engagement_events,time_on_task,INT,no-op,Time spent on task in minutes
+engagement_events,user_agent_hash,VARCHAR,hash,Hashed user agent for device tracking
+enrollment,_loaded_date,TIMESTAMP,no-op,Date record was loaded into Stage 1
+enrollment,_updated_date,TIMESTAMP,no-op,Date record was last updated
+enrollment,absence_count,INT,no-op,Number of absences
+enrollment,academic_risk_flag,BOOLEAN,no-op,Flag indicating academic risk (based on grades/attendance)
+enrollment,attendance_days,INT,no-op,Total days attended
+enrollment,completion_date,DATE,no-op,Date student completed course (NULL if ongoing)
+enrollment,course_id,VARCHAR,no-op,Course identifier
+enrollment,credits_attempted,FLOAT,no-op,Credits attempted in course
+enrollment,credits_earned,FLOAT,no-op,Credits earned for course completion
+enrollment,engagement_flag,BOOLEAN,no-op,Flag indicating low engagement (based on activities)
+enrollment,enrollment_date,DATE,no-op,Date student enrolled in course
+enrollment,enrollment_id,VARCHAR,no-op,Unique enrollment record identifier
+enrollment,enrollment_status,VARCHAR,no-op,Enrollment status (active/completed/dropped/failed/transferred)
+enrollment,excused_absence_count,INT,no-op,Number of excused absences
+enrollment,final_grade_letter,VARCHAR,no-op,Final letter grade (A/B/C/D/F)
+enrollment,final_grade_numeric,FLOAT,no-op,Final numeric grade (0-100 scale)
+enrollment,school_id,VARCHAR,no-op,School identifier
+enrollment,student_id,VARCHAR,hash,Student identifier (hashed for privacy)
+enrollment,tardy_count,INT,no-op,Number of times tardy
+enrollment,term,VARCHAR,no-op,Academic term (semester/trimester/year)
+enrollment,unexcused_absence_count,INT,no-op,Number of unexcused absences
+enrollment,weighted_gpa_impact,FLOAT,no-op,Impact on weighted GPA calculation
+students,_loaded_date,TIMESTAMP,no-op,Date record was loaded into Stage 1
+students,_updated_date,TIMESTAMP,no-op,Date record was last updatedEntity,Attribute,DataType,Pseudonymization,Description
+students,address_city,VARCHAR,mask,City
+students,address_line1,VARCHAR,mask,Street address line 1
+students,address_state,VARCHAR,mask,State
+students,address_zip,VARCHAR,mask,ZIP code
+students,cohort_year,INT,no-op,Graduation cohort year
+students,date_of_birth,DATE,hash,Student date of birth
+students,district_id,VARCHAR,no-op,District identifier
+students,economically_disadvantaged,BOOLEAN,no-op,Economically disadvantaged status
+students,email_address,VARCHAR,mask,Student or guardian email address
+students,english_learner,BOOLEAN,no-op,English learner flag
+students,enrollment_status,VARCHAR,no-op,Current enrollment status (active/inactive/transferred)
+students,ethnicity,VARCHAR,no-op,Student ethnicity (for demographics only)
+students,first_name,VARCHAR,mask,Student first name
+students,foster_care_status,BOOLEAN,no-op,In foster care indicator
+students,gender,VARCHAR,no-op,Student gender (M/F/X/Other)
+students,grade_level,INT,no-op,Current grade level (K-12 or 1-16)
+students,homeless_status,BOOLEAN,no-op,Homeless student indicator
+students,last_name,VARCHAR,mask,Student last name
+students,middle_name,VARCHAR,mask,Student middle name
+students,military_family,BOOLEAN,no-op,Military-connected family indicator
+students,phone_number,VARCHAR,mask,Student or guardian contact phone
+students,school_id,VARCHAR,no-op,School identifier
+students,special_education,BOOLEAN,no-op,Enrolled in special education services
+students,student_id,VARCHAR,hash,Unique student identifier from SIS

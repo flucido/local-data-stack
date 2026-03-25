@@ -1,0 +1,22 @@
+Entity,Attribute,DataType,Pseudonymization,Description
+engagement_events,event_id,VARCHAR,no-op,Unique event identifier
+engagement_events,student_id,VARCHAR,hash,Student identifier (hashed for privacy)
+engagement_events,course_id,VARCHAR,no-op,Course identifier
+engagement_events,school_id,VARCHAR,no-op,School identifier
+engagement_events,event_timestamp,TIMESTAMP,no-op,Date and time of the event
+engagement_events,event_type,VARCHAR,no-op,Type of engagement event (page_view/assignment_submit/quiz_attempt/discussion_post/resource_download/video_watch)
+engagement_events,resource_id,VARCHAR,no-op,Identifier of the resource accessed
+engagement_events,resource_name,VARCHAR,no-op,Human-readable name of the resource
+engagement_events,resource_type,VARCHAR,no-op,Type of resource (document/video/assignment/quiz/discussion)
+engagement_events,duration_seconds,INT,no-op,Duration of engagement in seconds
+engagement_events,interaction_depth,VARCHAR,no-op,Level of interaction (view/interact/submit/complete)
+engagement_events,device_type,VARCHAR,no-op,Device used (desktop/tablet/mobile/unknown)
+engagement_events,platform,VARCHAR,no-op,Platform used (mobile_app/web/api)
+engagement_events,lms_session_id,VARCHAR,no-op,LMS session identifier
+engagement_events,ip_address_hash,VARCHAR,hash,Hashed IP address for location inference
+engagement_events,user_agent_hash,VARCHAR,hash,Hashed user agent for device tracking
+engagement_events,content_interaction_flag,BOOLEAN,no-op,Flag indicating meaningful content interaction
+engagement_events,submission_quality_score,FLOAT,no-op,Quality score for submissions (0-100)
+engagement_events,time_on_task,INT,no-op,Time spent on task in minutes
+engagement_events,_loaded_date,TIMESTAMP,no-op,Date record was loaded into Stage 1
+engagement_events,_updated_date,TIMESTAMP,no-op,Date record was last updated

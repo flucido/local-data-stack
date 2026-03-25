@@ -1,0 +1,367 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-pvc
+  namespace: sis-analytics
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: sis-analytics
+  labels:
+    app: grafana
+spec:
+  ports:
+    - port: 3000
+      targetPort: 3000
+      name: grafana
+  selector:
+    app: grafana
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-lb
+  namespace: sis-analytics
+  labels:
+    app: grafana
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 3000
+      targetPort: 3000
+      name: grafana
+  selector:
+    app: grafana
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: sis-analytics
+  labels:
+    app: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:10.2.0
+        imagePullPolicy: IfNotPresent
+
+        ports:
+        - containerPort: 3000
+          name: grafana
+
+        env:
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: grafana-credentials
+              key: admin-password
+        - name: GF_USERS_ALLOW_SIGN_UP
+          valueFrom:
+            configMapKeyRef:
+              name: grafana-config
+              key: GF_USERS_ALLOW_SIGN_UP
+        - name: GF_INSTALL_PLUGINS
+          valueFrom:
+            configMapKeyRef:
+              name: grafana-config
+              key: GF_INSTALL_PLUGINS
+
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+
+        volumeMounts:
+        - name: grafana-storage
+          mountPath: /var/lib/grafana
+
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 15
+          periodSeconds: 5
+
+      volumes:
+      - name: grafana-storage
+        persistentVolumeClaim:
+          claimName: grafana-pvc
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: metabase-pvc
+  namespace: sis-analytics
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: metabase
+  namespace: sis-analytics
+  labels:
+    app: metabase
+spec:
+  ports:
+    - port: 3001
+      targetPort: 3000
+      name: metabase
+  selector:
+    app: metabase
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: metabase-lb
+  namespace: sis-analytics
+  labels:
+    app: metabase
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 3001
+      targetPort: 3000
+      name: metabase
+  selector:
+    app: metabase
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metabase
+  namespace: sis-analytics
+  labels:
+    app: metabase
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: metabase
+  template:
+    metadata:
+      labels:
+        app: metabase
+    spec:
+      containers:
+      - name: metabase
+        image: metabase/metabase:v0.48.0
+        imagePullPolicy: IfNotPresent
+
+        ports:
+        - containerPort: 3000
+          name: metabase
+
+        env:
+        - name: MB_DB_TYPE
+          valueFrom:
+            configMapKeyRef:
+              name: metabase-config
+              key: MB_DB_TYPE
+        - name: JAVA_TIMEZONE
+          valueFrom:
+            configMapKeyRef:
+              name: metabase-config
+              key: JAVA_TIMEZONE
+
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+
+        volumeMounts:
+        - name: metabase-storage
+          mountPath: /metabase-data
+
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 60
+          periodSeconds: 15
+
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+
+      volumes:
+      - name: metabase-storage
+        persistentVolumeClaim:
+          claimName: metabase-pvc
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: superset-pvc
+  namespace: sis-analytics
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: superset
+  namespace: sis-analytics
+  labels:
+    app: superset
+spec:
+  ports:
+    - port: 8088
+      targetPort: 8088
+      name: superset
+  selector:
+    app: superset
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: superset-lb
+  namespace: sis-analytics
+  labels:
+    app: superset
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 8088
+      targetPort: 8088
+      name: superset
+  selector:
+    app: superset
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: superset
+  namespace: sis-analytics
+  labels:
+    app: superset
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: superset
+  template:
+    metadata:
+      labels:
+        app: superset
+    spec:
+      containers:
+      - name: superset
+        image: apache/superset:3.0.0
+        imagePullPolicy: IfNotPresent
+
+        ports:
+        - containerPort: 8088
+          name: superset
+
+        env:
+        - name: FLASK_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: superset-config
+              key: FLASK_ENV
+        - name: SUPERSET_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: superset-credentials
+              key: SUPERSET_SECRET_KEY
+        - name: SUPERSET_LOAD_EXAMPLES
+          valueFrom:
+            configMapKeyRef:
+              name: superset-config
+              key: SUPERSET_LOAD_EXAMPLES
+
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+
+        volumeMounts:
+        - name: superset-storage
+          mountPath: /app/superset_home
+
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8088
+          initialDelaySeconds: 60
+          periodSeconds: 15
+
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8088
+          initialDelaySeconds: 30
+          periodSeconds: 10
+
+      volumes:
+      - name: superset-storage
+        persistentVolumeClaim:
+          claimName: superset-pvc
