@@ -22,8 +22,7 @@ version = "1.9.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "babel" },
-    { name = "isodate", version = "0.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "isodate", version = "0.7.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "isodate" },
     { name = "leather" },
     { name = "parsedatetime" },
     { name = "python-slugify" },
@@ -1100,18 +1099,14 @@ wheels = [
 name = "dbt-adapters"
 version = "1.17.3"
 source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.9.2' and python_full_version < '3.10'",
-    "python_full_version < '3.9.2'",
-]
 dependencies = [
-    { name = "agate", marker = "python_full_version < '3.10'" },
-    { name = "dbt-common", version = "1.34.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "dbt-protos", marker = "python_full_version < '3.10'" },
-    { name = "mashumaro", extra = ["msgpack"], marker = "python_full_version < '3.10'" },
-    { name = "protobuf", marker = "python_full_version < '3.10'" },
-    { name = "pytz", marker = "python_full_version < '3.10'" },
-    { name = "typing-extensions", marker = "python_full_version < '3.10'" },
+    { name = "agate" },
+    { name = "dbt-common" },
+    { name = "dbt-protos" },
+    { name = "mashumaro", extra = ["msgpack"] },
+    { name = "protobuf" },
+    { name = "pytz" },
+    { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/88/d9/5d585d39d657e191af8f4fd30a5e1b3cc2b7182493ceaa75c94c9bc50909/dbt_adapters-1.17.3.tar.gz", hash = "sha256:8f3c2ea081444033ed3146aea85c21175f868c1f2dd262e7caab19f78bcf25cc", size = 133250, upload-time = "2025-10-20T15:57:04.114Z" }
 wheels = [
@@ -1119,180 +1114,65 @@ wheels = [
 ]
 
 [[package]]
-name = "dbt-adapters"
-version = "1.22.6"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform != 'emscripten'",
-    "python_full_version >= '3.14' and platform_python_implementation == 'PyPy' and sys_platform == 'win32'",
-    "python_full_version >= '3.14' and sys_platform == 'emscripten'",
-    "python_full_version >= '3.14' and platform_python_implementation == 'PyPy' and sys_platform != 'emscripten' and sys_platform != 'win32'",
-    "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy' and sys_platform != 'emscripten'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy' and sys_platform != 'emscripten'",
-    "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation == 'PyPy' and sys_platform == 'win32'",
-    "python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform == 'emscripten'",
-    "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation == 'PyPy' and sys_platform != 'emscripten' and sys_platform != 'win32'",
-    "(python_full_version == '3.10.*' and platform_python_implementation == 'PyPy') or (python_full_version == '3.10.*' and sys_platform == 'emscripten')",
-]
-dependencies = [
-    { name = "agate", marker = "python_full_version >= '3.10'" },
-    { name = "dbt-common", version = "1.37.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "dbt-protos", marker = "python_full_version >= '3.10'" },
-    { name = "mashumaro", extra = ["msgpack"], marker = "python_full_version >= '3.10'" },
-    { name = "protobuf", marker = "python_full_version >= '3.10'" },
-    { name = "pytz", marker = "python_full_version >= '3.10'" },
-    { name = "typing-extensions", marker = "python_full_version >= '3.10'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/a0/f5/a4ce67281ac9fbdf55f4f0bfc8df02487d3aaba323864d0ff432900d582f/dbt_adapters-1.22.6.tar.gz", hash = "sha256:c5aecfc09ac92875dbfe483a50e6eb34d9184a818e7b0445d7948cddc9eec972", size = 136762, upload-time = "2026-02-17T20:27:21.673Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/79/95/426181a69fbb678edb5b5c46407674771ef3b7f4f0b4f54da9d3f9bfc5c7/dbt_adapters-1.22.6-py3-none-any.whl", hash = "sha256:2a70682680ab66822422513b8c1cce59836cd4c405aa6284d2f391328cd083cb", size = 172953, upload-time = "2026-02-17T20:27:20.269Z" },
-]
-
-[[package]]
 name = "dbt-common"
-version = "1.34.1"
+version = "1.34.2"
 source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.9.2' and python_full_version < '3.10'",
-    "python_full_version < '3.9.2'",
-]
 dependencies = [
-    { name = "agate", marker = "python_full_version < '3.10'" },
-    { name = "colorama", marker = "python_full_version < '3.10'" },
-    { name = "dbt-protos", marker = "python_full_version < '3.10'" },
-    { name = "deepdiff", marker = "python_full_version < '3.10'" },
-    { name = "isodate", version = "0.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "jinja2", marker = "python_full_version < '3.10'" },
+    { name = "agate" },
+    { name = "colorama" },
+    { name = "dbt-protos" },
+    { name = "deepdiff" },
+    { name = "isodate" },
+    { name = "jinja2" },
     { name = "jsonschema", version = "4.25.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "mashumaro", extra = ["msgpack"], marker = "python_full_version < '3.10'" },
-    { name = "pathspec", marker = "python_full_version < '3.10'" },
-    { name = "protobuf", marker = "python_full_version < '3.10'" },
-    { name = "python-dateutil", marker = "python_full_version < '3.10'" },
-    { name = "requests", marker = "python_full_version < '3.10'" },
-    { name = "typing-extensions", marker = "python_full_version < '3.10'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/5b/33/49a01b0fb2721ffa2d8c7587ffea4475f21bc89c5432645be9201c570c8a/dbt_common-1.34.1.tar.gz", hash = "sha256:40872e9def1106b5a7eeb4e0e4bb3198dd2e0d51233295297cc40c564654ce30", size = 85457, upload-time = "2026-01-06T20:12:57.834Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/8d/6a/5efb9ba6c5f761958e585c45242e241284c7a49e2881b387cc4594a715dd/dbt_common-1.34.1-py3-none-any.whl", hash = "sha256:a4b18dbe147b169f8ccecbddf9a5b5fd0f5bd805e32f65071dc614e3294cd803", size = 87390, upload-time = "2026-01-06T20:12:56.413Z" },
-]
-
-[[package]]
-name = "dbt-common"
-version = "1.37.2"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform != 'emscripten'",
-    "python_full_version >= '3.14' and platform_python_implementation == 'PyPy' and sys_platform == 'win32'",
-    "python_full_version >= '3.14' and sys_platform == 'emscripten'",
-    "python_full_version >= '3.14' and platform_python_implementation == 'PyPy' and sys_platform != 'emscripten' and sys_platform != 'win32'",
-    "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy' and sys_platform != 'emscripten'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy' and sys_platform != 'emscripten'",
-    "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation == 'PyPy' and sys_platform == 'win32'",
-    "python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform == 'emscripten'",
-    "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation == 'PyPy' and sys_platform != 'emscripten' and sys_platform != 'win32'",
-    "(python_full_version == '3.10.*' and platform_python_implementation == 'PyPy') or (python_full_version == '3.10.*' and sys_platform == 'emscripten')",
-]
-dependencies = [
-    { name = "agate", marker = "python_full_version >= '3.10'" },
-    { name = "colorama", marker = "python_full_version >= '3.10'" },
-    { name = "dbt-protos", marker = "python_full_version >= '3.10'" },
-    { name = "deepdiff", marker = "python_full_version >= '3.10'" },
-    { name = "isodate", version = "0.7.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "jinja2", marker = "python_full_version >= '3.10'" },
     { name = "jsonschema", version = "4.26.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "mashumaro", extra = ["msgpack"], marker = "python_full_version >= '3.10'" },
-    { name = "pathspec", marker = "python_full_version >= '3.10'" },
-    { name = "protobuf", marker = "python_full_version >= '3.10'" },
-    { name = "python-dateutil", marker = "python_full_version >= '3.10'" },
-    { name = "requests", marker = "python_full_version >= '3.10'" },
-    { name = "typing-extensions", marker = "python_full_version >= '3.10'" },
+    { name = "mashumaro", extra = ["msgpack"] },
+    { name = "pathspec" },
+    { name = "protobuf" },
+    { name = "python-dateutil" },
+    { name = "requests" },
+    { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b7/ab/1d49b812472d4f064d715b6968f60f6636624ad18ef8e243055ee74ca5c2/dbt_common-1.37.2.tar.gz", hash = "sha256:f83f2b4c1ed234ef38edc6817e0c2bd19f27c653bc1eb8b8411285fe670c2d3c", size = 86051, upload-time = "2025-12-15T18:24:19.189Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a3/eb/86debdf5a41b3fc1a121fd06baaa229466cf00c8c973773e41e38ec6ed80/dbt_common-1.34.2.tar.gz", hash = "sha256:0c8a27f2005f5b44c0d786d2c9825103c4dbeca8e5815739654cc4ea6367e242", size = 85605, upload-time = "2026-03-03T01:28:13.945Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b7/5a/cfc59817a398a96701243c03a4547b6457dbc18b62f375d6857a3d4c74f8/dbt_common-1.37.2-py3-none-any.whl", hash = "sha256:883a0b4af3e9a03e15b0d4862b654c5316d9525303683a8ead4dcc406eaa8a9a", size = 87670, upload-time = "2025-12-15T18:24:17.588Z" },
+    { url = "https://files.pythonhosted.org/packages/cc/49/19d607f59d7c520de1ded3cc748496286d9ffefde4cf6ed9cb12760fefb6/dbt_common-1.34.2-py3-none-any.whl", hash = "sha256:e0d0d2412710e103e829a0d134359f37e9a14685955910de8344258b8110848c", size = 87459, upload-time = "2026-03-03T01:28:12.345Z" },
 ]
 
 [[package]]
 name = "dbt-core"
 version = "1.10.19"
 source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.9.2' and python_full_version < '3.10'",
-    "python_full_version < '3.9.2'",
-]
 dependencies = [
-    { name = "agate", marker = "python_full_version < '3.10'" },
+    { name = "agate" },
     { name = "click", version = "8.1.8", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "daff", marker = "python_full_version < '3.10'" },
-    { name = "dbt-adapters", version = "1.17.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "dbt-common", version = "1.34.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "dbt-extractor", marker = "python_full_version < '3.10'" },
-    { name = "dbt-protos", marker = "python_full_version < '3.10'" },
-    { name = "dbt-semantic-interfaces", marker = "python_full_version < '3.10'" },
-    { name = "jinja2", marker = "python_full_version < '3.10'" },
+    { name = "click", version = "8.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "daff" },
+    { name = "dbt-adapters" },
+    { name = "dbt-common" },
+    { name = "dbt-extractor" },
+    { name = "dbt-protos" },
+    { name = "dbt-semantic-interfaces" },
+    { name = "jinja2" },
     { name = "jsonschema", version = "4.25.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "mashumaro", extra = ["msgpack"], marker = "python_full_version < '3.10'" },
+    { name = "jsonschema", version = "4.26.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "mashumaro", extra = ["msgpack"] },
     { name = "networkx", version = "3.2.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "packaging", marker = "python_full_version < '3.10'" },
-    { name = "pathspec", marker = "python_full_version < '3.10'" },
-    { name = "protobuf", marker = "python_full_version < '3.10'" },
-    { name = "pydantic", marker = "python_full_version < '3.10'" },
-    { name = "pytz", marker = "python_full_version < '3.10'" },
-    { name = "pyyaml", marker = "python_full_version < '3.10'" },
-    { name = "requests", marker = "python_full_version < '3.10'" },
-    { name = "snowplow-tracker", marker = "python_full_version < '3.10'" },
-    { name = "sqlparse", marker = "python_full_version < '3.10'" },
-    { name = "typing-extensions", marker = "python_full_version < '3.10'" },
+    { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
+    { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "packaging" },
+    { name = "pathspec" },
+    { name = "protobuf" },
+    { name = "pydantic" },
+    { name = "pytz" },
+    { name = "pyyaml" },
+    { name = "requests" },
+    { name = "snowplow-tracker" },
+    { name = "sqlparse" },
+    { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/cb/16/11675ab9d21bcf6519a93007bae933c6633f1a3a3e10eb319856fb22a761/dbt_core-1.10.19.tar.gz", hash = "sha256:707fe7aa5afb2b67aa7b14f0fc8a9482ea5de56bf660acd448218c107bb41bd5", size = 900530, upload-time = "2026-01-20T20:37:57.112Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7d/fe/af0e5ed9234819d708fad83ad07d3e780ba2c12d0e27db5c29af31cfc9f0/dbt_core-1.10.19-py3-none-any.whl", hash = "sha256:37f75b034a8b203032a2615487b999bb38dd3f8544d35f285eead3804ce33085", size = 987124, upload-time = "2026-01-20T20:37:55.615Z" },
-]
-
-[[package]]
-name = "dbt-core"
-version = "1.11.6"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform != 'emscripten'",
-    "python_full_version >= '3.14' and platform_python_implementation == 'PyPy' and sys_platform == 'win32'",
-    "python_full_version >= '3.14' and sys_platform == 'emscripten'",
-    "python_full_version >= '3.14' and platform_python_implementation == 'PyPy' and sys_platform != 'emscripten' and sys_platform != 'win32'",
-    "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy' and sys_platform != 'emscripten'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy' and sys_platform != 'emscripten'",
-    "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation == 'PyPy' and sys_platform == 'win32'",
-    "python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform == 'emscripten'",
-    "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation == 'PyPy' and sys_platform != 'emscripten' and sys_platform != 'win32'",
-    "(python_full_version == '3.10.*' and platform_python_implementation == 'PyPy') or (python_full_version == '3.10.*' and sys_platform == 'emscripten')",
-]
-dependencies = [
-    { name = "agate", marker = "python_full_version >= '3.10'" },
-    { name = "click", version = "8.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "daff", marker = "python_full_version >= '3.10'" },
-    { name = "dbt-adapters", version = "1.22.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "dbt-common", version = "1.37.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "dbt-extractor", marker = "python_full_version >= '3.10'" },
-    { name = "dbt-protos", marker = "python_full_version >= '3.10'" },
-    { name = "dbt-semantic-interfaces", marker = "python_full_version >= '3.10'" },
-    { name = "jinja2", marker = "python_full_version >= '3.10'" },
-    { name = "jsonschema", version = "4.26.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "mashumaro", extra = ["msgpack"], marker = "python_full_version >= '3.10'" },
-    { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
-    { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "packaging", marker = "python_full_version >= '3.10'" },
-    { name = "pathspec", marker = "python_full_version >= '3.10'" },
-    { name = "protobuf", marker = "python_full_version >= '3.10'" },
-    { name = "pydantic", marker = "python_full_version >= '3.10'" },
-    { name = "pytz", marker = "python_full_version >= '3.10'" },
-    { name = "pyyaml", marker = "python_full_version >= '3.10'" },
-    { name = "requests", marker = "python_full_version >= '3.10'" },
-    { name = "snowplow-tracker", marker = "python_full_version >= '3.10'" },
-    { name = "sqlparse", marker = "python_full_version >= '3.10'" },
-    { name = "typing-extensions", marker = "python_full_version >= '3.10'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/4a/58/53d869e31895b022a8e37488fdfdce02f9c4cbd689c4cbc8eedf4a3fe524/dbt_core-1.11.6.tar.gz", hash = "sha256:a62cde8f20994589a27cba84bcf63aafbf3ecbd44221137e1b1520cee3baeb5c", size = 919767, upload-time = "2026-02-17T22:23:52.576Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/0c/bb/bcaa53ae98902e46d940cceefc0619afd70df96d719ea09ac4aac809d87c/dbt_core-1.11.6-py3-none-any.whl", hash = "sha256:0694f7e9abedd35e80eb56019c4d408687558c834747b0aacaeae74b8f13ac8d", size = 1009504, upload-time = "2026-02-17T22:23:50.266Z" },
 ]
 
 [[package]]
@@ -1304,9 +1184,9 @@ resolution-markers = [
     "python_full_version < '3.9.2'",
 ]
 dependencies = [
-    { name = "dbt-adapters", version = "1.17.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "dbt-common", version = "1.34.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "dbt-core", version = "1.10.19", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "dbt-adapters", marker = "python_full_version < '3.10'" },
+    { name = "dbt-common", marker = "python_full_version < '3.10'" },
+    { name = "dbt-core", marker = "python_full_version < '3.10'" },
     { name = "duckdb", marker = "python_full_version < '3.10'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d7/a3/1286f14a03b3475a5349139e200d6522eed4d6b41932245df6d9bf401eb8/dbt_duckdb-1.10.0.tar.gz", hash = "sha256:9da9603840f153a5713991553748ba89084930a83fe8a7936cd65b006b70c3ee", size = 139822, upload-time = "2025-11-05T15:08:59.679Z" }
@@ -1331,9 +1211,9 @@ resolution-markers = [
     "(python_full_version == '3.10.*' and platform_python_implementation == 'PyPy') or (python_full_version == '3.10.*' and sys_platform == 'emscripten')",
 ]
 dependencies = [
-    { name = "dbt-adapters", version = "1.22.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "dbt-common", version = "1.37.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "dbt-core", version = "1.11.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "dbt-adapters", marker = "python_full_version >= '3.10'" },
+    { name = "dbt-common", marker = "python_full_version >= '3.10'" },
+    { name = "dbt-core", marker = "python_full_version >= '3.10'" },
     { name = "duckdb", marker = "python_full_version >= '3.10'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c5/d3/0f9f6a4de94e0f95dcfabbba5e8ef7670de695483345edd9e5b36e93d024/dbt_duckdb-1.10.1.tar.gz", hash = "sha256:5d6df1589d4ba21fe20ac08454a32763d3263798c9f5914280eabd1dc285cbc0", size = 145907, upload-time = "2026-02-17T17:29:04.283Z" }
@@ -2365,37 +2245,12 @@ wheels = [
 name = "isodate"
 version = "0.6.1"
 source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.9.2' and python_full_version < '3.10'",
-    "python_full_version < '3.9.2'",
-]
 dependencies = [
-    { name = "six", marker = "python_full_version < '3.10'" },
+    { name = "six" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/db/7a/c0a56c7d56c7fa723988f122fa1f1ccf8c5c4ccc48efad0d214b49e5b1af/isodate-0.6.1.tar.gz", hash = "sha256:48c5881de7e8b0a0d648cb024c8062dc84e7b840ed81e864c7614fd3c127bde9", size = 28443, upload-time = "2021-12-13T20:28:31.525Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b6/85/7882d311924cbcfc70b1890780763e36ff0b140c7e51c110fc59a532f087/isodate-0.6.1-py2.py3-none-any.whl", hash = "sha256:0751eece944162659049d35f4f549ed815792b38793f07cf73381c1c87cbed96", size = 41722, upload-time = "2021-12-13T20:28:29.073Z" },
-]
-
-[[package]]
-name = "isodate"
-version = "0.7.2"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform != 'emscripten'",
-    "python_full_version >= '3.14' and platform_python_implementation == 'PyPy' and sys_platform == 'win32'",
-    "python_full_version >= '3.14' and sys_platform == 'emscripten'",
-    "python_full_version >= '3.14' and platform_python_implementation == 'PyPy' and sys_platform != 'emscripten' and sys_platform != 'win32'",
-    "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy' and sys_platform != 'emscripten'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy' and sys_platform != 'emscripten'",
-    "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation == 'PyPy' and sys_platform == 'win32'",
-    "python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform == 'emscripten'",
-    "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation == 'PyPy' and sys_platform != 'emscripten' and sys_platform != 'win32'",
-    "(python_full_version == '3.10.*' and platform_python_implementation == 'PyPy') or (python_full_version == '3.10.*' and sys_platform == 'emscripten')",
-]
-sdist = { url = "https://files.pythonhosted.org/packages/54/4d/e940025e2ce31a8ce1202635910747e5a87cc3a6a6bb2d00973375014749/isodate-0.7.2.tar.gz", hash = "sha256:4cd1aa0f43ca76f4a6c6c0292a85f40b35ec2e43e315b59f06e6d32171a953e6", size = 29705, upload-time = "2024-10-08T23:04:11.5Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/15/aa/0aca39a37d3c7eb941ba736ede56d689e7be91cab5d9ca846bde3999eba6/isodate-0.7.2-py3-none-any.whl", hash = "sha256:28009937d8031054830160fce6d409ed342816b543597cece116d966c6d99e15", size = 22320, upload-time = "2024-10-08T23:04:09.501Z" },
 ]
 
 [[package]]
