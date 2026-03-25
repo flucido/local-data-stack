@@ -316,12 +316,15 @@ dbt build --target test
   - Screenshots (if UI changes)
   - Breaking changes (if any)
 
-- **Reviewers**: Request review from maintainers
+- **Reviewers**: All PRs require approval from @flucido (enforced via CODEOWNERS)
 
-- **CI Checks**: Ensure all checks pass
-  - Tests
+- **Signed commits required**: All commits must be GPG or SSH signed. See [GitHub's guide on signing commits](https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits).
+
+- **CI Checks**: All checks must pass before merging
+  - Contract tests
+  - Tests (Python 3.9, 3.10, 3.11)
   - Linting
-  - Security scans
+  - Branch must be up-to-date with `main`
 
 ### PR Template
 

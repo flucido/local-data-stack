@@ -115,16 +115,41 @@ Create three environments:
 
 ### 4. Protect Branches
 
-Go to `Settings > Branches > Branch protection rules`
+Branch protection is managed via **repository rulesets** defined in `.github/rulesets/`.
 
-Create rule for `main`:
-- ✓ Require status checks to pass before merging
-- ✓ Require branches to be up to date
-- ✓ Include administrators
-- Select status checks:
+**Apply rulesets** (requires admin access):
+
+```bash
+export GITHUB_TOKEN="ghp_your_token_here"
+.github/scripts/apply-rulesets.sh
+```
+
+Or via GitHub CLI:
+
+```bash
+gh api repos/flucido/local-data-stack/rulesets \
+  --method POST \
+  --input .github/rulesets/main-branch-protection.json
+
+gh api repos/flucido/local-data-stack/rulesets \
+  --method POST \
+  --input .github/rulesets/all-branches-protection.json
+```
+
+**Active rulesets**:
+
+- **`main-branch-protection`**: Strict protection for `main` — requires PR with code owner approval, all status checks passing, signed commits, linear history, no force pushes, no direct pushes, no bypass actors
+- **`all-branches-protection`**: All branches — no deletions, no force pushes, signed commits
+
+**Required status checks** (on `main`):
+  - `contract-tests`
   - `test (3.9)`
   - `test (3.10)`
   - `test (3.11)`
+
+**Code ownership** is defined in `.github/CODEOWNERS` — all files require review from @flucido.
+
+See [`.github/rulesets/README.md`](rulesets/README.md) for full details.
 
 ## Usage
 
@@ -271,9 +296,11 @@ git push origin v3.0.1
 
 ### 3. Create Protected Branches
 
-- `main` - production-ready (requires PR + tests pass)
+Branch protection is enforced via repository rulesets (see `.github/rulesets/`):
+
+- `main` - production-ready (requires PR + code owner approval + all status checks + signed commits)
 - `develop` - development (tests pass)
-- Feature branches - work in progress
+- Feature branches - work in progress (no force pushes, no deletions, signed commits required)
 
 ### 4. Use Environment Approvals
 
