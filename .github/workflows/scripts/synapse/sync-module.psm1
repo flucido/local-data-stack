@@ -118,7 +118,7 @@ function SavePipelineDefinitions($workspace, $kvName, $storageName, $kvReplaceme
         } elseif ($folder.Contains($ED_FI_SYNAPSE_FOLDER_PATH_PIPELINE)) {
             $outputFile = "$ED_FI_FOLDER_PATH_PIPELINE/$name.json"
         } else {
-            Write-Warning "Importing pipleine, $name, is not supported at this time."
+            Write-Warning "Importing pipeline, $name, is not supported at this time."
             continue;
         }
 
@@ -169,7 +169,7 @@ function SaveDatasetDefinitions($workspace, $kvName, $storageName, $kvReplacemen
         } elseif ($folder.Contains($ED_FI_SYNAPSE_FOLDER_PATH_DATASETS)) {
             $outputFile = "$ED_FI_FOLDER_PATH_DATASET/$name.json"
         } else {
-            Write-Warning "Importing pipleine, $name, is not supported at this time."
+            Write-Warning "Importing pipeline, $name, is not supported at this time."
             continue;
         }
 
