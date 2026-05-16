@@ -81,6 +81,26 @@ ghcr.io/flucido/local-data-stack/sis-pipeline:main-abc123de
 KUBE_CONFIG - base64 encoded kubeconfig
 ```
 
+### 4. Synapse Workspace Sync (`sync.yml`)
+
+**Triggers**:
+- Manual workflow dispatch only
+
+**Purpose**:
+- Maintains compatibility with Azure Synapse workspace synchronization scripts
+- Intended for legacy/bridge scenarios where Synapse assets are still synchronized
+
+---
+
+## Legacy/Redundant Asset Review (Backlog)
+
+The following assets are retained for compatibility but should be periodically reviewed for deprecation/removal:
+
+- `k8s-deployment.yaml` (root-level legacy manifest)
+- `k8s_deploy.py` (root-level Kubernetes deployment helper)
+- `.github/workflows/sync.yml` and `.github/workflows/scripts/synapse/*` (Synapse compatibility workflow/scripts)
+- `oss_framework/k8s-archived/` (archived Kubernetes documentation and manifests)
+
 ## Setup
 
 ### 1. Initial Setup
