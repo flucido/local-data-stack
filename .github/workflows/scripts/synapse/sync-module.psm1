@@ -10,7 +10,7 @@ $FOLDER_SYNAPSE_TYPE_INTEGRATION_RUNTIME = "integrationRuntime"
 $FOLDER_SYNAPSE_TYPE_DATAFLOW = "dataflow"
 
 # Define system folder paths.
-# OEA framework:
+# Local Data Stack framework:
 $OEA_FRAMEWORK_BASE_FOLDER_PATH = "./framework/synapse"
 $OEA_FRAMEWORK_FOLDER_PATH_PIPELINE = "$OEA_FRAMEWORK_BASE_FOLDER_PATH/$FOLDER_SYNAPSE_TYPE_PIPELINE"
 $OEA_FRAMEWORK_FOLDER_PATH_DATASET = "$OEA_FRAMEWORK_BASE_FOLDER_PATH/$FOLDER_SYNAPSE_TYPE_DATASET"
@@ -54,7 +54,7 @@ $MICROSOFT_GRAPH_SYNAPSE_FILENAME_PATTERN_NOTEBOOK = "Graph_"
 $ED_FI_SYNAPSE_FILENAME_PATTERN_NOTEBOOK = "_EdFi"
 
 
-# Retrieve the name of the keyvault in the OEA installation resource group.
+# Retrieve the name of the keyvault in the Local Data Stack installation resource group.
 # This assumes that there is only one keyvault in the resource group
 # that has 'oea' in the name (as per the setup script).
 function GetKeyVaultName($resourceGroup) {
@@ -62,13 +62,13 @@ function GetKeyVaultName($resourceGroup) {
     $kv = $list | Where-Object {$_ -like "*oea*"}
 
     if (!$kv) {
-        throw "OEA keyvault does not exist."
+        throw "Local Data Stack keyvault does not exist."
     }
 
     return $kv
 }
 
-# Retrieve the name of the storage account in the OEA installation resource group.
+# Retrieve the name of the storage account in the Local Data Stack installation resource group.
 # This assumes that there is only one keyvault in the resource group
 # that has 'oea' in the name (as per the setup script).
 function GetStorageAccountName($resourceGroup) {
@@ -76,7 +76,7 @@ function GetStorageAccountName($resourceGroup) {
     $storage = $list | Where-Object {$_ -like "*oea*"}
 
     if (!$storage) {
-        throw "OEA storage does not exist."
+        throw "Local Data Stack storage does not exist."
     }
 
     return $storage
@@ -249,7 +249,7 @@ function SaveLinkedServiceDefinition($workspace, $kvName, $storageName, $kvRepla
             continue;
         }
         
-        # Output only in OEA folder.
+        # Output only in Local Data Stack folder.
         $definition = GetLinkedServiceDetailsAsJson $workspace $name
         $outputFile = "$OEA_FRAMEWORK_FOLDER_PATH_LINKEDSERVICE/$name.json"
         $definition | Out-File -Encoding utf8 -Force $outputFile

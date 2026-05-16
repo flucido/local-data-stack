@@ -1,2 +1,0 @@
-[console_scripts]
-oss-framework = oss_framework.cli:main

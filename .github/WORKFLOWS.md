@@ -15,7 +15,7 @@ Automated testing, building, and deployment workflows using GitHub Actions.
 
 **Jobs**:
 - **test** - Runs on Python 3.9, 3.10, 3.11
-  - Linting with flake8
+  - Linting with ruff
   - Format checking with black
   - Unit tests with pytest
   - Coverage reporting to Codecov
@@ -25,7 +25,7 @@ Automated testing, building, and deployment workflows using GitHub Actions.
 
 **Status Badge**:
 ```markdown
-[![Tests](https://github.com/yourusername/openedDataEstate/actions/workflows/test.yml/badge.svg)](https://github.com/yourusername/openedDataEstate/actions/workflows/test.yml)
+[![Tests](https://github.com/flucido/local-data-stack/actions/workflows/test.yml/badge.svg)](https://github.com/flucido/local-data-stack/actions/workflows/test.yml)
 ```
 
 ### 2. Build & Push Docker (`build-push.yml`)
@@ -46,9 +46,9 @@ Automated testing, building, and deployment workflows using GitHub Actions.
 
 **Image Naming**:
 ```
-ghcr.io/microsoft/openedDataEstate/sis-pipeline:main
-ghcr.io/microsoft/openedDataEstate/sis-pipeline:v3.0.0
-ghcr.io/microsoft/openedDataEstate/sis-pipeline:main-abc123de
+ghcr.io/flucido/local-data-stack/sis-pipeline:main
+ghcr.io/flucido/local-data-stack/sis-pipeline:v3.0.0
+ghcr.io/flucido/local-data-stack/sis-pipeline:main-abc123de
 ```
 
 ### 3. Deploy to Kubernetes (`deploy-k8s.yml`)
@@ -189,7 +189,7 @@ gh workflow run deploy-k8s.yml -r main -f environment=staging
 gh workflow view
 
 # Web
-https://github.com/yourusername/openedDataEstate/actions
+https://github.com/flucido/local-data-stack/actions
 ```
 
 ### View Logs
@@ -227,7 +227,7 @@ Steps:
 1. Checkout code
 2. Setup Python + pip cache
 3. Install dependencies
-4. Lint with flake8 (Python standards)
+4. Lint with ruff (Python standards)
 5. Format check with black (code style)
 6. Run pytest tests
 7. Upload coverage to Codecov
