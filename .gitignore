@@ -52,3 +52,6 @@ htmlcov/
 # Logs
 logs/
 *.log
+
+# Packaging artifacts
+*.egg-info/

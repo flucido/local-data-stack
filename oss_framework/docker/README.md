@@ -327,11 +327,11 @@ docker-compose logs pipeline
 
 ### Horizontal Scaling
 
-For production, use Kubernetes (see Phase 3.2):
+For production, use the Local Data Stack Docker Compose production path in `oss_framework/PRODUCTION_DEPLOYMENT.md`.
+Kubernetes manifests are archived under `oss_framework/k8s-archived/` for reference only.
 
 ```bash
-kubectl apply -f k8s/postgres-deployment.yaml
-kubectl apply -f k8s/pipeline-deployment.yaml
+# See oss_framework/PRODUCTION_DEPLOYMENT.md for active production guidance
 ```
 
 ### Vertical Scaling
@@ -394,7 +394,7 @@ postgres:
 1. **Load Data**: Import SIS data using Python ETL pipeline
 2. **Create Dashboards**: Configure Grafana panels
 3. **Set Up Alerts**: Configure notification channels
-4. **Deploy to Kubernetes**: Use Phase 3.2 manifests
+4. **Deploy to Production**: Follow `oss_framework/PRODUCTION_DEPLOYMENT.md`
 5. **Enable SSL**: Configure HTTPS certificates
 
 ## Support & Troubleshooting

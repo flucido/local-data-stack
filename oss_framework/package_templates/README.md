@@ -1,6 +1,6 @@
 # Package Templates Documentation
 
-Complete guide to OEA package templates for education data integration.
+Complete guide to Local Data Stack package templates for education data integration.
 
 ---
 

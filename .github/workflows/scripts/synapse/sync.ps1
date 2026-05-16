@@ -1,8 +1,8 @@
 <#
 Powershell script that downloads files from a specified Azure Synapse environment
-into the OEA repository.
+into the Local Data Stack repository.
 
-It currently downloads files for the OEA framework and the following modules:
+It currently downloads files for the Local Data Stack framework and the following modules:
 - Microsoft Education Insights
 - Microsoft Graph
 - Ed-Fi
