@@ -21,15 +21,15 @@ Kubernetes is **overkill for the OSS Framework target audience** (school distric
 
 ## Current Deployment Path
 
-The **canonical deployment** is:
-- **Location**: `oss_framework/deployment/metabase/docker-compose.yml`
-- **Features**: DuckDB driver built-in, proper volume mounts, health checks
+This material is preserved as **archived reference only**.
+- **Archived location**: `archive/k8s/oss_framework-k8s-archived`
+- **Status**: No active Kubernetes deployment path is maintained from this archive
 
 ## How to Restore (If Needed)
 
 ```bash
 # Restore directory
-git mv oss_framework/k8s-archived oss_framework/k8s
+git mv archive/k8s/oss_framework-k8s-archived oss_framework/k8s
 
 # Then update manifests:
 # - Add DuckDB driver support (not in archived version)

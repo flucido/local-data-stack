@@ -33,7 +33,7 @@ jobs:
           git checkout -b ${{ vars.SYNC_BRANCH_NAME }}
       - shell: pwsh
         run: |
-          .github/workflows/scripts/synapse/sync.ps1 ${{ vars.WORKSPACE_NAME }} ${{ vars.RESOURCE_GROUP }}
+          archive/azure/github-workflows/synapse/sync.ps1 ${{ vars.WORKSPACE_NAME }} ${{ vars.RESOURCE_GROUP }}
       - run: |
           git config --global user.name ${{ github.actor }}
           git config --global user.email github-actions[bot]@.noreply.github.com

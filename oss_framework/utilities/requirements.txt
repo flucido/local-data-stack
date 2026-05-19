@@ -3,19 +3,12 @@ pandas>=1.5.0
 numpy>=1.23.0
 pyyaml>=6.0
 
-# Optional: Database connectors
-# psycopg2-binary>=2.9  # PostgreSQL
-# sqlalchemy>=2.0       # SQL toolkit
-# google-cloud-bigquery>=3.11  # BigQuery
-
-# Optional: Cloud storage
-# azure-storage-blob>=12.14  # Azure Blob Storage
-# azure-identity>=1.12       # Azure Authentication
-# boto3>=1.26               # AWS S3
-
-# Development dependencies (optional)
+# Optional: Local development helpers
 # pytest>=7.0
 # pytest-cov>=4.0
 # black>=23.0
 # flake8>=6.0
 # mypy>=1.0
+
+# This utilities package is aligned to the active local-first stack.
+# DuckDB, dbt-duckdb, and dlt[duckdb] are managed by the top-level project requirements.

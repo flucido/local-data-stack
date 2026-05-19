@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-Prometheus Metrics Exporter for Local Data Stack Pipeline
+Pipeline Metrics Support for Local Data Stack
 
-Provides metrics collection for pipeline execution using prometheus_client.
-Supports two deployment modes:
-1. Local Development: TextFile collector exports to /tmp/ for node_exporter
-2. Kubernetes: HTTP server exposes /metrics endpoint for Prometheus scraping
+Provides optional metrics collection for local pipeline execution using
+the `prometheus_client` library.
+Supports two export modes:
+1. Text file export for local batch runs and ad hoc inspection
+2. Optional HTTP exposure of a /metrics endpoint when explicitly enabled
 
-Integration with existing infrastructure:
-- Complements oss_framework/monitoring/prometheus/ K8s stack
-- Uses TextFile pattern for batch jobs (recommended by Prometheus)
-- Follows naming conventions from oss_framework/monitoring/prometheus/alerts.yml
+Integration notes:
+- Keeps pipeline metrics available for local runs
+- Uses a text file pattern for batch-oriented execution
+- Follows the repository's pipeline metric naming conventions
 
 Usage:
     from scripts.metrics_exporter import MetricsCollector
@@ -21,9 +22,9 @@ Usage:
     metrics.record_stage_complete('stage1_ingestion', rows=1700, status='success')
 
 References:
-- Prometheus Python Client: https://github.com/prometheus/client_python
-- TextFile Collector: https://prometheus.io/docs/guides/node-exporter/
-- Best Practices: https://www.cncf.io/blog/2025/07/22/prometheus-labels-understanding-and-best-practices/
+- Python metrics client library: https://github.com/prometheus/client_python
+- Textfile export pattern: https://prometheus.io/docs/guides/node-exporter/
+- Metric label best practices: https://www.cncf.io/blog/2025/07/22/prometheus-labels-understanding-and-best-practices/
 """
 
 import time
@@ -45,7 +46,7 @@ try:
 except ImportError:
     PROMETHEUS_AVAILABLE = False
     logging.warning(
-        "prometheus_client not installed. Metrics collection disabled. "
+        "Optional metrics support dependency missing. Metrics collection disabled. "
         "Install with: pip install prometheus-client"
     )
 
@@ -61,7 +62,7 @@ except ImportError:
 
 class MetricsCollector:
     """
-    Prometheus metrics collector for data pipeline monitoring.
+    Metrics collector for local data pipeline monitoring.
 
     Metrics Exported:
     - pipeline_runs_total: Counter of pipeline runs by stage and status
@@ -74,7 +75,7 @@ class MetricsCollector:
     - status: Execution status (success, failure, timeout)
     - table: Table/dataset name (for row counts)
 
-    Cardinality: < 100 time series (safe for production)
+    Cardinality: < 100 time series for the local pipeline runtime
     """
 
     def __init__(
@@ -88,14 +89,14 @@ class MetricsCollector:
         Initialize metrics collector.
 
         Args:
-            mode: 'textfile' for local/batch or 'http' for K8s deployment
+            mode: 'textfile' for local/batch or 'http' for optional HTTP exposure
             export_path: Path for textfile collector output
             http_port: Port for HTTP metrics server (mode='http' only)
             registry: Custom CollectorRegistry (default: creates new)
         """
         if not PROMETHEUS_AVAILABLE:
             self.enabled = False
-            logger.warning("Metrics collection disabled (prometheus_client not installed)")
+            logger.warning("Metrics collection disabled (metrics client library not installed)")
             return
 
         self.enabled = True
@@ -127,7 +128,7 @@ class MetricsCollector:
         )
 
     def _init_metrics(self):
-        """Initialize Prometheus metric objects."""
+        """Initialize metric objects used by the local pipeline."""
         # Counter: Total pipeline runs by stage and status
         self.pipeline_runs = Counter(
             "pipeline_runs_total",
@@ -260,7 +261,7 @@ class MetricsCollector:
             )
 
     def _export_textfile(self):
-        """Export metrics to textfile for node_exporter."""
+        """Export metrics to a text file for local collection or inspection."""
         try:
             # Ensure directory exists
             self.export_path.parent.mkdir(parents=True, exist_ok=True)
@@ -302,7 +303,7 @@ def create_metrics_collector(
     Create a metrics collector with default settings.
 
     Args:
-        mode: 'textfile' for local/batch or 'http' for K8s deployment
+        mode: 'textfile' for local/batch or 'http' for optional HTTP exposure
         export_path: Path for textfile collector output
 
     Returns:
@@ -315,10 +316,10 @@ if __name__ == "__main__":
     """Example usage and testing."""
     import sys
 
-    print("Prometheus Metrics Exporter - Example Usage\n")
+    print("Pipeline Metrics Exporter - Example Usage\n")
 
     if not PROMETHEUS_AVAILABLE:
-        print("ERROR: prometheus_client not installed")
+        print("ERROR: optional metrics support dependency missing")
         print("Install with: pip install prometheus-client")
         sys.exit(1)
 
@@ -350,6 +351,6 @@ if __name__ == "__main__":
     print(f"\nMetrics exported to: /tmp/test_metrics.prom")
     print("\nView metrics with:")
     print("  cat /tmp/test_metrics.prom")
-    print("\nTo scrape with Prometheus node_exporter:")
-    print("  node_exporter --collector.textfile.directory=/tmp")
-    print("  curl http://localhost:9100/metrics | grep pipeline_")
+    print("\nFor local inspection or optional collection:")
+    print("  cat /tmp/test_metrics.prom")
+    print("  curl http://localhost:8000/metrics | grep pipeline_")

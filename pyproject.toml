@@ -39,14 +39,6 @@ dependencies = [
     "openpyxl>=3.1.0",
     "deltalake>=0.10.0",
 
-    # Database Connectors
-    "sqlalchemy>=2.0.0",
-    "psycopg2-binary>=2.9.0",
-
-    # Web Framework (for API endpoints)
-    "flask>=2.3.0",
-    "fastapi>=0.100.0",
-
     # Orchestration
     # Orchestration (removed - using simple Python scripts)
     # Utilities
@@ -72,13 +64,6 @@ dev = [
     "pre-commit>=3.5.0",
 ]
 
-# Jupyter notebook support
-jupyter = [
-    "jupyter>=1.0.0",
-    "jupyterlab>=4.5.7",
-    "ipywidgets>=8.0.0",
-]
-
 # All optional dependencies
 all = [
     "pytest>=7.4.0",
@@ -88,24 +73,18 @@ all = [
     "ruff>=0.1.0",
     "mypy>=1.5.0",
     "pre-commit>=3.5.0",
-    "jupyter>=1.0.0",
-    "jupyterlab>=4.5.7",
-    "ipywidgets>=8.0.0",
 ]
 
 [project.urls]
 Homepage = "https://github.com/flucido/local-data-stack"
-Documentation = "https://github.com/flucido/local-data-stack/tree/main/docs"
+Documentation = "https://github.com/flucido/local-data-stack/blob/main/README.md"
 Repository = "https://github.com/flucido/local-data-stack"
 Issues = "https://github.com/flucido/local-data-stack/issues"
-
-[project.scripts]
-oss-framework = "oss_framework.cli:main"
 
 # setuptools configuration
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["oss_framework*", "src*"]
+include = ["oss_framework*"]
 
 # pytest configuration
 [tool.pytest.ini_options]
@@ -119,7 +98,7 @@ filterwarnings = [
 
 # coverage configuration
 [tool.coverage.run]
-source = ["oss_framework", "src"]
+source = ["oss_framework"]
 branch = true
 omit = [
     "*/tests/*",
@@ -179,7 +158,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["oss_framework", "src"]
+known-first-party = ["oss_framework"]
 
 # mypy configuration
 [tool.mypy]

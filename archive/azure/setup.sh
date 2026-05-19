@@ -34,8 +34,14 @@ datetime=$(date "+%Y%m%d_%H%M%S")
 logfile="oea_setup_${datetime}.log"
 exec 3>&1 1>>${logfile} 2>&1
 
-# The assumption here is that this script is in the base path of the OpenEduAnalytics project.
-oea_path=$(dirname $(realpath $0))
+# This archived reference script now lives under archive/azure within the repo.
+archive_azure_path=$(dirname "$(realpath "$0")")
+repo_root=$(dirname "$(dirname "$archive_azure_path")")
+
+fail_fast_message="This archived setup script is reference-only. Required Azure framework assets were not preserved in this archive snapshot, so setup cannot run."
+printf '%s\n' "$fail_fast_message" >&2
+printf '%s\n' "$fail_fast_message" >&3
+exit 1
 
 # Set Flags
 while getopts ":o:l:ir:" flag; do
@@ -75,7 +81,7 @@ then
   print_usage
 fi
 
-source $oea_path/framework/infrastructure/bash/set_names.sh $org_id $resource_group_name
+# Historical note: the original script sourced preserved framework helpers here.
 
 subscription_id=$(az account show --query id -o tsv)
 
@@ -105,14 +111,14 @@ echo "--> Setting up OEA (logging detailed setup messages to $logfile)" 1>&3
 # setup the base architecture
 echo "--> Setting up the OEA base architecture."
 echo "--> Setting up the OEA base architecture." 1>&3
-$oea_path/framework/infrastructure/bash/setup_base_architecture.sh $org_id $location $include_groups $subscription_id $oea_path $logfile
+# Historical note: the original script invoked the archived base architecture setup here.
 # exit out if setup_base_architecture failed
 if [[ $? != 0 ]]; then
   exit 1
 fi
 
 # install the OEA framework assets
-$oea_path/framework/setup.sh $OEA_SYNAPSE $OEA_STORAGE_ACCOUNT $OEA_KEYVAULT
+# Historical note: the original script installed framework assets here.
 
 workspace_url=$(az synapse workspace show --name $OEA_SYNAPSE --resource-group $OEA_RESOURCE_GROUP | jq -r '.connectivityEndpoints | .web')
 echo "--> OEA setup is complete. Click on this url to work with your new Synapse workspace (via Synapse Studio): $workspace_url"

@@ -63,21 +63,21 @@ Comprehensive training program for 45+ stakeholders across 5 user roles, designe
    - Q&A on school-specific concerns
 
 4. **Hands-On Practice** (10 min)
-   - Access dashboard in sandbox environment
-   - Apply filters for their school
-   - Identify 3 students needing intervention
-   - Document findings in action plan
+    - Access dashboard in the training instance selected by your deployment team
+    - Apply filters for their school
+    - Identify 3 students needing intervention
+    - Document findings in action plan
 
 5. **Action Planning** (5 min)
-   - Next steps for implementation
-   - Identifying lead staff for their school
-   - Support resources and help desk info
-   - Training feedback survey
+    - Next steps for implementation
+    - Identifying lead staff for their school
+    - Support resources and local escalation path
+    - Training feedback survey
 
 **Materials Provided**:
 - Quick Reference Card: "Chronic Absenteeism Dashboard in 5 Steps"
-- FAQ Document: "12 Common Questions for Administrators"
-- Video Tutorial: "Accessing Your School's At-Risk Student List" (3 min)
+- FAQ handout tailored to local deployment decisions
+- Short walkthrough for accessing the at-risk student list in the deployed tool
 - Data Dictionary: Column definitions and calculations
 
 **Success Criteria**:
@@ -131,8 +131,8 @@ Comprehensive training program for 45+ stakeholders across 5 user roles, designe
 
 **Materials Provided**:
 - Quick Reference: "Using Class Performance Data in 5 Minutes"
-- PDF Guide: "Class Effectiveness Metrics Explained"
-- Video: "Your Class Dashboard Tour" (3 min)
+- One-page guide explaining class effectiveness metrics
+- Short walkthrough of the deployed class dashboard experience
 - Checklists: "Data-Driven Lesson Planning"
 
 **Success Criteria**:
@@ -179,15 +179,15 @@ Comprehensive training program for 45+ stakeholders across 5 user roles, designe
    - Document action plans
 
 5. **Resource Coordination** (5 min)
-   - Available support programs
-   - Referral process
-   - Collaboration tools
-   - Help desk and escalation
+    - Available support programs
+    - Referral process
+    - Collaboration tools
+    - Local support and escalation process
 
 **Materials Provided**:
 - Quick Reference: "Student Risk Dashboard Quick Start"
 - Checklist: "Multi-Domain Risk Assessment"
-- Video: "Your Caseload Dashboard Tour" (3 min)
+- Short walkthrough of the deployed caseload dashboard
 - Intervention Planning Template
 
 **Success Criteria**:
@@ -227,13 +227,13 @@ Comprehensive training program for 45+ stakeholders across 5 user roles, designe
    - Writing SQL against analytics views
    - Performance best practices
    - Exporting data for analysis
-   - Creating new analyses in notebooks
+   - Creating new analyses in the local SQL and dashboard workflow
 
 4. **Advanced Features** (10 min)
-   - Creating custom Metabase reports
-   - Scheduling automated exports
-   - Collaboration features
-   - Statistical functions and formulas
+     - Creating custom dashboard queries and saved analyses
+    - Scheduling exports if your deployment enables that workflow
+    - Collaboration features
+    - Statistical functions and formulas
 
 5. **Hands-On Lab** (10 min)
    - Write query for specific question
@@ -242,15 +242,15 @@ Comprehensive training program for 45+ stakeholders across 5 user roles, designe
    - Document findings
 
 **Materials Provided**:
-- Technical Documentation: Data Model & Schema
-- Reference Guide: Available Queries
-- API Documentation: Accessing data programmatically
-- SQL Best Practices Guide
-- dbt Documentation and Lineage Diagrams
+- Local data model and schema reference for analysts
+- Query reference maintained with the deployment
+- Programmatic access notes if the deployment exposes them
+- SQL best-practices handout for analyst workflows
+- dbt model and lineage references from the active repo
 
 **Success Criteria**:
 - ✅ Can write SQL against views
-- ✅ Can create custom Metabase reports
+- ✅ Can create custom dashboard queries and saved analyses
 - ✅ Can export and analyze data
 - ✅ Can troubleshoot performance issues
 
@@ -300,7 +300,7 @@ Comprehensive training program for 45+ stakeholders across 5 user roles, designe
 **Materials Provided**:
 - Executive Summary: Key Metrics Overview
 - Quarterly Reporting Templates
-- Video: "Strategic Dashboard Tour" (5 min)
+- Short walkthrough of the deployed strategic dashboard
 - Data Governance Framework
 
 **Success Criteria**:
@@ -341,7 +341,7 @@ Friday: Makeup & Advanced Topics (3 sessions)
 **Session Details**:
 - Platform: Zoom with screen sharing + live polling
 - Recording: Available for asynchronous viewing
-- Hands-on: Sandbox environment for practice
+- Hands-on: Use a training environment, sample data set, or approved local instance
 - Capacity: 5-10 users per session for Q&A
 
 ---
@@ -354,8 +354,8 @@ Friday: Makeup & Advanced Topics (3 sessions)
 ```
 CHRONIC ABSENTEEISM DASHBOARD - QUICK START
 
-1. Login → metabase.yourdomain.com
-2. Click "Dashboards" → "Chronic Absenteeism Risk"
+1. Login → your analytics dashboard URL
+2. Open "Chronic Absenteeism Risk"
 3. Filter by: School, Grade, Risk Level
 4. Review: At-risk students table
 5. Action: Contact counselor for intervention
@@ -372,15 +372,15 @@ WHEN TO CONTACT SUPPORT:
 ✓ Need custom report
 ✓ Questions about data quality
 
-Help Desk: helpdesk@yourdomain.com | 1-888-OEA-HELP
+Support Contact: Use the district or project support channel defined for your deployment
 ```
 
 **Card 2: Teachers**
 ```
 CLASS EFFECTIVENESS DASHBOARD - QUICK START
 
-1. Login → metabase.yourdomain.com
-2. Click "Dashboards" → "Class Effectiveness"
+1. Login → your analytics dashboard URL
+2. Open "Class Effectiveness"
 3. Find your class section
 4. Compare to peer classes (same grade/subject)
 5. Review: Student learning outcomes
@@ -397,10 +397,10 @@ TAKING ACTION:
 3. Monitor progress weekly
 4. Celebrate improvements
 
-Support: instructional.coaches@yourdomain.com
+Support: Use the coaching or analytics support contact defined locally
 ```
 
-### Video Tutorials (3-5 minutes each)
+### Short Walkthrough Topics (3-5 minutes each, if produced)
 
 1. **"Getting Started: Your First Login"** (2 min)
    - Account setup
@@ -428,10 +428,10 @@ Support: instructional.coaches@yourdomain.com
    - For Counselors
    - For Data Analysts
 
-### FAQ Document
+### FAQ Topics
 
 **Q: Is my student's data private?**
-A: Yes. Data is encrypted and access controlled. Only educators assigned to the student can see their information. Student names are never shown in reports.
+A: Privacy protections depend on how your district deploys access controls, network protections, and reporting rules. Configure student-level visibility and report contents to match local policy before training end users.
 
 **Q: How often is data updated?**
 A: Daily. Data refreshes at 2 AM UTC (check your local timezone). Most recent data is typically available by 8 AM.
@@ -440,10 +440,10 @@ A: Daily. Data refreshes at 2 AM UTC (check your local timezone). Most recent da
 A: Contact the support team with specific examples. Common issues: outdated browser cache, recent data entry delays, or legitimate data changes.
 
 **Q: Can I access this from home?**
-A: Yes, with VPN authentication required for security.
+A: Home access depends on your district's network and security policy. Some deployments may require VPN, SSO, device management, or may restrict remote access entirely.
 
 **Q: How do I export data?**
-A: Click "Export" on any dashboard or report. Data downloaded as CSV/Excel.
+A: Export options depend on the dashboard tool and local permissions your deployment enables. If exports are disabled, provide an approved request workflow instead.
 
 **[16 more common questions...]**
 
@@ -536,9 +536,9 @@ Medium Priority (<48 hour response):
 |--------|--------|------------|
 | Training Completion Rate | 90% | Attendance records |
 | Post-Training Competency | 85% pass | Comprehension quizzes |
-| Dashboard Adoption (Week 1) | 70% users logging in | Metabase activity logs |
-| Active Usage (Week 2) | 50%+ accessing weekly | Metabase usage analytics |
-| Help Desk Tickets (Week 1) | <20 total | Support ticket system |
+| Dashboard Adoption (Week 1) | 70% users logging in | Dashboard activity logs |
+| Active Usage (Week 2) | 50%+ accessing weekly | Dashboard usage analytics |
+| Support Requests (Week 1) | <20 total | Local support tracking system |
 | User Satisfaction | 4.0+/5.0 | Post-training surveys |
 | Repeat Support Contacts | <10% of trained | Ticket analysis |
 
@@ -547,13 +547,13 @@ Medium Priority (<48 hour response):
 ## Post-Training Support Plan
 
 ### Week 1-2: Intensive Support
-- Help desk coverage: 7 AM - 6 PM weekdays
+- Example support coverage: 7 AM - 6 PM weekdays
 - Response time: <2 hours for critical issues
 - Daily status briefings to leadership
 - Escalation team available 24/7
 
 ### Week 3-4: Standard Support
-- Help desk coverage: 8 AM - 5 PM weekdays
+- Example support coverage: 8 AM - 5 PM weekdays
 - Response time: <4 hours for critical issues
 - Weekly status briefings
 - Identify power users for peer mentoring
@@ -577,7 +577,7 @@ Medium Priority (<48 hour response):
 ---
 
 For more information, see:
-- Training Feedback Survey Template (post-training feedback form)
-- Role-Based Access Control Documentation (RBAC configuration)
-- Help Desk Runbook (common troubleshooting steps)
-- User Adoption Tracking Dashboard (in Metabase)
+- Your deployment's training feedback form or survey workflow
+- Access-control and permission settings used for your deployment
+- The local support process and troubleshooting notes maintained by your team
+- Adoption and usage reporting available in your analytics workspace

@@ -45,7 +45,6 @@ DUCKDB_DATABASE_PATH=/absolute/path/to/oea.duckdb python3 scripts/contracts/cont
 - Job: `contract-tests`
 - Triggered on changes under:
   - `schema/**`
-  - `dashboards/**`
   - `rill_project/**`
   - `scripts/contracts/**`
 

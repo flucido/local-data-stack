@@ -4,6 +4,8 @@
 
 This Docker Compose configuration provides a complete, production-ready deployment environment for the OSS Framework SIS (Student Information System) data pipeline with integrated analytics dashboards.
 
+The original `oss_framework/docker-compose.yml` has been removed from the active supported surface. Its preserved legacy snapshot lives at `../../postgres-stack/oss_framework-docker-compose.yml` and is archived, reference-only material.
+
 ## Architecture
 
 ```
@@ -125,20 +127,20 @@ Features:
 ### 1. Clone and Setup
 
 ```bash
-cd oss_framework
+# Archived reference only. The preserved legacy Compose snapshot lives here:
+docker compose -f archive/postgres-stack/oss_framework-docker-compose.yml config --services
 
-cp .env.example .env
-
-docker-compose up -d
+# If you are intentionally reconstructing the archived stack, use that file explicitly:
+docker compose -f archive/postgres-stack/oss_framework-docker-compose.yml up -d
 ```
 
 ### 2. Verify Services
 
 ```bash
-docker-compose ps
+docker compose -f archive/postgres-stack/oss_framework-docker-compose.yml ps
 
-docker-compose logs postgres
-docker-compose logs grafana
+docker compose -f archive/postgres-stack/oss_framework-docker-compose.yml logs postgres
+docker compose -f archive/postgres-stack/oss_framework-docker-compose.yml logs grafana
 ```
 
 ### 3. Access Services
@@ -155,7 +157,7 @@ docker-compose logs grafana
 ### 4. Verify Database Schema
 
 ```bash
-docker-compose exec postgres psql -U sis_admin -d sis_analytics -c "\dt stage_*.*"
+docker compose -f archive/postgres-stack/oss_framework-docker-compose.yml exec postgres psql -U sis_admin -d sis_analytics -c "\dt stage_*.*"
 ```
 
 ## Configuration
@@ -190,6 +192,8 @@ Scripts execute in numerical order on first startup.
 
 ## Common Operations
 
+The operational commands below are preserved as historical reference from the archived Docker/PostgreSQL stack. They are not part of the active supported local-first surface.
+
 ### Start Services
 
 ```bash
@@ -218,11 +222,15 @@ docker-compose logs -f grafana
 
 ### Access PostgreSQL CLI
 
+Archived reference only. The PostgreSQL container stack is no longer supported as an active workflow.
+
 ```bash
 docker-compose exec postgres psql -U sis_admin -d sis_analytics
 ```
 
 ### Run Python Pipeline
+
+Archived reference only. This pipeline container example belongs to the removed Docker/PostgreSQL stack.
 
 ```bash
 docker-compose exec pipeline python -m pytest tests/ -v
@@ -235,6 +243,8 @@ docker-compose build --no-cache
 ```
 
 ## Production Deployment
+
+This section is legacy reference material for the archived Docker/PostgreSQL deployment. Do not treat it as an active production guide.
 
 ### Security Checklist
 
@@ -257,6 +267,8 @@ All data is stored in named volumes:
 
 ### Backup Strategy
 
+Archived reference only.
+
 ```bash
 # Backup PostgreSQL database
 docker-compose exec postgres pg_dump -U sis_admin sis_analytics > backup.sql
@@ -268,7 +280,7 @@ docker run --rm -v sis_postgres_data:/data -v $(pwd):/backup \
 
 ### Resource Limits
 
-Add to docker-compose.yml services:
+Add to the archived legacy snapshot `../../postgres-stack/oss_framework-docker-compose.yml` if you are reviewing its historical service definitions:
 
 ```yaml
 services:
@@ -285,6 +297,8 @@ services:
 
 ## Troubleshooting
 
+The commands below are historical examples from the archived Docker/PostgreSQL/Kubernetes stack and are no longer maintained.
+
 ### PostgreSQL Won't Start
 
 ```bash
@@ -300,7 +314,7 @@ docker-compose up postgres
 # Find process using port
 lsof -i :5432
 
-# Change port in docker-compose.yml
+# Historical example from the archived legacy snapshot (reference only)
 ports:
   - "5433:5432"
 ```
@@ -324,6 +338,8 @@ docker-compose logs pipeline
 ```
 
 ## Scaling
+
+Archived reference only. The `docker-compose` and `kubectl apply -f k8s/...` examples below are preserved only for historical context.
 
 ### Horizontal Scaling
 

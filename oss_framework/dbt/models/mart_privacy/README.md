@@ -399,7 +399,7 @@ To migrate existing models:
 - [Core Marts README](../mart_core/README.md) - K-anonymity enforcement in aggregated models
 - [Macros README](../../macros/README.md) - Detailed documentation of hashing and masking macros
 - [Staging Layer README](../staging/aeries/README.md) - Raw PII fields in source data
-- [Stage 2B Design Document](../../../docs/STAGE2B_PRIVACY_DESIGN.md) - Privacy layer design and requirements
+- [Stage 2B Design Document](../../STAGE2B_PRIVACY_DESIGN.md) - Privacy layer design and requirements
 
 ## Metrics
 

@@ -393,7 +393,7 @@ Each stage validates:
 
 1. **Clone templates**:
    ```bash
-   cp oss_framework/pipeline_templates/*.json /your/pipelines/directory
+   cp archive/templates/pipeline_templates/*.json /your/pipelines/directory
    ```
 
 2. **Customize parameters**:

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Stage 3 consists of 5 analytics-ready views and 4 aggregation tables optimized for Metabase dashboard performance. This document covers optimization strategies, indexing, materialization, and performance targets.
+Stage 3 consists of 5 analytics-ready views and 4 aggregation tables optimized for local-first dashboard queries and analytics consumers. This document covers optimization strategies, indexing, materialization, and performance targets.
 
 ## Architecture
 
@@ -37,7 +37,7 @@ main_analytics schema
 
 #### Option A: Dynamic Materialized Views (Recommended)
 - Materialize high-usage views during refresh cycles
-- Refresh on daily dbt schedule (2 AM UTC)
+- Refresh on an operator-managed schedule if your deployment runs dbt automatically
 - Trade-off: Slightly stale data (<24h) for instant query performance
 
 **Implementation**:
@@ -54,9 +54,9 @@ main_analytics schema
 ) }}
 ```
 
-#### Option B: Hybrid Approach (Recommended for Metabase)
+#### Option B: Hybrid Approach (Recommended for dashboard consumers)
 - Keep views as views (not materialized) in DuckDB
-- Use Metabase caching (10-minute dashboard cache)
+- Use dashboard-layer caching where available if your chosen BI layer supports it
 - Use native SQL materialized views only for aggregation tables
 
 **Rationale**: DuckDB is in-process, single-tenant; materialized views are less critical than PostgreSQL
@@ -174,13 +174,13 @@ FROM v_chronic_absenteeism_risk
 - **Disk I/O**: <100ms average query latency
 - **Network**: Not applicable (in-process database)
 
-## Refresh Schedule
+## Refresh Scheduling Patterns
 
-### Daily dbt Pipeline (Automated)
+### Example dbt Pipeline Schedule
 
 ```yaml
-Schedule: 02:00 UTC (10 PM EDT, 7 PM PDT)
-Duration: 45 minutes (SLA: <90 minutes)
+Example schedule: 02:00 UTC
+Duration target: 45 minutes (SLA: <90 minutes)
 
 Steps:
 1. dbt run (Stage 2 → Stage 3)
@@ -192,14 +192,13 @@ Steps:
    - Run 25+ data quality tests (5 minutes)
    - Generate test report
 
-3. Notification
-   - Success: Slack notification to analytics team
-   - Failure: PagerDuty alert + email to Data Engineering lead
+3. Optional notification hooks
+   - Success/failure alerts can be wired into the messaging or incident tools your team already uses
 
 Window Impact:
-- Metabase queries unavailable: <5 minutes (dbt run)
-- Metabase queries slow: 5-50 minutes (aggregations being computed)
-- Metabase fully functional: 50+ minutes post-refresh
+- Dashboard queries unavailable: <5 minutes (dbt run)
+- Dashboard queries slow: 5-50 minutes (aggregations being computed)
+- Dashboard queries fully restored: 50+ minutes post-refresh
 ```
 
 ### Incremental Refresh Strategy
@@ -308,7 +307,7 @@ dbt docs serve  # Access at localhost:8000
 # - Freshness information
 ```
 
-## Metabase Integration
+## Dashboard Integration
 
 ### Connection Configuration
 
@@ -317,11 +316,11 @@ Database: DuckDB
 Connection String: oss_framework/data/oea.duckdb
 Driver: org.duckdb.DuckDBDriver
 
-Query Settings:
+Example query settings (actual support varies by client layer):
 - Fetch Size: 1000 rows
 - Timeout: 60 seconds
-- Caching: 10 minutes (dashboard cache)
-- Native Query Cache: 1 minute
+- Dashboard caching: configure only if your client layer supports it
+- Native query caching: configure only if your client layer supports it
 ```
 
 ### Dashboard-Level Optimizations
@@ -402,17 +401,17 @@ ORDER BY execution_time DESC;
 - [ ] Document view schemas in dbt
 - [ ] Baseline performance metrics
 
-### Week 6 Metabase Integration
-- [ ] Connect Metabase to DuckDB views
+### Week 6 Dashboard Integration
+- [ ] Connect the dashboard surface to DuckDB views
 - [ ] Test dashboard queries against live views
-- [ ] Optimize Metabase cache settings
+- [ ] Evaluate whether dashboard-layer caching is needed in your deployment
 - [ ] Create performance monitoring dashboard
 - [ ] Validate SLA targets
 
 ### Week 7 Production Validation
 - [ ] Stress test with simulated concurrent users
 - [ ] Verify query performance under load
-- [ ] Finalize Metabase parameter configuration
+- [ ] Finalize dashboard parameter configuration
 - [ ] Document operational runbooks
 - [ ] Train support team on troubleshooting
 
@@ -420,5 +419,5 @@ ORDER BY execution_time DESC;
 
 - [dbt Performance Best Practices](https://docs.getdbt.com/guides/optimize-sql-models)
 - [DuckDB Query Optimization](https://duckdb.org/docs/guides/performance/query_optimization)
-- [Metabase Performance Tuning](https://www.metabase.com/docs/latest/admin-guide/performance)
+- [Rill Documentation](https://docs.rilldata.com/)
 - Project Root: `oss_framework/dbt/models/mart_analytics/`

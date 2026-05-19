@@ -476,10 +476,10 @@ Safe for analysis:
 
 ## Related Documentation
 
-- **Data Lake Architecture**: `../docs/tech_docs/data_lake_architecture.md`
-- **Pipeline Orchestration**: `../pipeline_templates/README.md`
+- **Project Overview**: `../../README.md`
+- **Pipeline Orchestration (archived/reference-only)**: `../../archive/templates/pipeline_templates/README.md`
 - **Utilities Library**: `../utilities/oss_framework/__init__.py`
-- **Getting Started**: `../docs/getting_started.md`
+- **Implementation Scripts**: `../scripts/README.md`
 
 ---
 

@@ -199,6 +199,6 @@ pyyaml>=6.0
 
 ## Related Documentation
 
-- **Framework Architecture**: `../docs/tech_docs/data_lake_architecture.md`
+- **Project Overview**: `../../README.md`
 - **Metadata System**: `../metadata/README.md`
 - **Utilities API**: `../utilities/oss_framework/__init__.py`

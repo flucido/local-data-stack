@@ -154,7 +154,7 @@ This monitoring stack provides comprehensive observability for the SIS Analytics
 ### 1. Deploy Prometheus
 
 ```bash
-kubectl apply -f oss_framework/monitoring/prometheus/prometheus-k8s.yaml
+kubectl apply -f archive/monitoring/oss_framework-monitoring/prometheus/prometheus-k8s.yaml
 ```
 
 Verify:
@@ -172,7 +172,7 @@ kubectl port-forward -n sis-analytics svc/prometheus 9090:9090
 ### 2. Deploy Loki
 
 ```bash
-kubectl apply -f oss_framework/monitoring/loki/loki-k8s.yaml
+kubectl apply -f archive/monitoring/oss_framework-monitoring/loki/loki-k8s.yaml
 ```
 
 Verify:
@@ -497,8 +497,11 @@ kubectl get pods -n sis-analytics | grep exporter
 
 For development:
 ```bash
-cd oss_framework/docker
-docker-compose up prometheus loki grafana
+# Archived reference only. Review the preserved Docker stack notes here:
+cd archive/docker-stack/oss_framework-docker
+
+# Use the preserved legacy Compose snapshot explicitly if reconstructing this stack:
+docker compose -f ../../postgres-stack/oss_framework-docker-compose.yml config --services
 ```
 
 ### Kubernetes
@@ -506,8 +509,8 @@ docker-compose up prometheus loki grafana
 For production:
 ```bash
 # Apply manifests
-kubectl apply -f oss_framework/monitoring/prometheus/prometheus-k8s.yaml
-kubectl apply -f oss_framework/monitoring/loki/loki-k8s.yaml
+kubectl apply -f archive/monitoring/oss_framework-monitoring/prometheus/prometheus-k8s.yaml
+kubectl apply -f archive/monitoring/oss_framework-monitoring/loki/loki-k8s.yaml
 
 # Verify deployment
 kubectl get all -n sis-analytics -l app=prometheus,app=loki

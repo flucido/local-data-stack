@@ -405,7 +405,7 @@ WHERE hash1 != hash2  -- Should return 0 rows
 
 - [Privacy Layer README](../models/mart_privacy/README.md) - How macros are used in privacy models
 - [Core Marts README](../models/mart_core/README.md) - How hashing is used in fact tables
-- [Stage 2B Design Document](../docs/STAGE2B_PRIVACY_DESIGN.md) - Privacy layer design
+- [Stage 2B Design Document](../STAGE2B_PRIVACY_DESIGN.md) - Privacy layer design
 
 ## Metrics
 

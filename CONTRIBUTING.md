@@ -1,6 +1,6 @@
-# Contributing to OSS Framework
+# Contributing to local-data-stack
 
-Thank you for your interest in contributing to the OSS Framework! We welcome contributions from the community to help improve this platform for school districts worldwide.
+Thank you for your interest in contributing to local-data-stack. We welcome contributions from the community to help improve this local-first analytics framework for school districts worldwide.
 
 ## Table of Contents
 
@@ -28,9 +28,9 @@ We welcome several types of contributions:
 ### 🐛 Bug Reports
 
 - Search [existing issues](https://github.com/flucido/local-data-stack/issues) first
-- Use the bug report template
+- Open an issue with reproduction steps and expected vs. actual behavior
 - Include reproduction steps, expected vs. actual behavior
-- Provide system information (OS, Python version, Docker version)
+- Provide system information (OS and Python version)
 
 ### ✨ Feature Requests
 
@@ -58,36 +58,22 @@ We welcome several types of contributions:
 ### Prerequisites
 
 - Ubuntu 20.04+ or macOS or Windows with WSL2
-- Python 3.10+
-- Docker and Docker Compose
+- Python 3.9+
 - Git
-- 16GB+ RAM (32GB recommended)
 
 ### Local Setup
 
 ```bash
-# 1. Fork and clone the repository
 git clone https://github.com/YOUR_USERNAME/local-data-stack.git
-cd local-data-stack/oss_framework
-
-# 2. Create a virtual environment
+cd local-data-stack
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# 3. Install dependencies
-pip install -r requirements.txt
-pip install -r requirements-dev.txt  # Development dependencies
-
-# 4. Start services
-docker-compose up -d
-
-# 5. Run tests
-pytest tests/
-
-# 6. Initialize dbt
-cd dbt
-dbt deps
-dbt build --target test
+source venv/bin/activate
+cp .env.example .env
+# edit .env with your local settings before running the pipeline
+pip install -e '.[dev]'
+python -m pytest oss_framework/tests/
+black --check oss_framework
+ruff check oss_framework
 ```
 
 ### Development Workflow
@@ -97,8 +83,9 @@ dbt build --target test
 git checkout -b feature/your-feature-name
 
 # Make changes and test
-pytest tests/
-cd dbt && dbt test
+python -m pytest oss_framework/tests/
+black --check oss_framework
+ruff check oss_framework
 
 # Commit with descriptive messages
 git add .
@@ -150,7 +137,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 ```
 feat(dbt): add student cohort tracking model
 fix(ingestion): handle missing attendance records
-docs(setup): clarify Docker requirements
+docs(setup): clarify local development requirements
 test(dbt): add tests for attendance aggregation
 ```
 
@@ -162,16 +149,12 @@ test(dbt): add tests for attendance aggregation
 
 - **Style**: Follow [PEP 8](https://pep8.org/)
 - **Formatting**: Use `black` (line length: 100)
-- **Linting**: Use `flake8` and `pylint`
+- **Linting**: Use `ruff`
 - **Type Hints**: Use type annotations where appropriate
 
 ```bash
-# Format code
-black src/ tests/
-
-# Check linting
-flake8 src/ tests/
-pylint src/
+black --check oss_framework
+ruff check oss_framework
 ```
 
 ### dbt Models
@@ -230,32 +213,27 @@ All code contributions must include appropriate tests:
 
 ```bash
 # Run all tests
-pytest tests/
+python -m pytest oss_framework/tests/
 
 # Run specific test file
-pytest tests/test_ingestion.py
-
-# Run with coverage
-pytest --cov=src tests/
+python -m pytest oss_framework/tests/test_public_release_sanitization.py
 ```
 
 **Test locations:**
-- Unit tests: `tests/unit/`
-- Integration tests: `tests/integration/`
-- End-to-end tests: `tests/e2e/`
+- Unit and integration tests: `oss_framework/tests/`
 
 #### dbt Tests
 
 ```bash
 # Run dbt tests
-cd dbt
-dbt test
+cd oss_framework/dbt
+dbt test --profiles-dir .
 
 # Test specific model
-dbt test --select dim_students
+dbt test --profiles-dir . --select dim_students
 
 # Test with data refresh
-dbt build --target test
+dbt build --profiles-dir . --target dev
 ```
 
 **Required dbt tests:**
@@ -288,14 +266,13 @@ dbt build --target test
 
 2. **Run all tests**
    ```bash
-   pytest tests/
-   cd dbt && dbt test
+   python -m pytest oss_framework/tests/
    ```
 
 3. **Check code quality**
    ```bash
-   black --check src/
-   flake8 src/
+   black --check oss_framework
+   ruff check oss_framework
    ```
 
 4. **Update documentation**
@@ -316,11 +293,11 @@ dbt build --target test
   - Screenshots (if UI changes)
   - Breaking changes (if any)
 
-- **Reviewers**: All PRs require approval from @flucido (enforced via CODEOWNERS)
+- **Reviewers**: Changes in CODEOWNERS-covered paths require approval from @flucido
 
 - **Signed commits required**: All commits must be GPG or SSH signed. See [GitHub's guide on signing commits](https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits).
 
-- **CI Checks**: All checks must pass before merging
+- **CI Checks**: When the path-filtered workflow runs, its checks must pass before merging
   - Contract tests
   - Tests (Python 3.9, 3.10, 3.11)
   - Linting
@@ -359,7 +336,7 @@ Fixes #123
 
 ### Getting Help
 
-- **Documentation**: Start with [oss_framework/docs/](oss_framework/docs/README.md)
+- **Documentation**: Start with the [repository README](README.md)
 - **Discussions**: [GitHub Discussions](https://github.com/flucido/local-data-stack/discussions)
 - **Issues**: [GitHub Issues](https://github.com/flucido/local-data-stack/issues)
 
@@ -389,8 +366,8 @@ By contributing to this project, you agree that your contributions will be licen
 ## Questions?
 
 If you have questions about contributing, please:
-1. Check the [documentation](oss_framework/docs/README.md)
+1. Check the [repository README](README.md)
 2. Search [existing discussions](https://github.com/flucido/local-data-stack/discussions)
 3. Open a new discussion
 
-Thank you for contributing to OSS Framework! 🎉
+Thank you for contributing to local-data-stack.

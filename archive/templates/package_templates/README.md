@@ -17,7 +17,7 @@ Package templates provide reusable blueprints for integrating different educatio
 **Entities**: Students, Courses, Enrollment, Attendance, Academic Records  
 **Status**: Production-ready template  
 
-**Location**: `/oss_framework/package_templates/example_sis_package/`
+**Location**: `archive/templates/package_templates/example_sis_package/`
 
 **Files**:
 - `README.md` - Package overview and quick start
@@ -92,7 +92,7 @@ package_name/
 
 ```bash
 # Copy example SIS package
-cp -r package_templates/example_sis_package \
+cp -r archive/templates/package_templates/example_sis_package \
       package_templates/my_new_package
 
 cd package_templates/my_new_package

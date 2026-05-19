@@ -11,7 +11,7 @@ Packages are currently not supported.
 #>
 param($workspaceName, $resourceGroup)
 
-Import-Module -Force .\.github\workflows\scripts\synapse\sync-module.psm1
+Import-Module -Force .\archive\azure\github-workflows\synapse\sync-module.psm1
 
 $RESOURCENAME_REPLACEMENT_STRING_KV = "yourkeyvault"
 $RESOURCENAME_REPLACEMENT_STRING_ST = "yourstorageaccount"

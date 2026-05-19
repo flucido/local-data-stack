@@ -164,7 +164,7 @@ Results:
 Next Steps:
 1. Review data quality report
 2. Run Week 3-4 feature engineering (when ready)
-3. Check dashboards at http://localhost:3000 (Metabase)
+3. Review the generated analytics outputs and dashboard queries
 
 For detailed logs, see: ./oss_framework/logs/oea.log
 """

@@ -351,7 +351,7 @@ def main():
         "--dbt-dir", type=str, help="Path to dbt project directory (default: oss_framework/dbt)"
     )
     parser.add_argument(
-        "--no-metrics", action="store_true", help="Disable Prometheus metrics collection"
+        "--no-metrics", action="store_true", help="Disable pipeline metrics collection"
     )
 
     args = parser.parse_args()

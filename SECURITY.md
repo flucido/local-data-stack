@@ -43,18 +43,18 @@ Please provide as much detail as possible:
 
 ### 1. Student Data Protection (FERPA/GDPR)
 
-#### Pseudonymization (Required)
+#### Pseudonymization (Required for privacy-sensitive deployments)
 
-**local-data-stack implements pseudonymization by default:**
+**For privacy-sensitive deployments, configure pseudonymization as part of your runtime and data model:**
 
-- **PII Hashing**: Student names, IDs, emails are SHA-256 hashed
-- **Salted Hashing**: Uses environment-specific salt (stored in `.env`)
-- **Hashed IDs Everywhere**: All analytics use hashed IDs, not raw PII
+- **PII Hashing**: Hash direct identifiers such as student names, IDs, and emails before exposing analytics-facing datasets
+- **Salted Hashing**: Use an environment-specific salt (stored outside Git, for example in `.env`)
+- **Analytics Pattern**: Prefer hashed or otherwise pseudonymized identifiers in analytics layers instead of raw PII
 
 **Implementation**:
 
 ```python
-# src/analytics/pseudonymize.py
+# Example pseudonymization helper
 import hashlib
 import os
 
@@ -100,10 +100,11 @@ DELETE FROM raw_attendance WHERE student_id = 'hashed_student_id';
 -- Cascade to all related tables
 ```
 
-**Automated Retention**:
+**Retention Policy Example**:
 
 ```python
-# Delete records older than 7 years (FERPA requirement)
+# Example operator-managed retention job.
+# Adjust timing and legal basis to your district policy.
 DELETE FROM raw_students
 WHERE withdrawal_date < CURRENT_DATE - INTERVAL 7 YEARS;
 ```
@@ -157,16 +158,15 @@ ssh -L 9009:localhost:9009 user@your-server
 
 #### Network Security
 
-- **Firewall**: Restrict access to Rill and JupyterLab
+- **Firewall**: Restrict access to Rill
   ```bash
   # Example: ufw (Ubuntu)
   sudo ufw allow from 192.168.1.0/24 to any port 9009  # Rill (internal only)
-  sudo ufw allow from 192.168.1.0/24 to any port 8888  # JupyterLab (internal only)
   sudo ufw deny 9009  # Block external access
   ```
 
 - **VPN**: Use VPN for remote access to services
-- **No Public Exposure**: Never expose DuckDB or JupyterLab to the internet
+- **No Public Exposure**: Never expose DuckDB or Rill to the internet
 
 ---
 
@@ -176,8 +176,8 @@ ssh -L 9009:localhost:9009 user@your-server
 
 **Authentication Options**:
 
-1. **Local Development** (default): No authentication required (runs on localhost)
-2. **Production Deployment**: Use Rill Cloud authentication or configure reverse proxy with auth
+1. **Local Development** (default): No authentication required when Rill is bound only to localhost
+2. **Shared or remote access**: Put Rill behind a reverse proxy or VPN that enforces authentication before allowing other users onto the host or network
 
 **Role-Based Dashboards**:
 
@@ -222,8 +222,8 @@ WHERE school_id IN (SELECT school_id FROM user_access WHERE user_id = current_us
 
 ```bash
 # Restrict DuckDB file access
-chmod 600 data/oea.duckdb
-chown analytics-user:analytics-group data/oea.duckdb
+chmod 600 oss_framework/data/oea.duckdb
+chown analytics-user:analytics-group oss_framework/data/oea.duckdb
 ```
 
 #### Read-Only Access
@@ -231,7 +231,7 @@ chown analytics-user:analytics-group data/oea.duckdb
 ```python
 # For analytics users (read-only)
 import duckdb
-con = duckdb.connect('data/oea.duckdb', read_only=True)
+con = duckdb.connect('oss_framework/data/oea.duckdb', read_only=True)
 ```
 
 #### Query Injection Prevention
@@ -251,7 +251,7 @@ con.execute(query, [user_input])
 
 ```python
 # Limit concurrent connections
-con = duckdb.connect('data/oea.duckdb', config={
+con = duckdb.connect('oss_framework/data/oea.duckdb', config={
     'threads': 4,
     'max_memory': '2GB'
 })
@@ -307,7 +307,7 @@ local_data_stack:
 
 #### Pipeline Execution Logs
 
-**All pipeline runs are logged:**
+This repository includes examples that write application logs to `oss_framework/logs/oea.log`, but that file is only populated if you explicitly configure a file handler for the process you run.
 
 ```bash
 # View recent pipeline logs
@@ -317,7 +317,7 @@ tail -f oss_framework/logs/oea.log
 grep ERROR oss_framework/logs/oea.log
 ```
 
-**Retain logs for compliance:**
+**If you use file-based logging, retain logs for compliance:**
 
 ```python
 # logging_config.py
@@ -337,22 +337,12 @@ logging.config.dictConfig({
 
 **Monitor dashboard access:**
 
-Rill logs all queries to stdout. Capture with Docker logging:
-
-```yaml
-# docker-compose.yml
-rill:
-  logging:
-    driver: "json-file"
-    options:
-      max-size: "100m"
-      max-file: "10"
-```
+Rill logs locally to the terminal session where you run `rill start`. Capture that output with your normal shell logging or process supervisor if you need retention.
 
 **View Rill logs:**
 
 ```bash
-docker-compose logs -f rill
+rill start 2>&1 | tee rill.log
 ```
 
 #### Access Logs
@@ -375,7 +365,7 @@ sudo ausearch -k sensitive_access
 
 ```bash
 # Example: Encrypted backup to external drive
-tar czf - data/ | openssl enc -aes-256-cbc -salt -out backup.tar.gz.enc
+tar czf - oss_framework/data/ | openssl enc -aes-256-cbc -salt -out backup.tar.gz.enc
 
 # Restore
 openssl enc -d -aes-256-cbc -in backup.tar.gz.enc | tar xzf -
@@ -386,16 +376,16 @@ openssl enc -d -aes-256-cbc -in backup.tar.gz.enc | tar xzf -
 - **Daily**: Keep 7 days
 - **Weekly**: Keep 4 weeks
 - **Monthly**: Keep 12 months
-- **Annually**: Keep 7 years (FERPA requirement)
+- **Annually**: Keep long-term archives only if your district policy requires them
 
 #### DuckDB-Specific Backups
 
 ```bash
 # Backup DuckDB file
-cp data/oea.duckdb backups/oea_$(date +%Y%m%d).duckdb
+cp oss_framework/data/oea.duckdb backups/oea_$(date +%Y%m%d).duckdb
 
 # Backup Parquet files (Stage 1 source of truth)
-rsync -av data/stage1/ backups/stage1_$(date +%Y%m%d)/
+rsync -av oss_framework/data/stage1/ backups/stage1_$(date +%Y%m%d)/
 ```
 
 ---
@@ -410,7 +400,7 @@ rsync -av data/stage1/ backups/stage1_$(date +%Y%m%d)/
 # .env (not tracked in Git)
 PRIVACY_SALT="your-secret-salt-here"
 AERIES_API_KEY="your_aeries_api_key"
-RILL_ADMIN_PASSWORD="rill_admin_password"
+# Add deployment-specific proxy, SSO, or service credentials only if your environment uses them
 ```
 
 **Use `.gitignore`:**
@@ -434,25 +424,20 @@ git secrets --scan
 gitleaks detect --source . --verbose
 ```
 
-#### Docker Security
+#### Local Process Hardening
 
-**Don't run as root:**
+**Run local services with least privilege:**
 
-```yaml
-# docker-compose.yml
-rill:
-  user: "1000:1000"  # Non-root user
-  read_only: true
-  tmpfs:
-    - /tmp
+```bash
+# Use a dedicated local account when running shared analytics services
+id analytics-user || sudo sysadminctl -addUser analytics-user
 ```
 
-**Limit resources:**
+**Limit resource usage where supported by your host OS or process manager:**
 
-```yaml
-rill:
-  mem_limit: 2g
-  cpus: 2
+```bash
+# Example: launch Rill with output captured for review
+rill start 2>&1 | tee rill.log
 ```
 
 ---
@@ -461,20 +446,23 @@ rill:
 
 #### Python Dependencies
 
-**Pin versions in requirements.txt:**
+**Pin versions in your active package definition (`pyproject.toml` in this repository):**
 
-```txt
-duckdb==1.1.3
-dlt[duckdb]==1.5.0
-dbt-duckdb==1.9.1
-rill-cli==0.81.4
+```toml
+[project]
+dependencies = [
+  "duckdb==1.1.3",
+  "dlt[duckdb]==1.5.0",
+  "dbt-duckdb==1.9.1",
+  "rill-cli==0.81.4",
+]
 ```
 
 **Check for vulnerabilities:**
 
 ```bash
 pip install safety
-safety check --file requirements.txt
+safety check --file pyproject.toml
 ```
 
 #### Regular Updates
@@ -493,18 +481,18 @@ pytest oss_framework/tests/
 
 #### FERPA Compliance
 
-- ✅ **Pseudonymization**: All PII hashed
-- ✅ **Access Control**: Role-based access via system permissions
-- ✅ **Audit Logging**: All pipeline runs logged
-- ✅ **Data Retention**: 7-year retention enforced
-- ✅ **Right to Be Forgotten**: Student data deletion supported
+- ✅ **Pseudonymization**: Repository guidance assumes hashed or pseudonymized analytics identifiers
+- ⚠️ **Access Control**: Implement host, network, proxy, and SQL access rules in your deployment; this repository does not ship a complete RBAC system
+- ⚠️ **Audit Logging**: Configure retained process logs before relying on them for compliance evidence
+- ⚠️ **Data Retention**: Define and enforce retention schedules in your operational environment and district policy
+- ✅ **Right to Be Forgotten**: SQL deletion patterns can be implemented by operators
 
 #### GDPR Compliance (if applicable)
 
-- ✅ **Data Minimization**: Only necessary data collected
-- ✅ **Purpose Limitation**: Data used only for education analytics
-- ✅ **Storage Limitation**: Automated deletion after 7 years
-- ✅ **Integrity & Confidentiality**: Encryption at rest and in transit
+- ✅ **Data Minimization**: Keep Stage 3 outputs aggregated and avoid exposing raw PII
+- ✅ **Purpose Limitation**: Use the stack only for the educational analytics purpose you document locally
+- ⚠️ **Storage Limitation**: If you need timed deletion, implement and validate it in deployment automation
+- ⚠️ **Integrity & Confidentiality**: Encryption at rest/in transit depends on host, filesystem, proxy, and network configuration
 
 #### Monitoring
 
@@ -512,7 +500,7 @@ pytest oss_framework/tests/
 
 ```bash
 # Check DuckDB file size
-du -sh data/oea.duckdb
+du -sh oss_framework/data/oea.duckdb
 
 # Check disk space
 df -h
@@ -524,14 +512,13 @@ grep ERROR oss_framework/logs/oea.log | tail -20
 **Performance Monitoring:**
 
 ```sql
--- Check table sizes
+-- DuckDB-compatible row count check for active tables
 SELECT
-    table_name,
-    COUNT(*) as row_count,
-    pg_size_pretty(pg_total_relation_size(table_name)) as total_size
+    table_schema,
+    table_name
 FROM information_schema.tables
 WHERE table_schema = 'main'
-GROUP BY table_name;
+ORDER BY table_name;
 ```
 
 ---
@@ -549,10 +536,10 @@ Use this checklist before production deployment:
 - [ ] `.env` file excluded from Git (in `.gitignore`)
 - [ ] All API credentials stored in `.env`
 - [ ] Pipeline logs rotating (10MB max, 10 files)
-- [ ] Rill query logs captured (Docker logging)
+- [ ] Rill query logs captured from the local `rill start` process
 - [ ] Encrypted backups configured (daily/weekly/monthly)
-- [ ] Backup retention policy enforced (7-year FERPA)
-- [ ] Python dependencies pinned in requirements.txt
+- [ ] Backup retention policy documented and implemented by the operator
+- [ ] Python dependencies pinned in `pyproject.toml` or the package file used by your deployment
 - [ ] Vulnerability scan passed (`safety check`)
 - [ ] System access limited to authorized users only
 - [ ] Data retention policy documented and enforced

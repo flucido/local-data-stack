@@ -6,7 +6,7 @@ setup(
     description="Reusable utilities library for education analytics data processing",
     author="OSS Framework Team",
     author_email="oss-framework@example.com",
-    url="https://github.com/yourorg/oss-framework",
+    url="https://github.com/flucido/local-data-stack",
     license="MIT",
     packages=find_packages(),
     python_requires=">=3.9",
@@ -22,17 +22,6 @@ setup(
             "black>=23.0",
             "flake8>=6.0",
             "mypy>=1.0",
-        ],
-        "azure": [
-            "azure-storage-blob>=12.14",
-            "azure-identity>=1.12",
-        ],
-        "postgres": [
-            "psycopg2-binary>=2.9",
-            "sqlalchemy>=2.0",
-        ],
-        "bigquery": [
-            "google-cloud-bigquery>=3.11",
         ],
     },
     classifiers=[

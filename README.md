@@ -1,6 +1,6 @@
 # local-data-stack
 
-`local-data-stack` is an open-source, local-first analytics framework for education data. It combines Python orchestration, DuckDB, Delta/Parquet staging, dbt transformations, and Rill dashboards so contributors can explore the architecture without depending on cloud services or private student records.
+`local-data-stack` is an open-source, local-first analytics framework for education data. The supported runtime combines Python orchestration, DuckDB staging and marts, Parquet exports for Rill, and local dashboards so contributors can explore the active architecture without depending on cloud services or private student records.
 
 ## Public release guarantees
 
@@ -26,8 +26,10 @@ local-data-stack/
 │   └── tests/                    # Python tests
 ├── rill_project/                 # Rill dashboards and connector config
 ├── scripts/                      # Root orchestration entrypoints
-└── src/                          # Supporting Python modules
+└── archive/                      # unsupported historical assets kept for reference
 ```
+
+As a line in the sand, anything outside that local-first runtime is archived under `archive/` and is unsupported.
 
 ## Architecture overview
 
@@ -38,7 +40,9 @@ Stage 1: Delta/Parquet landing zone (oss_framework/data/stage1)
          ↓
 Stage 2: DuckDB + dbt transformations (oss_framework/data/oea.duckdb)
          ↓
-Stage 3: Analytics marts / exported dashboard inputs
+Stage 3: DuckDB analytics marts
+         ↓
+Stage 4: Parquet export for Rill
          ↓
 Rill dashboards (rill_project/)
 ```
@@ -64,23 +68,30 @@ cp .env.example .env
 
 The repository already includes placeholder directories under `oss_framework/data/`. Your local DuckDB database will be created on demand at the path defined by `DUCKDB_DATABASE_PATH`.
 
-### 4. Run dbt against DuckDB
+### 4. Run the local-first pipeline
 
 ```bash
-cd oss_framework/dbt
-dbt deps
-DBT_PROFILES_DIR=. dbt parse
-DBT_PROFILES_DIR=. dbt build
+python scripts/run_pipeline.py --stage all
 ```
 
 ### 5. Launch Rill
+
+Install the Rill CLI first on a clean machine. For example:
+
+```bash
+npm install -g rill
+```
 
 ```bash
 cd rill_project
 rill start
 ```
 
-If you keep the default `.env.example` paths, Rill will open the DuckDB file at `../oss_framework/data/oea.duckdb`.
+Running `python scripts/run_pipeline.py --stage all` prepares the local DuckDB-backed data that the checked-in Rill project reads when you start Rill separately via `rill start` using `rill_project/connectors/duckdb.yaml`.
+
+## Archived assets
+
+Historical experiments, superseded runtime surfaces, and other non-supported repository assets are kept under `archive/` for reference only. They are not part of the supported local-first runtime described above.
 
 ## Synthetic sample data
 
@@ -110,9 +121,9 @@ python -m ruff check oss_framework
 python -m black --check oss_framework
 ```
 
-The full repository suite still has pre-existing issues unrelated to the public-release sanitization work, so the focused release test above is the canonical safeguard added in this change.
+The focused release test remains an important targeted check for public-release sanitization, alongside the broader contract, lint, formatting, and repository test commands listed above.
 
 ## License
 
-- Code: [MIT License](LICENSE)
+- Code: [MIT License](LICENSE-CODE)
 - Documentation: [CC BY 4.0](LICENSE)

@@ -5,19 +5,46 @@ on:
     branches: [ main, develop ]
     paths:
       - 'oss_framework/**'
-      - 'schema/**'
-      - 'dashboards/**'
       - 'rill_project/**'
-      - 'scripts/contracts/**'
+      - 'scripts/**'
+      - 'schema/**'
+      - 'README.md'
+      - 'CONTRIBUTING.md'
+      - 'SECURITY.md'
+      - 'CODE_OF_CONDUCT.md'
+      - '.env.example'
+      - '.gitignore'
+      - 'docker-compose.yml'
+      - 'pyproject.toml'
+      - 'requirements.txt'
+      - 'uv.lock'
       - '.github/workflows/test.yml'
+      - '.github/scripts/**'
+      - '.github/CODEOWNERS'
+      - '.github/WORKFLOWS.md'
+      - '.github/rulesets/**'
   pull_request:
     branches: [ main, develop ]
     paths:
       - 'oss_framework/**'
-      - 'schema/**'
-      - 'dashboards/**'
       - 'rill_project/**'
-      - 'scripts/contracts/**'
+      - 'scripts/**'
+      - 'schema/**'
+      - 'README.md'
+      - 'CONTRIBUTING.md'
+      - 'SECURITY.md'
+      - 'CODE_OF_CONDUCT.md'
+      - '.env.example'
+      - '.gitignore'
+      - 'docker-compose.yml'
+      - 'pyproject.toml'
+      - 'requirements.txt'
+      - 'uv.lock'
+      - '.github/workflows/test.yml'
+      - '.github/scripts/**'
+      - '.github/CODEOWNERS'
+      - '.github/WORKFLOWS.md'
+      - '.github/rulesets/**'
 
 jobs:
   contract-tests:
@@ -49,21 +76,6 @@ jobs:
       matrix:
         python-version: ['3.9', '3.10', '3.11']
 
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: sis_analytics_test
-          POSTGRES_USER: test_user
-          POSTGRES_PASSWORD: test_password
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
     steps:
     - uses: actions/checkout@v4
 
@@ -85,15 +97,9 @@ jobs:
 
     - name: Format check with black
       run: |
-        black --check oss_framework || true
+        black --check oss_framework
 
     - name: Test with pytest
-      env:
-        POSTGRES_HOST: localhost
-        POSTGRES_PORT: 5432
-        POSTGRES_DB: sis_analytics_test
-        POSTGRES_USER: test_user
-        POSTGRES_PASSWORD: test_password
       run: |
         pytest oss_framework/tests/ -v --cov=oss_framework --cov-report=xml --cov-report=term-missing
 
