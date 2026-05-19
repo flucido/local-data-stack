@@ -102,11 +102,11 @@ DELETE FROM raw_attendance WHERE student_id = 'hashed_student_id';
 
 **Retention Policy Example**:
 
-```python
-# Example operator-managed retention job.
-# Adjust timing and legal basis to your district policy.
+```sql
+-- Example operator-managed retention job.
+-- Adjust timing and legal basis to your district policy.
 DELETE FROM raw_students
-WHERE withdrawal_date < CURRENT_DATE - INTERVAL 7 YEARS;
+WHERE withdrawal_date < CURRENT_DATE - INTERVAL '7' YEAR;
 ```
 
 ---
