@@ -79,6 +79,23 @@ jupyter = [
     "ipywidgets>=8.0.0",
 ]
 
+# Natural-language query layer (nl_query/): Gradio UI + fine-tuned Qwen2.5
+# NL→SQL model. Heavy ML deps, installed only when running the NL→SQL app.
+nl-query = [
+    "gradio>=6.15.0",
+    "huggingface_hub>=0.26.0",
+    "hf_transfer",
+    "torch",
+    "transformers>=4.46.0",
+    "peft>=0.13.0",
+    "bitsandbytes>=0.44.0",
+    "accelerate>=1.0.0",
+    # Local (no-GPU / product) inference backend
+    "llama-cpp-python>=0.3.0",
+    # Optional HF Spaces ZeroGPU helper (no-op locally)
+    "spaces",
+]
+
 # All optional dependencies
 all = [
     "pytest>=7.4.0",
