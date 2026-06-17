@@ -35,7 +35,7 @@ SELECT
     CAST(NULL AS INTEGER) as curr_denom,
     CAST(NULL AS DOUBLE) as curr_status,
     CAST(NULL AS VARCHAR) as status_level,
-    CAST(NULL AS VARCHAR) as reporting_year,
+    CAST(NULL AS VARCHAR) as academic_year,
     -- ELPAC-specific progression metrics
     CAST(NULL AS INTEGER) as curr_progressed,
     CAST(NULL AS DOUBLE) as pct_curr_progressed,
@@ -87,7 +87,7 @@ renamed AS (
         TRY_CAST(currdenom AS INTEGER) as curr_denom,
         TRY_CAST(currstatus AS DOUBLE) as curr_status,
         statuslevel as status_level,
-        reportingyear as reporting_year,
+        reportingyear as academic_year,
 
         -- ELPAC-specific progression metrics
         TRY_CAST(currprogressed AS INTEGER) as curr_progressed,

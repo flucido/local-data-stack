@@ -31,7 +31,7 @@ SELECT
     CAST(NULL AS VARCHAR) as school_code,
     CAST(NULL AS VARCHAR) as reporting_category,
     CAST(NULL AS VARCHAR) as reporting_category_label,
-    CAST(NULL AS VARCHAR) as test_year,
+    CAST(NULL AS VARCHAR) as academic_year,
     CAST(NULL AS VARCHAR) as test_type,
     CAST(NULL AS INTEGER) as total_tested_at_reporting_level,
     CAST(NULL AS INTEGER) as total_tested_with_scores_at_reporting_level,
@@ -189,6 +189,7 @@ summarized AS (
 final AS (
     SELECT
         *,
+        test_year as academic_year,
         CURRENT_TIMESTAMP as dbt_loaded_at,
         {{ cde_reporting_category_flags('reporting_category') }}
     FROM summarized

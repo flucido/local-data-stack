@@ -187,18 +187,18 @@ frpm AS (
 -- ── ELA Assessment ─────────────────────────────────────────────────────
 ela AS (
     SELECT cds_code, academic_year, reporting_category,
-           currdenom AS ela_currdenom,
-           currstatus AS ela_currstatus,
-           statuslevel AS ela_status
+           curr_denom AS ela_currdenom,
+           curr_status AS ela_currstatus,
+           status_level AS ela_status
     FROM {{ ref('stg_cde__assessment_ela') }}
 ),
 
 -- ── ELPAC Assessment ───────────────────────────────────────────────────
 elpac AS (
     SELECT cds_code, academic_year, reporting_category,
-           pctcurrprogressed AS elpac_progressed_pct,
-           pctcurrmaintainpl4 AS elpac_maintained_pl4_pct,
-           pctcurrdeclined AS elpac_declined_pct
+           pct_curr_progressed AS elpac_progressed_pct,
+           pct_curr_maintain_pl4 AS elpac_maintained_pl4_pct,
+           pct_curr_declined AS elpac_declined_pct
     FROM {{ ref('stg_cde__assessment_elpac') }}
 ),
 
@@ -206,9 +206,9 @@ elpac AS (
 sbac AS (
     SELECT cds_code, academic_year, reporting_category,
            mean_scale_score AS sbac_mean_scale_score,
-           percentage_standard_exceeded AS sbac_pct_standard_exceeded,
-           percentage_standard_met_and_above AS sbac_pct_standard_met_above,
-           percentage_standard_not_met AS sbac_pct_standard_not_met,
+           pct_standard_exceeded AS sbac_pct_standard_exceeded,
+           pct_standard_met_and_above AS sbac_pct_standard_met_above,
+           pct_standard_not_met AS sbac_pct_standard_not_met,
            students_tested AS sbac_students_tested
     FROM {{ ref('stg_cde__assessment_caspp') }}
 ),
