@@ -17,7 +17,7 @@ class TestDataTransformer:
             {"id": 2, "name": "Bob", "address": {"city": "LA", "zip": "90001"}},
         ]
 
-        result = data_transformer.flatten_json(json_data, separator="_")
+        result = data_transformer.flatten_json(json_data, sep="_")
 
         assert "id" in result.columns
         assert "name" in result.columns
@@ -167,14 +167,9 @@ class TestPseudonymizer:
         result = pseudonymizer.pseudonymize(df, entity="enrollment")
 
         # Grades should remain unchanged
-        assert (
-            result["final_grade_numeric"].equals(
-                df["final_grade_numeric"], check_dtype=False
-            )
-            or (
-                result["final_grade_numeric"].isna() & df["final_grade_numeric"].isna()
-            ).all()
-        )
+        assert result["final_grade_numeric"].equals(df["final_grade_numeric"]) or (
+            result["final_grade_numeric"].isna() & df["final_grade_numeric"].isna()
+        ).all()
 
     def test_hash_consistency(self, pseudonymizer, sample_students_df):
         """Test that same input produces same hash"""

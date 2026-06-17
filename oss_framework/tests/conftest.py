@@ -221,8 +221,8 @@ def batch_processor(metadata_manager):
 
 
 @pytest.fixture
-def pseudonymizer(metadata_manager):
-    """Pseudonymizer fixture with metadata"""
+def pseudonymizer():
+    """Pseudonymizer fixture"""
     from oss_framework import Pseudonymizer
 
-    return Pseudonymizer(metadata_manager)
+    return Pseudonymizer()

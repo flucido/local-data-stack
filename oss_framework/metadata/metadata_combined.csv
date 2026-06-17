@@ -45,8 +45,9 @@ attendance,student_id,VARCHAR,hash,Student identifier (hashed for privacy)
 attendance,tardy_flag,BOOLEAN,no-op,Flag indicating student was tardy
 attendance,teacher_id,VARCHAR,hash,Teacher identifier (hashed for privacy)
 courses,_loaded_date,TIMESTAMP,no-op,Date record was loaded
-courses,_updated_date,TIMESTAMP,no-op,Date record was last updatedEntity,Attribute,DataType,Pseudonymization,Description
-courses,course_code,VARCHAR,no-op,Course code (e.g., ELA101)
+courses,_updated_date,TIMESTAMP,no-op,Date record was last updated
+Entity,Attribute,DataType,Pseudonymization,Description
+courses,course_code,VARCHAR,no-op,"Course code (e.g., ELA101)"
 courses,course_description,VARCHAR,no-op,Course description
 courses,course_id,VARCHAR,no-op,Unique course identifier from SIS
 courses,course_name,VARCHAR,no-op,Human-readable course name
@@ -106,7 +107,8 @@ enrollment,term,VARCHAR,no-op,Academic term (semester/trimester/year)
 enrollment,unexcused_absence_count,INT,no-op,Number of unexcused absences
 enrollment,weighted_gpa_impact,FLOAT,no-op,Impact on weighted GPA calculation
 students,_loaded_date,TIMESTAMP,no-op,Date record was loaded into Stage 1
-students,_updated_date,TIMESTAMP,no-op,Date record was last updatedEntity,Attribute,DataType,Pseudonymization,Description
+students,_updated_date,TIMESTAMP,no-op,Date record was last updated
+Entity,Attribute,DataType,Pseudonymization,Description
 students,address_city,VARCHAR,mask,City
 students,address_line1,VARCHAR,mask,Street address line 1
 students,address_state,VARCHAR,mask,State

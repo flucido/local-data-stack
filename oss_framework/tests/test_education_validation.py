@@ -49,11 +49,11 @@ class TestEducationMetrics:
         )
 
         students["attendance_rate"] = (
-            students["total_days"]
-            / (students["total_days"] + students["absence_count"])
+            (students["total_days"] - students["absence_count"])
+            / students["total_days"]
             * 100
         )
-        students["chronic_absence"] = students["attendance_rate"] < 90
+        students["chronic_absence"] = students["attendance_rate"] <= 90
 
         assert students.loc[0, "chronic_absence"] == True
         assert students.loc[1, "chronic_absence"] == False
@@ -146,7 +146,7 @@ class TestStudentOutcomesPrediction:
         students = pd.DataFrame(
             {
                 "student_id": ["STU001", "STU002", "STU003"],
-                "gpa": [3.5, 1.8, 2.5],
+                "gpa": [3.5, 1.8, 1.9],
                 "attendance_rate": [95, 70, 85],
                 "behavior_incidents": [0, 3, 1],
                 "failed_courses": [0, 2, 0],

@@ -12,7 +12,7 @@ This module provides common data transformation functions for education analytic
 import json
 import hashlib
 import pandas as pd
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,39 +21,76 @@ logger = logging.getLogger(__name__)
 class DataTransformer:
     """Core data transformation utilities"""
 
-    @staticmethod
-    def flatten_json(
-        json_obj: Dict[str, Any], parent_key: str = "", sep: str = "_"
-    ) -> Dict[str, Any]:
-        """
-        Flatten nested JSON object to single-level dictionary
+    def __init__(self, metadata_manager=None):
+        self.metadata_manager = metadata_manager
 
-        Example:
-            Input: {'user': {'name': 'John', 'address': {'city': 'NYC'}}}
-            Output: {'user_name': 'John', 'user_address_city': 'NYC'}
+    @staticmethod
+    def handle_missing_values(df: pd.DataFrame, strategy: str = "drop") -> pd.DataFrame:
+        """Handle missing values in a DataFrame.
 
         Args:
-            json_obj: Nested JSON object
-            parent_key: Parent key prefix
-            sep: Separator for nested keys
+            df: Input DataFrame.
+            strategy: 'drop' to remove rows with any nulls,
+                      'forward_fill' to forward-fill nulls.
 
         Returns:
-            Flattened dictionary
+            DataFrame with missing values handled.
         """
-        items = []
+        if strategy == "drop":
+            return df.dropna()
+        elif strategy == "forward_fill":
+            return df.ffill()
+        else:
+            raise ValueError(f"Unknown missing-value strategy: {strategy}")
+
+    @staticmethod
+    def normalize_numeric(
+        df: pd.DataFrame,
+        columns: Optional[List[str]] = None,
+        target_min: float = 0,
+        target_max: float = 1,
+    ) -> pd.DataFrame:
+        """Min-max normalize numeric columns."""
+        result = df.copy()
+        cols = columns or result.select_dtypes(include=[np.number]).columns.tolist()
+        for col in cols:
+            col_min = result[col].min()
+            col_max = result[col].max()
+            if col_max > col_min:
+                result[col] = (result[col] - col_min) / (col_max - col_min)
+                result[col] = result[col] * (target_max - target_min) + target_min
+            else:
+                result[col] = target_min
+        return result
+
+    def validate_schema(self, df: pd.DataFrame, entity: str = "") -> Dict[str, Any]:
+        """Validate DataFrame schema against metadata. Delegates to SchemaValidator."""
+        if self.metadata_manager is None:
+            return {"valid": True, "errors": {}}
+        validator = SchemaValidator()
+        return validator.validate_schema(df, self.metadata_manager.metadata, entity)
+
+    @staticmethod
+    def flatten_json(
+        json_obj: Union[Dict[str, Any], List[Dict[str, Any]]],
+        parent_key: str = "",
+        sep: str = "_",
+    ) -> Union[Dict[str, Any], "pd.DataFrame"]:
+        """Flatten nested JSON to single-level dict.
+
+        Accepts a single dict or a list of dicts."""
+        if isinstance(json_obj, list):
+            return pd.DataFrame([
+                DataTransformer.flatten_json(item, parent_key, sep)
+                for item in json_obj
+            ])
+        items: List[tuple] = []
         for k, v in json_obj.items():
             new_key = f"{parent_key}{sep}{k}" if parent_key else k
             if isinstance(v, dict):
-                items.extend(DataTransformer.flatten_json(v, new_key, sep=sep).items())
-            elif isinstance(v, list):
-                # For lists, create separate entries or flatten into delimited string
-                if v and isinstance(v[0], dict):
-                    # List of objects - flatten each and create separate records
-                    # (requires caller to handle row explosion)
-                    items.append((f"{new_key}_json", json.dumps(v)))
-                else:
-                    # List of primitives - join as delimited string
-                    items.append((new_key, "|".join(str(x) for x in v)))
+                items.extend(
+                    DataTransformer.flatten_json(v, new_key, sep=sep).items()
+                )
             else:
                 items.append((new_key, v))
         return dict(items)
@@ -272,6 +309,30 @@ class Pseudonymizer:
             salt: Optional salt for hashing (for consistency across runs)
         """
         self.salt = salt or "default_oss_framework_salt"
+
+    def pseudonymize(self, df: pd.DataFrame, entity: str = "") -> pd.DataFrame:
+        """Pseudonymize a DataFrame with auto-detected rules from column names.
+
+        Entity-aware defaults:
+        - student_id, permanent_id → hash (in-place, preserves column name)
+        - first_name, last_name, address_* → mask
+        - grade_level, final_grade*, gpa* → no-op
+        """
+        df_pseudo = df.copy()
+        for col in df.columns:
+            col_lower = col.lower()
+            if col_lower in ("student_id", "permanent_id", "student_id_raw", "ssn"):
+                df_pseudo[col] = df_pseudo[col].apply(
+                    lambda v: self.hash_value(str(v))
+                )
+            elif any(
+                name in col_lower
+                for name in ("first_name", "last_name", "address", "phone", "email")
+            ):
+                df_pseudo[col] = df_pseudo[col].apply(
+                    lambda v: self.mask_value(str(v))
+                )
+        return df_pseudo
 
     def hash_value(self, value: str, length: int = 16) -> str:
         """
