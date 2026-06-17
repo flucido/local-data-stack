@@ -209,7 +209,7 @@ class CDEDataLoader:
         markers (``*`` / empty -> None).
         """
         try:
-            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            with open(file_path, "r", encoding="latin1") as f:
                 reader = csv.DictReader(f, delimiter=delimiter)
                 if reader.fieldnames:
                     # Strip BOM from the first column name in-place.
@@ -308,7 +308,7 @@ class CDEDataLoader:
                 )
                 with zf.open(target) as inner:
                     reader = csv.DictReader(
-                        (line.decode("utf-8", errors="replace") for line in inner),
+                        (line.decode("latin1") for line in inner),
                         delimiter=delimiter,
                     )
                     if reader.fieldnames:
@@ -354,7 +354,7 @@ class CDEDataLoader:
     def _scan_txt_header(self, file_path: Path, delimiter: str) -> List[str]:
         """Read only the header line of a delimited text file."""
         try:
-            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            with open(file_path, "r", encoding="latin1") as f:
                 first_line = f.readline()
             names = first_line.rstrip("\n").rstrip("\r").split(delimiter)
             return [_strip_bom(n) if i == 0 else n for i, n in enumerate(names)]
@@ -404,7 +404,7 @@ class CDEDataLoader:
                     (m for m in members if "all_csv_v1" in m.lower()), members[0]
                 )
                 with zf.open(target) as inner:
-                    first_line = inner.readline().decode("utf-8", errors="replace")
+                    first_line = inner.readline().decode("latin1")
             names = first_line.rstrip("\n").rstrip("\r").split(delimiter)
             return [_strip_bom(n) if i == 0 else n for i, n in enumerate(names)]
         except Exception as e:  # noqa: BLE001
