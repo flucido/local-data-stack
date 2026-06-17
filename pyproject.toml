@@ -116,13 +116,10 @@ Documentation = "https://github.com/flucido/local-data-stack/tree/main/docs"
 Repository = "https://github.com/flucido/local-data-stack"
 Issues = "https://github.com/flucido/local-data-stack/issues"
 
-[project.scripts]
-oss-framework = "oss_framework.cli:main"
-
 # setuptools configuration
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["oss_framework*", "src*"]
+include = ["oss_framework*"]
 
 # pytest configuration
 [tool.pytest.ini_options]
@@ -136,7 +133,7 @@ filterwarnings = [
 
 # coverage configuration
 [tool.coverage.run]
-source = ["oss_framework", "src"]
+source = ["oss_framework"]
 branch = true
 omit = [
     "*/tests/*",
@@ -196,7 +193,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["oss_framework", "src"]
+known-first-party = ["oss_framework"]
 
 # mypy configuration
 [tool.mypy]

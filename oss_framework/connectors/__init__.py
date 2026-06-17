@@ -9,7 +9,7 @@ Usage:
 
 Environment:
     Set SIS_CONNECTOR to the connector name (aeries, powerschool, csv, etc.).
-    Falls back to "csv" (local file mode) when unset.
+    Falls back to "aeries" when unset.
 """
 
 import importlib
@@ -21,7 +21,6 @@ from oss_framework.connectors.base import SISConnector
 
 _CONNECTOR_REGISTRY = {
     "aeries": "oss_framework.connectors.aeries",
-    "csv": "oss_framework.connectors.csv",
 }
 
 
@@ -48,7 +47,7 @@ def get_sis_connector(
     Raises:
         ValueError: If the connector name is unknown.
     """
-    name = name or os.getenv("SIS_CONNECTOR", "csv")
+    name = name or os.getenv("SIS_CONNECTOR", "aeries")
 
     module_path = _CONNECTOR_REGISTRY.get(name)
     if module_path is None:

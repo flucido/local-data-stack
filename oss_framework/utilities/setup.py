@@ -23,17 +23,6 @@ setup(
             "flake8>=6.0",
             "mypy>=1.0",
         ],
-        "azure": [
-            "azure-storage-blob>=12.14",
-            "azure-identity>=1.12",
-        ],
-        "postgres": [
-            "psycopg2-binary>=2.9",
-            "sqlalchemy>=2.0",
-        ],
-        "bigquery": [
-            "google-cloud-bigquery>=3.11",
-        ],
     },
     classifiers=[
         "Development Status :: 4 - Beta",

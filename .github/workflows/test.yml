@@ -6,13 +6,11 @@ on:
     paths:
       - 'oss_framework/**'
       - 'schema/**'
-      - 'dashboards/**'
       - 'rill_project/**'
       - 'scripts/contracts/**'
       - '.github/workflows/test.yml'
       - '.gitleaks.toml'
       - '.pre-commit-config.yaml'
-      - 'k8s_deploy.py'
       - 'pyproject.toml'
       - '.env.example'
   pull_request:
@@ -20,13 +18,11 @@ on:
     paths:
       - 'oss_framework/**'
       - 'schema/**'
-      - 'dashboards/**'
       - 'rill_project/**'
       - 'scripts/contracts/**'
       - '.github/workflows/test.yml'
       - '.gitleaks.toml'
       - '.pre-commit-config.yaml'
-      - 'k8s_deploy.py'
       - 'pyproject.toml'
       - '.env.example'
 
@@ -73,21 +69,6 @@ jobs:
       matrix:
         python-version: ['3.9', '3.10', '3.11']
 
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: sis_analytics_test
-          POSTGRES_USER: test_user
-          POSTGRES_PASSWORD: test_password
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
     steps:
     - uses: actions/checkout@v4
 
@@ -112,12 +93,6 @@ jobs:
         black --check oss_framework || true
 
     - name: Test with pytest
-      env:
-        POSTGRES_HOST: localhost
-        POSTGRES_PORT: 5432
-        POSTGRES_DB: sis_analytics_test
-        POSTGRES_USER: test_user
-        POSTGRES_PASSWORD: test_password
       run: |
         pytest oss_framework/tests/ -v --cov=oss_framework --cov-report=xml --cov-report=term-missing
 

@@ -1,16 +1,9 @@
 #!/usr/bin/env python3
 """
-Prometheus Metrics Exporter for Local Data Stack Pipeline
+Prometheus Metrics Exporter for Local Data Stack Pipeline.
 
 Provides metrics collection for pipeline execution using prometheus_client.
-Supports two deployment modes:
-1. Local Development: TextFile collector exports to /tmp/ for node_exporter
-2. Kubernetes: HTTP server exposes /metrics endpoint for Prometheus scraping
-
-Integration with existing infrastructure:
-- Complements oss_framework/monitoring/prometheus/ K8s stack
-- Uses TextFile pattern for batch jobs (recommended by Prometheus)
-- Follows naming conventions from oss_framework/monitoring/prometheus/alerts.yml
+Uses Prometheus TextFile collector pattern for batch job metrics export.
 
 Usage:
     from scripts.metrics_exporter import MetricsCollector
