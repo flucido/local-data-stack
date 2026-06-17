@@ -83,6 +83,17 @@ BLOCKED_SCHEMAS = {
     "pg_catalog",
 }
 
+# Schema-name patterns that are always blocked regardless of the allowlist.
+_BLOCKED_SCHEMA_PATTERNS = [
+    re.compile(r"\bpriv_", re.IGNORECASE),
+]
+
+
+def _is_blocked_schema(schema_name: str) -> bool:
+    if schema_name in BLOCKED_SCHEMAS:
+        return True
+    return any(p.search(schema_name) for p in _BLOCKED_SCHEMA_PATTERNS)
+
 # Table-name patterns to hide (dlt bookkeeping + any PII lookup leakage).
 _BLOCKED_TABLE_PATTERNS = [
     re.compile(r"^_dlt"),
@@ -92,6 +103,24 @@ _BLOCKED_TABLE_PATTERNS = [
 
 def _is_blocked_table(table_name: str) -> bool:
     return any(p.search(table_name) for p in _BLOCKED_TABLE_PATTERNS)
+
+
+# ── Column-level PII filtering ──────────────────────────────────────────
+
+PII_COLUMNS: dict[str, set[str]] = {
+    "core.dim_students": {
+        "first_name", "last_name", "date_of_birth", "student_id",
+        "ssn", "email", "phone", "address",
+    },
+    "main_core.dim_students": {
+        "first_name", "last_name", "date_of_birth", "student_id",
+        "ssn", "email", "phone", "address",
+    },
+}
+
+
+def _get_pii_columns(key: str) -> set[str]:
+    return {c.lower() for c in PII_COLUMNS.get(key, set())}
 
 
 # ── Forbidden SQL terms (case-insensitive) ─────────────────────────────
@@ -148,7 +177,8 @@ def get_schema_info(
         dict: "schema.table" -> [(column_name, data_type, "")]
 
     Only exposed schemas are included; blocked schemas, dlt bookkeeping
-    tables, and PII lookup tables are excluded. Fully-qualified table names
+    tables, PII lookup tables, and PII columns (name, DOB, raw IDs) are
+    excluded. Fully-qualified table names
     are used as keys so generated SQL references e.g. ``main_core.dim_students``.
     """
     exposed = set(get_exposed_schemas())
@@ -163,13 +193,15 @@ def get_schema_info(
 
     schema: dict[str, list[tuple[str, str, str]]] = {}
     for table_schema, table_name, col_name, data_type, _pos in rows:
-        if table_schema in BLOCKED_SCHEMAS:
+        if _is_blocked_schema(table_schema):
             continue
         if table_schema not in exposed:
             continue
         if _is_blocked_table(table_name):
             continue
         key = f"{table_schema}.{table_name}"
+        if col_name.lower() in _get_pii_columns(key):
+            continue
         schema.setdefault(key, []).append((col_name, data_type, ""))
     return schema
 
@@ -250,6 +282,19 @@ def validate_sql(sql: str, conn: duckdb.DuckDBPyConnection | None = None) -> Non
 
     if "SELECT" not in sql.upper():
         raise ValueError("Only SELECT queries are allowed. No SELECT found.")
+
+    for blocked in BLOCKED_SCHEMAS:
+        if re.search(rf"\b{re.escape(blocked)}\.", sql_lower):
+            raise ValueError(
+                f"Reference to blocked schema detected: '{blocked}'. "
+                "Only queries against exposed schemas are allowed."
+            )
+    for pat in _BLOCKED_SCHEMA_PATTERNS:
+        if pat.search(sql_lower):
+            raise ValueError(
+                "Reference to a blocked schema pattern detected. "
+                "Only queries against exposed schemas are allowed."
+            )
 
     if conn is not None:
         try:

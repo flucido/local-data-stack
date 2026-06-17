@@ -23,7 +23,7 @@ Follow these rules strictly:
 3. Use proper DuckDB syntax: VARCHAR comparisons use single quotes, BOOLEAN checks use TRUE/FALSE.
 4. When aggregating, use clear column aliases (e.g., AS total_students).
 5. Join on the columns that logically connect the tables — student-grain tables join on student_id_hash; school-grain tables join on cds_code or school_id.
-6. Student identity is pseudonymized: there is no name column, only student_id_hash.
+6. Student identity is pseudonymized: student identities are represented by student_id_hash only. Direct PII columns (names, dates of birth, raw student IDs) are not available.
 7. There are two query paths for CDE aggregate data:
    - For multi-metric school comparisons, use main_analytics.mart_cde_school_accountability (pre-joined OBT).
    - For detailed single-domain queries, use the staging tables directly (e.g. main_staging.stg_cde__suspension).
