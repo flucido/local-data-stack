@@ -114,10 +114,11 @@ class PipelineOrchestrator:
         Stage 1: Ingest raw data from external sources.
 
         Runs dlt pipelines to extract data from:
-        - Aeries API (student, enrollment, attendance, grades)
-        - Excel imports (supplemental data)
+        - Aeries API (student, enrollment, attendance, grades) — test mode if no API key
+        - Excel imports (supplemental data) — skips silently if env vars not set
+        - CDE public data files (24 domains) — loads whatever files are in data/raw/
 
-        Writes to: data/stage1/raw/
+        Writes to: DuckDB (aeries_stage1, excel_stage1, cde_raw schemas)
         """
         self.log("=== STAGE 1: DATA INGESTION ===")
 
@@ -128,6 +129,7 @@ class PipelineOrchestrator:
         excel_pipeline = (
             self.project_root / "oss_framework" / "pipelines" / "excel_imports_dlt_pipeline.py"
         )
+        cde_pipeline = self.project_root / "oss_framework" / "pipelines" / "cde_data_pipeline.py"
 
         success = True
 
@@ -144,6 +146,14 @@ class PipelineOrchestrator:
             )
         else:
             self.log(f"Skipping: {excel_pipeline} not found", "WARNING")
+
+        if cde_pipeline.exists():
+            success = success and self.run_command(
+                f"python3 {cde_pipeline}",
+                "CDE public data ingestion (dlt)",
+            )
+        else:
+            self.log(f"Skipping: {cde_pipeline} not found", "WARNING")
 
         return success
 
