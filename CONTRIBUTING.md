@@ -78,13 +78,10 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 pip install -r requirements-dev.txt  # Development dependencies
 
-# 4. Start services
-docker-compose up -d
-
-# 5. Run tests
+# 4. Run tests
 pytest tests/
 
-# 6. Initialize dbt
+# 5. Initialize dbt
 cd dbt
 dbt deps
 dbt build --target test

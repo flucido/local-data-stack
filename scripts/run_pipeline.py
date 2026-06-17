@@ -3,9 +3,10 @@
 run_pipeline.py - Simple orchestration for local-data-stack
 
 Replaces Dagster with a straightforward Python script that runs:
-1. Stage 1: Data ingestion (Aeries API + Excel imports via dlt)
+1. Stage 1: Data ingestion (Aeries API + Excel imports + CDE public data via dlt)
 2. Stage 2: Data refinement (dbt transformations)
 3. Stage 3: Analytics marts (dbt analytics models)
+4. Stage 4: Export to Parquet for Rill dashboards
 
 No cloud dependencies. All processing happens locally with DuckDB.
 """
@@ -22,36 +23,15 @@ from typing import Optional
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-# Import metrics collector (optional - graceful degradation if not available)
-try:
-    from scripts.metrics_exporter import MetricsCollector
-
-    METRICS_AVAILABLE = True
-except ImportError:
-    METRICS_AVAILABLE = False
-    print("[INFO] Metrics collection disabled (prometheus_client not installed)")
-
 
 class PipelineOrchestrator:
     """Simple orchestrator for the local data pipeline."""
 
-    def __init__(self, dbt_project_dir: Optional[str] = None, enable_metrics: bool = True):
+    def __init__(self, dbt_project_dir: Optional[str] = None):
         self.project_root = project_root
         self.dbt_project_dir = dbt_project_dir or self.project_root / "oss_framework" / "dbt"
         self.dbt_executable = os.getenv("DBT_COMMAND") or shutil.which("dbt") or "dbt"
         self.start_time = datetime.now()
-
-        # Initialize metrics collector
-        self.metrics = None
-        if enable_metrics and METRICS_AVAILABLE:
-            try:
-                self.metrics = MetricsCollector(
-                    mode="textfile", export_path="/tmp/pipeline_metrics.prom"
-                )
-                self.log("Metrics collection enabled", "INFO")
-            except Exception as e:
-                self.log(f"Failed to initialize metrics: {e}", "WARNING")
-                self.metrics = None
 
     def log(self, message: str, level: str = "INFO"):
         """Simple logging."""
@@ -252,7 +232,7 @@ class PipelineOrchestrator:
 
     def run_full_pipeline(self, skip_tests: bool = False) -> bool:
         """
-        Run the complete data pipeline with metrics collection.
+        Run the complete data pipeline.
 
         Args:
             skip_tests: If True, skip dbt test execution
@@ -265,64 +245,28 @@ class PipelineOrchestrator:
         self.log("╚═══════════════════════════════════════════════════╝")
 
         # Stage 1: Ingestion
-        if self.metrics:
-            self.metrics.record_stage_start("stage1_ingestion")
-
         stage1_success = self.stage1_ingestion()
-
-        if self.metrics:
-            if stage1_success:
-                self.metrics.record_stage_complete("stage1_ingestion", rows=0, status="success")
-            else:
-                self.metrics.record_stage_error("stage1_ingestion", error_type="execution_failed")
 
         if not stage1_success:
             self.log("Pipeline failed at Stage 1 (Ingestion)", "ERROR")
             return False
 
         # Stage 2: Refinement
-        if self.metrics:
-            self.metrics.record_stage_start("stage2_refinement")
-
         stage2_success = self.stage2_refinement()
-
-        if self.metrics:
-            if stage2_success:
-                self.metrics.record_stage_complete("stage2_refinement", rows=0, status="success")
-            else:
-                self.metrics.record_stage_error("stage2_refinement", error_type="execution_failed")
 
         if not stage2_success:
             self.log("Pipeline failed at Stage 2 (Refinement)", "ERROR")
             return False
 
         # Stage 3: Analytics
-        if self.metrics:
-            self.metrics.record_stage_start("stage3_analytics")
-
         stage3_success = self.stage3_analytics()
-
-        if self.metrics:
-            if stage3_success:
-                self.metrics.record_stage_complete("stage3_analytics", rows=0, status="success")
-            else:
-                self.metrics.record_stage_error("stage3_analytics", error_type="execution_failed")
 
         if not stage3_success:
             self.log("Pipeline failed at Stage 3 (Analytics)", "ERROR")
             return False
 
         # Stage 4: Export to Parquet
-        if self.metrics:
-            self.metrics.record_stage_start("stage4_export")
-
         stage4_success = self.stage4_export()
-
-        if self.metrics:
-            if stage4_success:
-                self.metrics.record_stage_complete("stage4_export", rows=0, status="success")
-            else:
-                self.metrics.record_stage_error("stage4_export", error_type="execution_failed")
 
         if not stage4_success:
             self.log("Pipeline failed at Stage 4 (Export)", "ERROR")
@@ -360,15 +304,10 @@ def main():
     parser.add_argument(
         "--dbt-dir", type=str, help="Path to dbt project directory (default: oss_framework/dbt)"
     )
-    parser.add_argument(
-        "--no-metrics", action="store_true", help="Disable Prometheus metrics collection"
-    )
 
     args = parser.parse_args()
 
-    orchestrator = PipelineOrchestrator(
-        dbt_project_dir=args.dbt_dir, enable_metrics=not args.no_metrics
-    )
+    orchestrator = PipelineOrchestrator(dbt_project_dir=args.dbt_dir)
 
     # Run requested stage(s)
     if args.stage == "1":

@@ -28,8 +28,6 @@ paths = [
     "oss_framework/dbt/STAGE2B_PRIVACY_DESIGN.md",
     # Package templates — documentation with placeholder connection strings
     "oss_framework/package_templates/",
-    # K8s archived manifests — placeholder credential examples
-    "oss_framework/k8s-archived/",
     # Metadata catalog — synthetic schema descriptions
     "oss_framework/metadata/",
     # Performance scripts — synthetic benchmark data
