@@ -11,10 +11,11 @@ Tests both Aeries and Excel import pipelines to ensure:
 
 import os
 import sys
-from pathlib import Path
-import pytest
-import pandas as pd
 from datetime import date
+from pathlib import Path
+
+import pandas as pd
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "pipelines"))
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
@@ -74,9 +75,7 @@ class TestAeriesPipeline:
         """Validate students data quality"""
         aeries_dir = stage1_path / "transactional" / "aeries"
         today = date.today().isoformat()
-        parquet_file = (
-            aeries_dir / "raw_students" / f"load_date={today}" / "part-000.parquet"
-        )
+        parquet_file = aeries_dir / "raw_students" / f"load_date={today}" / "part-000.parquet"
 
         if not parquet_file.exists():
             pytest.skip("Students Parquet file not found")
@@ -92,9 +91,7 @@ class TestAeriesPipeline:
         """Validate attendance data quality"""
         aeries_dir = stage1_path / "transactional" / "aeries"
         today = date.today().isoformat()
-        parquet_file = (
-            aeries_dir / "raw_attendance" / f"load_date={today}" / "part-000.parquet"
-        )
+        parquet_file = aeries_dir / "raw_attendance" / f"load_date={today}" / "part-000.parquet"
 
         if not parquet_file.exists():
             pytest.skip("Attendance Parquet file not found")
@@ -112,10 +109,7 @@ class TestAeriesPipeline:
         aeries_dir = stage1_path / "transactional" / "aeries"
         today = date.today().isoformat()
         parquet_file = (
-            aeries_dir
-            / "raw_academic_records"
-            / f"load_date={today}"
-            / "part-000.parquet"
+            aeries_dir / "raw_academic_records" / f"load_date={today}" / "part-000.parquet"
         )
 
         if not parquet_file.exists():
@@ -133,23 +127,19 @@ class TestAeriesPipeline:
         aeries_dir = stage1_path / "transactional" / "aeries"
         today = date.today().isoformat()
 
-        students_file = (
-            aeries_dir / "raw_students" / f"load_date={today}" / "part-000.parquet"
-        )
+        students_file = aeries_dir / "raw_students" / f"load_date={today}" / "part-000.parquet"
         if students_file.exists():
             df_students = pd.read_parquet(students_file)
-            assert 1000 <= len(df_students) <= 10000, (
-                f"Unexpected student count: {len(df_students)}"
-            )
+            assert (
+                1000 <= len(df_students) <= 10000
+            ), f"Unexpected student count: {len(df_students)}"
 
-        attendance_file = (
-            aeries_dir / "raw_attendance" / f"load_date={today}" / "part-000.parquet"
-        )
+        attendance_file = aeries_dir / "raw_attendance" / f"load_date={today}" / "part-000.parquet"
         if attendance_file.exists():
             df_attendance = pd.read_parquet(attendance_file)
-            assert 10000 <= len(df_attendance) <= 1000000, (
-                f"Unexpected attendance count: {len(df_attendance)}"
-            )
+            assert (
+                10000 <= len(df_attendance) <= 1000000
+            ), f"Unexpected attendance count: {len(df_attendance)}"
 
 
 class TestExcelImportsPipeline:

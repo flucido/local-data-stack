@@ -29,10 +29,10 @@ Is the server running on host "sis.example.com" and accepting TCP connections on
    ```bash
    # Test connectivity to host
    ping sis.example.com
-   
+
    # Test if port is open
    nc -zv sis.example.com 5432
-   
+
    # For SQL Server on port 1433
    nc -zv sis.example.com 1433
    ```
@@ -46,7 +46,7 @@ Is the server running on host "sis.example.com" and accepting TCP connections on
      database: "sis_prod"
      username: "extract_user"
      password: "${SIS_DB_PASSWORD}"  # from environment variable
-   
+
    # Common mistakes:
    # - Trailing whitespace: host: "sis.example.com "
    # - Wrong port: port: "5432" (should be integer)
@@ -57,10 +57,10 @@ Is the server running on host "sis.example.com" and accepting TCP connections on
    ```bash
    # Test with psql (PostgreSQL)
    psql -h sis.example.com -p 5432 -U extract_user -d sis_prod
-   
+
    # Test with sqlcmd (SQL Server)
    sqlcmd -S sis.example.com,1433 -U extract_user -P $SIS_DB_PASSWORD
-   
+
    # Test with sqlplus (Oracle)
    sqlplus extract_user/$SIS_DB_PASSWORD@sis.example.com:1521/sis_prod
    ```
@@ -101,10 +101,10 @@ psycopg2.OperationalError: FATAL: password authentication failed for user "extra
    ```bash
    # Check if variable exists
    echo $SIS_DB_PASSWORD
-   
+
    # If empty, set it
    export SIS_DB_PASSWORD="your_password_here"
-   
+
    # Verify it's set correctly
    env | grep SIS_DB
    ```
@@ -114,10 +114,10 @@ psycopg2.OperationalError: FATAL: password authentication failed for user "extra
    # Password with special characters needs escaping in YAML
    # ✗ WRONG:
    password: "P@ssw0rd!#$%"
-   
+
    # ✓ CORRECT - use environment variable:
    password: "${SIS_DB_PASSWORD}"
-   
+
    # ✓ CORRECT - escape special characters:
    password: "P@ssw0rd!#$%"  # Actually works in YAML, but use env var for security
    ```
@@ -125,14 +125,14 @@ psycopg2.OperationalError: FATAL: password authentication failed for user "extra
 3. **Verify user permissions**:
    ```sql
    -- As database admin, check user permissions
-   SELECT grantee, privilege_type 
-   FROM information_schema.role_table_grants 
+   SELECT grantee, privilege_type
+   FROM information_schema.role_table_grants
    WHERE table_name IN ('students', 'courses', 'enrollment', 'attendance', 'academic_records')
    AND grantee = 'extract_user';
-   
+
    -- Result should show SELECT permission for all required tables
    -- If not, grant permissions:
-   GRANT SELECT ON TABLE students, courses, enrollment, attendance, academic_records 
+   GRANT SELECT ON TABLE students, courses, enrollment, attendance, academic_records
    TO extract_user;
    ```
 
@@ -181,9 +181,9 @@ psycopg2.OperationalError: SSLMODE=require but the server does not support SSL
    ```bash
    # Check certificate expiry
    openssl x509 -in /path/to/ca.crt -text -noout | grep -A2 "Not"
-   
+
    # If expired, request updated certificate from SIS admin
-   
+
    # Test SSL connection
    openssl s_client -connect sis.example.com:5432 -CAfile /path/to/ca.crt
    ```
@@ -229,7 +229,7 @@ Cannot transform with NULLs in primary key
 2. **Check which fields have NULLs**:
    ```sql
    -- Profile NULL values in source data
-   SELECT 
+   SELECT
      'students' as table_name,
      COUNT(*) as total_rows,
      COUNT(CASE WHEN student_id IS NULL THEN 1 END) as student_id_nulls,
@@ -255,7 +255,7 @@ Cannot transform with NULLs in primary key
    ```python
    # In transformation code
    df['first_name'].fillna('UNKNOWN', inplace=True)  # Replace NULLs with default
-   
+
    # Or filter out rows with NULLs
    df = df.dropna(subset=['student_id', 'first_name', 'last_name'])
    ```
@@ -295,7 +295,7 @@ Expected format: YYYY-MM-DD, got invalid date
 2. **Test date parsing**:
    ```python
    import pandas as pd
-   
+
    # Try parsing with multiple formats
    sample_dates = ['2024-05-15', '05/15/2024', '15/05/2024']
    for date_str in sample_dates:
@@ -320,11 +320,11 @@ Expected format: YYYY-MM-DD, got invalid date
    ```python
    # Coerce to datetime, replacing invalid dates with NaT
    df['date_of_birth'] = pd.to_datetime(
-       df['date_of_birth'], 
+       df['date_of_birth'],
        format='%Y-%m-%d',
        errors='coerce'  # invalid dates become NaT
    )
-   
+
    # Check how many were coerced
    print(f"Converted {df['date_of_birth'].isna().sum()} invalid dates to NaT")
    ```
@@ -355,7 +355,7 @@ Duplicates: S12345, S67890, S11111
    GROUP BY student_id
    HAVING COUNT(*) > 1
    ORDER BY count DESC;
-   
+
    -- See details of duplicates
    SELECT student_id, first_name, last_name, enrollment_date, status
    FROM students
@@ -389,7 +389,7 @@ Duplicates: S12345, S67890, S11111
    ```python
    # Remove duplicates, keeping last occurrence
    df = df.drop_duplicates(subset=['student_id'], keep='last')
-   
+
    # Or keep only active enrollment status
    df = df[df['status'] == 'ACTIVE'].drop_duplicates(subset=['student_id'])
    ```
@@ -421,7 +421,7 @@ Available columns: student_id, first_name, last_name, dob_date, email"
    FROM information_schema.columns
    WHERE table_name = 'students'
    ORDER BY ordinal_position;
-   
+
    -- For SQL Server
    SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE
    FROM INFORMATION_SCHEMA.COLUMNS
@@ -435,7 +435,7 @@ Available columns: student_id, first_name, last_name, dob_date, email"
    field_mappings:
      - sis_column: "birth_dt"        # doesn't exist
        standard_column: "date_of_birth"
-   
+
    # ✓ CORRECT:
    field_mappings:
      - sis_column: "dob_date"        # correct column name
@@ -445,7 +445,7 @@ Available columns: student_id, first_name, last_name, dob_date, email"
 3. **Test extraction query directly**:
    ```python
    import pandas as pd
-   
+
    # Connect and extract
    df = pd.read_sql(extraction_query, connection)
    print(df.columns.tolist())  # list actual column names
@@ -462,7 +462,7 @@ Available columns: student_id, first_name, last_name, dob_date, email"
      query: |
        SELECT student_id, first_name, last_name, dob_date  -- dev environment
        FROM students
-   
+
    # extraction_config.prod.yaml
    extraction:
      query: |
@@ -493,13 +493,13 @@ Valid options: 'hash', 'mask', 'no-op'
    privacy_rules:
      - field: student_id
        rule: hash      # ✓ correct
-     
+
      - field: first_name
        rule: mask      # ✓ correct
-     
+
      - field: grade_level
        rule: no-op     # ✓ correct
-   
+
    # ✗ Invalid:
    # rule: Hash        (wrong case)
    # rule: HASH        (wrong case)
@@ -543,7 +543,7 @@ Field 'avg_gpa' contains NaN in 27 rows
    group_stats = df.groupby('grade_level').agg({
        'gpa': ['mean', 'count']
    })
-   
+
    # Keep only groups with at least 10 students
    group_stats = group_stats[group_stats[('gpa', 'count')] >= 10]
    ```
@@ -552,7 +552,7 @@ Field 'avg_gpa' contains NaN in 27 rows
    ```python
    # Replace NaN with 0 or group mean
    df['avg_gpa'].fillna(0, inplace=True)
-   
+
    # Or use forward fill within groups
    df['avg_gpa'] = df.groupby('grade_level')['avg_gpa'].fillna(method='ffill')
    ```
@@ -560,7 +560,7 @@ Field 'avg_gpa' contains NaN in 27 rows
 3. **Add data quality filters in aggregation query**:
    ```sql
    -- Stage 3 aggregation with data quality checks
-   SELECT 
+   SELECT
      grade_level,
      COUNT(DISTINCT student_id) as student_count,
      AVG(gpa) FILTER (WHERE gpa IS NOT NULL) as avg_gpa,
@@ -596,12 +596,12 @@ Expected time for 50,000 records: 30-60 seconds
 1. **Check if columns are indexed**:
    ```sql
    -- PostgreSQL: check indexes
-   SELECT indexname, indexdef 
-   FROM pg_indexes 
+   SELECT indexname, indexdef
+   FROM pg_indexes
    WHERE tablename IN ('students', 'courses', 'enrollment', 'attendance', 'academic_records');
-   
+
    -- SQL Server: check indexes
-   SELECT 
+   SELECT
      OBJECT_NAME(i.object_id) AS table_name,
      i.name AS index_name,
      c.name AS column_name
@@ -617,7 +617,7 @@ Expected time for 50,000 records: 30-60 seconds
    extraction:
      query: |
        SELECT * FROM students;
-   
+
    # ✓ FAST: Indexed WHERE clause, specific columns
    extraction:
      query: |
@@ -643,7 +643,7 @@ Expected time for 50,000 records: 30-60 seconds
        SELECT * FROM students
        WHERE enrollment_status IN ('ACTIVE', 'GRADUATED')
          AND last_updated_date >= CURRENT_DATE - INTERVAL '365 days'
-   
+
      # Or extract incrementally
      batch_mode: delta
      delta_column: last_updated_date
@@ -656,7 +656,7 @@ Expected time for 50,000 records: 30-60 seconds
 
 **Error Message**:
 ```
-MemoryError: Unable to allocate 8.5 GB for array with shape (50000000,) 
+MemoryError: Unable to allocate 8.5 GB for array with shape (50000000,)
 Process killed due to excessive memory usage
 ```
 
@@ -678,16 +678,16 @@ Process killed due to excessive memory usage
 2. **Update transformation code to use chunks**:
    ```python
    import pandas as pd
-   
+
    # Read in chunks
    chunk_size = 10000
    chunks = []
-   
+
    for chunk in pd.read_csv('stage1_data.csv', chunksize=chunk_size):
        # Transform each chunk
        chunk['student_id_hashed'] = chunk['student_id'].apply(hash_function)
        chunks.append(chunk)
-   
+
    # Concatenate results
    df_transformed = pd.concat(chunks, ignore_index=True)
    ```
@@ -696,7 +696,7 @@ Process killed due to excessive memory usage
    ```python
    # ✗ WRONG: creates list of all 50k records in memory
    hashed_ids = [hash_function(sid) for sid in students]
-   
+
    # ✓ CORRECT: uses generator, one at a time
    def hash_generator(students):
        for sid in students:
@@ -708,7 +708,7 @@ Process killed due to excessive memory usage
    # ✗ WRONG: loads all columns, then drops
    df = pd.read_csv('stage1_data.csv')  # 500MB
    df = df[['student_id', 'gpa']]       # keep 10MB
-   
+
    # ✓ CORRECT: only load needed columns
    df = pd.read_csv('stage1_data.csv', usecols=['student_id', 'gpa'])  # 10MB
    ```
@@ -737,14 +737,14 @@ Available space: 0 GB
    ```bash
    # Check space usage
    df -h /data/
-   
+
    # Check by directory
    du -sh /data/stage1/
    du -sh /data/stage2a/
    du -sh /data/stage2b/
    du -sh /data/stage3/
    du -sh /data/logs/
-   
+
    # Find largest files
    find /data -type f -size +100M -exec ls -lh {} \; | sort -k5 -hr | head -10
    ```
@@ -753,10 +753,10 @@ Available space: 0 GB
    ```bash
    # Remove Stage 1 data older than 7 days
    find /data/stage1/ -type f -mtime +7 -delete
-   
+
    # Remove Stage 2A data older than 30 days
    find /data/stage2a/ -type f -mtime +30 -delete
-   
+
    # Remove Stage 2B data older than 90 days (keep recent for validation)
    find /data/stage2b/ -type f -mtime +90 -delete
    ```
@@ -766,7 +766,7 @@ Available space: 0 GB
    # Archive and remove old logs
    gzip /data/logs/*.log.*
    find /data/logs/ -name "*.gz" -mtime +30 -delete
-   
+
    # Or set up log rotation in config
    ```
 
@@ -798,10 +798,10 @@ Expected purge date was 2024-01-15
    ```bash
    # For cron-based jobs
    crontab -l | grep retention
-   
+
    # For Airflow DAGs
    airflow dags list | grep purge
-   
+
    # For manual job
    ls -la /scripts/run_retention.sh
    ```
@@ -813,11 +813,11 @@ Expected purge date was 2024-01-15
        retention_days: 2555        # 7 years
        purge_enabled: true
        soft_delete: false          # actually delete, not mark deleted
-     
+
      stage_2a:
        retention_days: 1825        # 5 years
        purge_enabled: true
-     
+
      stage_2b:
        retention_days: 1095        # 3 years
        purge_enabled: true
@@ -827,10 +827,10 @@ Expected purge date was 2024-01-15
    ```bash
    # Test retention policies
    python scripts/run_retention.py --dry-run --verbose
-   
+
    # Actually run retention
    python scripts/run_retention.py --force
-   
+
    # Check what was deleted
    python scripts/run_retention.py --report
    ```
@@ -864,13 +864,13 @@ Expected purge date was 2024-01-15
    ```bash
    # Find errors in logs
    grep -i error /data/logs/*.log | head -20
-   
+
    # Find specific transformation error
    grep -i "student_id" /data/logs/*.log | grep -i error
-   
+
    # Show context around error
    grep -B5 -A5 "MemoryError" /data/logs/*.log
-   
+
    # Get most recent errors
    tail -100 /data/logs/sis_package_debug.log | grep ERROR
    ```
@@ -888,7 +888,7 @@ Expected purge date was 2024-01-15
    ```bash
    # Watch extraction progress
    tail -f /data/logs/sis_package_debug.log
-   
+
    # Or write to syslog for monitoring
    python scripts/extract_sis.py 2>&1 | tee -a /data/logs/extract_$(date +%Y%m%d).log
    ```
@@ -917,14 +917,14 @@ Expected purge date was 2024-01-15
    ```python
    # Create small test case
    import pandas as pd
-   
+
    # Reproduce issue with minimal data
    df_test = pd.DataFrame({
        'student_id': ['S123', None, 'S456'],
        'first_name': ['John', 'Jane', 'Bob'],
        'gpa': [3.9, 3.2, 'invalid']
    })
-   
+
    # Test transformation
    try:
        df_result = transform_record(df_test)
@@ -972,7 +972,7 @@ If you've worked through this guide and still have issues:
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: 2024  
-**Maintained By**: Data Operations Team  
+**Document Version**: 1.0
+**Last Updated**: 2024
+**Maintained By**: Data Operations Team
 **Next Review**: Quarterly or as issues are resolved

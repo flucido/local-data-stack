@@ -20,18 +20,17 @@ SELECT
     sar.section_id,
     sar.term,
     sar.school_year,
-    
+
     -- Grade data
     sar.grade,
     sar.credit_earned,
-    
+
     -- Derived features (use gpa_points from staging, not raw score)
     sar.gpa_points,
     sar.is_passing,
-    
+
     -- Audit
     CAST(NULL AS TIMESTAMP) as created_at,
     CURRENT_TIMESTAMP as dbt_processed_date
 
 FROM {{ ref('stg_aeries__academic_records') }} sar
-

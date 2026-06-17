@@ -13,11 +13,11 @@
 SELECT
     -- Hashed identifier (deterministic, allows linkage)
     {{ hash_pii_secure('student_id_raw') }} as student_id_hash,
-    
+
     -- Masked PII (irreversible, display only)
     {{ mask_name('first_name_raw', 1) }} as first_name_masked,
     {{ mask_name('last_name_raw', 1) }} as last_name_masked,
-    
+
     -- Demographics (no hashing needed - not PII)
     gender,
     ethnicity,
@@ -40,14 +40,14 @@ SELECT
     gate_flag,
     ell_program_flag,
     home_language,
-    
+
     -- Age at event (not DOB - better privacy)
     CAST(EXTRACT(YEAR FROM CURRENT_DATE) - EXTRACT(YEAR FROM date_of_birth_raw) AS INTEGER) as age_at_event,
-    
+
     -- Enrollment tracking
     enrollment_date,
     withdrawal_date,
-    
+
     -- Audit
     CAST(NULL AS TIMESTAMP) as created_at,
     CURRENT_TIMESTAMP as pseudonymization_timestamp,

@@ -13,13 +13,14 @@ Features:
 """
 
 import os
-from typing import Iterator, Dict, Any, List, Optional
-from datetime import datetime, date
-from pathlib import Path
+from collections.abc import Iterator
+from datetime import date, datetime
+from typing import Any, Dict, List
+
 import dlt
-from dlt.sources import DltResource
-from dlt.common.pipeline import LoadInfo
 import pandas as pd
+from dlt.common.pipeline import LoadInfo
+from dlt.sources import DltResource
 
 
 class ExcelImporter:
@@ -42,9 +43,7 @@ class ExcelImporter:
 
     def read_demographic_data(self) -> List[Dict]:
         """Read demographic data from Excel"""
-        if not self.excel_demographic_path or not os.path.exists(
-            self.excel_demographic_path
-        ):
+        if not self.excel_demographic_path or not os.path.exists(self.excel_demographic_path):
             print(f"⏭️  Demographic data not found at: {self.excel_demographic_path}")
             return []
 
@@ -68,9 +67,7 @@ class ExcelImporter:
             print(f"📊 Loaded RFEP data: {len(df)} rows")
             return df.to_dict("records")
         else:
-            print(
-                f"⚠️  RFEP file is not Excel format ({self.excel_rfep_path}), skipping"
-            )
+            print(f"⚠️  RFEP file is not Excel format ({self.excel_rfep_path}), skipping")
             return []
 
 
@@ -131,9 +128,7 @@ def run_excel_imports_pipeline(
 
         pipeline = dlt.pipeline(
             pipeline_name="excel_to_stage1",
-            destination=dlt.destinations.filesystem(
-                bucket_url=f"{stage1_path}/reference/excel"
-            ),
+            destination=dlt.destinations.filesystem(bucket_url=f"{stage1_path}/reference/excel"),
             dataset_name=dataset_name,
         )
     else:
@@ -148,7 +143,7 @@ def run_excel_imports_pipeline(
     source = excel_imports_source()
     info = pipeline.run(source)
 
-    print(f"\n✅ Excel imports pipeline completed")
+    print("\n✅ Excel imports pipeline completed")
     print(f"   Pipeline: {info.pipeline.pipeline_name}")
     print(f"   Destination: {destination_type}")
     print(f"   Dataset: {dataset_name}")

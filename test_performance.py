@@ -5,12 +5,12 @@ Validates response times meet SLA targets: p95 <2s, p99 <3s
 """
 
 import os
-import time
-import duckdb
 import statistics
-from typing import List, Dict
-from concurrent.futures import ThreadPoolExecutor
 import threading
+import time
+from typing import Dict
+
+import duckdb
 
 
 class PerformanceTest:
@@ -63,9 +63,7 @@ class PerformanceTest:
             "mean": statistics.mean(times),
             "median": statistics.median(times),
             "p95": times[int(len(times) * 0.95) - 1] if len(times) >= 20 else times[-1],
-            "p99": times[int(len(times) * 0.99) - 1]
-            if len(times) >= 100
-            else times[-1],
+            "p99": times[int(len(times) * 0.99) - 1] if len(times) >= 100 else times[-1],
             "iterations": len(times),
         }
 
@@ -85,7 +83,7 @@ class PerformanceTest:
             """,
             "Chronic Rate": """
                 SELECT ROUND(
-                    COUNT(CASE WHEN risk_level != 'Low' THEN 1 END) * 100.0 / 
+                    COUNT(CASE WHEN risk_level != 'Low' THEN 1 END) * 100.0 /
                     COUNT(DISTINCT student_key), 1) as rate
                 FROM main_analytics.v_chronic_absenteeism_risk
             """,
@@ -188,12 +186,8 @@ class PerformanceTest:
             print(f"  Max:    {metrics['max']:.2f}ms")
             print(f"  Mean:   {metrics['mean']:.2f}ms")
             print(f"  Median: {metrics['median']:.2f}ms")
-            print(
-                f"  P95:    {metrics['p95']:.2f}ms {'✓' if metrics['p95'] < sla_p95 else '✗'}"
-            )
-            print(
-                f"  P99:    {metrics['p99']:.2f}ms {'✓' if metrics['p99'] < sla_p99 else '✗'}"
-            )
+            print(f"  P95:    {metrics['p95']:.2f}ms {'✓' if metrics['p95'] < sla_p95 else '✗'}")
+            print(f"  P99:    {metrics['p99']:.2f}ms {'✓' if metrics['p99'] < sla_p99 else '✗'}")
 
             if metrics["p95"] >= sla_p95 or metrics["p99"] >= sla_p99:
                 all_passed = False

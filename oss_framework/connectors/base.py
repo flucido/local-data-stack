@@ -7,8 +7,7 @@ translate vendor-specific names into the canonical schema defined here.
 
 from abc import ABC, abstractmethod
 from datetime import date
-from typing import Any, Dict, Iterator, List, Optional
-
+from typing import Any, Dict, List, Optional
 
 # ---------------------------------------------------------------------------
 # Canonical column schemas — the target shape every connector normalizes into.

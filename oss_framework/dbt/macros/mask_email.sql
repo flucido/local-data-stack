@@ -1,22 +1,22 @@
 
 {#
   Macro: mask_email
-  
+
   Masks email addresses while preserving structure for validation.
   Shows first 2 characters of local part and domain, masks the rest.
-  
+
   Args:
     column_name: The email column to mask
-  
+
   Returns:
     VARCHAR - Masked email preserving @ symbol
-  
+
   Examples:
     "student@school.edu" -> "st*****@sc******"
     "john.doe@university.org" -> "jo**********@un**********"
     "invalid-email" -> "*************" (no @ found)
     NULL -> NULL
-    
+
   Use Cases:
   - Displaying email domains for validation
   - Audit logs where structure matters
@@ -24,7 +24,7 @@
 #}
 
 {%- macro mask_email(column_name) -%}
-    CASE 
+    CASE
         WHEN {{ column_name }} IS NULL THEN NULL
         WHEN {{ column_name }} NOT LIKE '%@%' THEN REPEAT('*', LENGTH({{ column_name }}))
         ELSE CONCAT(
@@ -36,4 +36,3 @@
         )
     END
 {%- endmacro -%}
-

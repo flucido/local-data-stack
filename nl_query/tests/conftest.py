@@ -5,6 +5,7 @@ The `db` fixture opens a read-only connection to the unified warehouse
 fallback). Tests that need it are skipped when no warehouse is present, so
 the suite still runs on a clean checkout before the pipeline has been built.
 """
+
 import sys
 from pathlib import Path
 
@@ -14,7 +15,6 @@ PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PACKAGE_ROOT))
 
 import pytest
-
 from data_engine import create_session, get_warehouse_path
 
 

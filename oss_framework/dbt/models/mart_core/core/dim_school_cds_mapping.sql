@@ -10,9 +10,9 @@ WITH internal_schools AS (
         'SCHOOL_' || school_id AS school_name,
         UPPER(TRIM(school_id)) AS cleaned_name
     FROM {{ ref('stg_aeries__students') }}
-    
+
     UNION
-    
+
     SELECT DISTINCT
         school_id,
         'SCHOOL_' || school_id AS school_name,
@@ -52,11 +52,11 @@ fuzzy_matches AS (
         c.district_name,
         c.city,
         levenshtein(i.cleaned_name, c.cleaned_name) AS lev_distance,
-        1.0 - (CAST(levenshtein(i.cleaned_name, c.cleaned_name) AS DOUBLE) / 
+        1.0 - (CAST(levenshtein(i.cleaned_name, c.cleaned_name) AS DOUBLE) /
                CAST(GREATEST(LENGTH(i.cleaned_name), LENGTH(c.cleaned_name)) AS DOUBLE)) AS similarity_score,
         'fuzzy_name' AS match_method,
         ROW_NUMBER() OVER (
-            PARTITION BY i.school_id 
+            PARTITION BY i.school_id
             ORDER BY levenshtein(i.cleaned_name, c.cleaned_name) ASC
         ) AS match_rank
     FROM internal_schools i
@@ -92,9 +92,9 @@ combined_mapping AS (
         CURRENT_TIMESTAMP AS mapped_at
     FROM manual_mapping m
     LEFT JOIN cde_schools c ON m.cds_code = c.cds_code
-    
+
     UNION ALL
-    
+
     SELECT
         f.school_id,
         f.cds_code,

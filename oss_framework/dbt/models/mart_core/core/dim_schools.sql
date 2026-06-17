@@ -14,9 +14,9 @@ WITH base_schools AS (
         school_id,
         'SCHOOL_' || school_id as school_name
     FROM {{ ref('stg_aeries__students') }}
-    
+
     UNION
-    
+
     SELECT DISTINCT
         school_id,
         'SCHOOL_' || school_id as school_name
@@ -41,4 +41,3 @@ SELECT
 FROM base_schools s
 LEFT JOIN {{ ref('dim_school_cds_mapping') }} m
     ON s.school_id = m.school_id
-

@@ -9,10 +9,10 @@ Covers:
 """
 
 import pytest
-from data_engine import extract_sql, validate_sql, execute_safe
-
+from data_engine import execute_safe, extract_sql, validate_sql
 
 # ── SQL extraction ─────────────────────────────────────────────────────
+
 
 class TestExtractSql:
     """extract_sql() should handle all valid input formats."""
@@ -24,7 +24,9 @@ class TestExtractSql:
         assert extract_sql("```\nSELECT * FROM x\n```") == "SELECT * FROM x"
 
     def test_extract_json_envelope(self):
-        result = extract_sql('{"sql": "SELECT COUNT(*) FROM main_core.dim_students", "explanation": "test"}')
+        result = extract_sql(
+            '{"sql": "SELECT COUNT(*) FROM main_core.dim_students", "explanation": "test"}'
+        )
         assert result == "SELECT COUNT(*) FROM main_core.dim_students"
 
     def test_extract_json_embedded_in_text(self):
@@ -52,6 +54,7 @@ class TestExtractSql:
 
 
 # ── Static validation ──────────────────────────────────────────────────
+
 
 class TestValidateSqlStatic:
     """validate_sql() static checks (no DB connection needed)."""
@@ -106,6 +109,7 @@ class TestValidateSqlStatic:
 
 # ── Schema-aware validation ────────────────────────────────────────────
 
+
 class TestValidateSqlSchema:
     """validate_sql() schema-aware checks (with DB connection)."""
 
@@ -137,16 +141,19 @@ class TestValidateSqlSchema:
 
 # ── Read-only enforcement ──────────────────────────────────────────────
 
+
 class TestReadOnly:
     """The warehouse connection must reject writes at the engine level."""
 
     def test_connection_is_read_only(self, db):
         import duckdb
+
         with pytest.raises(duckdb.Error):
             db.execute("CREATE TABLE main_core.should_fail (x INT)")
 
 
 # ── Multi-statement attack prevention ──────────────────────────────────
+
 
 class TestMultiStatement:
     """Multi-statement SQL injection should be blocked."""
@@ -161,6 +168,7 @@ class TestMultiStatement:
 
 
 # ── End-to-end: execute_safe ───────────────────────────────────────────
+
 
 class TestExecuteSafe:
     """execute_safe() end-to-end pipeline."""

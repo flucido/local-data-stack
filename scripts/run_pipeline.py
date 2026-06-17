@@ -11,9 +11,9 @@ No cloud dependencies. All processing happens locally with DuckDB.
 """
 
 import os
-import sys
-import subprocess
 import shutil
+import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -25,6 +25,7 @@ sys.path.insert(0, str(project_root))
 # Import metrics collector (optional - graceful degradation if not available)
 try:
     from scripts.metrics_exporter import MetricsCollector
+
     METRICS_AVAILABLE = True
 except ImportError:
     METRICS_AVAILABLE = False
@@ -39,14 +40,13 @@ class PipelineOrchestrator:
         self.dbt_project_dir = dbt_project_dir or self.project_root / "oss_framework" / "dbt"
         self.dbt_executable = os.getenv("DBT_COMMAND") or shutil.which("dbt") or "dbt"
         self.start_time = datetime.now()
-        
+
         # Initialize metrics collector
         self.metrics = None
         if enable_metrics and METRICS_AVAILABLE:
             try:
                 self.metrics = MetricsCollector(
-                    mode='textfile',
-                    export_path='/tmp/pipeline_metrics.prom'
+                    mode="textfile", export_path="/tmp/pipeline_metrics.prom"
                 )
                 self.log("Metrics collection enabled", "INFO")
             except Exception as e:
@@ -213,14 +213,14 @@ class PipelineOrchestrator:
     def stage4_export(self) -> bool:
         """
         Stage 4: Export analytics to Parquet for Rill.
-        
+
         Exports all analytics views from DuckDB to Parquet files
         in rill_project/data/ using the export_to_rill.py script.
         """
         self.log("=== STAGE 4: EXPORTING ANALYTICS TO PARQUET FOR RILL ===")
 
         export_script = self.project_root / "scripts" / "export_to_rill.py"
-        
+
         if not export_script.exists():
             self.log(f"Export script not found: {export_script}", "ERROR")
             return False
@@ -256,64 +256,64 @@ class PipelineOrchestrator:
 
         # Stage 1: Ingestion
         if self.metrics:
-            self.metrics.record_stage_start('stage1_ingestion')
-        
+            self.metrics.record_stage_start("stage1_ingestion")
+
         stage1_success = self.stage1_ingestion()
-        
+
         if self.metrics:
             if stage1_success:
-                self.metrics.record_stage_complete('stage1_ingestion', rows=0, status='success')
+                self.metrics.record_stage_complete("stage1_ingestion", rows=0, status="success")
             else:
-                self.metrics.record_stage_error('stage1_ingestion', error_type='execution_failed')
-        
+                self.metrics.record_stage_error("stage1_ingestion", error_type="execution_failed")
+
         if not stage1_success:
             self.log("Pipeline failed at Stage 1 (Ingestion)", "ERROR")
             return False
 
         # Stage 2: Refinement
         if self.metrics:
-            self.metrics.record_stage_start('stage2_refinement')
-        
+            self.metrics.record_stage_start("stage2_refinement")
+
         stage2_success = self.stage2_refinement()
-        
+
         if self.metrics:
             if stage2_success:
-                self.metrics.record_stage_complete('stage2_refinement', rows=0, status='success')
+                self.metrics.record_stage_complete("stage2_refinement", rows=0, status="success")
             else:
-                self.metrics.record_stage_error('stage2_refinement', error_type='execution_failed')
-        
+                self.metrics.record_stage_error("stage2_refinement", error_type="execution_failed")
+
         if not stage2_success:
             self.log("Pipeline failed at Stage 2 (Refinement)", "ERROR")
             return False
 
         # Stage 3: Analytics
         if self.metrics:
-            self.metrics.record_stage_start('stage3_analytics')
-        
+            self.metrics.record_stage_start("stage3_analytics")
+
         stage3_success = self.stage3_analytics()
-        
+
         if self.metrics:
             if stage3_success:
-                self.metrics.record_stage_complete('stage3_analytics', rows=0, status='success')
+                self.metrics.record_stage_complete("stage3_analytics", rows=0, status="success")
             else:
-                self.metrics.record_stage_error('stage3_analytics', error_type='execution_failed')
-        
+                self.metrics.record_stage_error("stage3_analytics", error_type="execution_failed")
+
         if not stage3_success:
             self.log("Pipeline failed at Stage 3 (Analytics)", "ERROR")
             return False
 
         # Stage 4: Export to Parquet
         if self.metrics:
-            self.metrics.record_stage_start('stage4_export')
-        
+            self.metrics.record_stage_start("stage4_export")
+
         stage4_success = self.stage4_export()
-        
+
         if self.metrics:
             if stage4_success:
-                self.metrics.record_stage_complete('stage4_export', rows=0, status='success')
+                self.metrics.record_stage_complete("stage4_export", rows=0, status="success")
             else:
-                self.metrics.record_stage_error('stage4_export', error_type='execution_failed')
-        
+                self.metrics.record_stage_error("stage4_export", error_type="execution_failed")
+
         if not stage4_success:
             self.log("Pipeline failed at Stage 4 (Export)", "ERROR")
             return False
@@ -357,8 +357,7 @@ def main():
     args = parser.parse_args()
 
     orchestrator = PipelineOrchestrator(
-        dbt_project_dir=args.dbt_dir,
-        enable_metrics=not args.no_metrics
+        dbt_project_dir=args.dbt_dir, enable_metrics=not args.no_metrics
     )
 
     # Run requested stage(s)

@@ -10,20 +10,19 @@ Covers:
 
 import pytest
 from data_engine import (
-    create_session,
-    get_connection,
-    get_schema_info,
-    get_warehouse_path,
-    get_exposed_schemas,
-    extract_sql,
-    execute_safe,
     BLOCKED_SCHEMAS,
     MAX_RESULT_ROWS,
     QUERY_TIMEOUT_SEC,
+    create_session,
+    execute_safe,
+    extract_sql,
+    get_exposed_schemas,
+    get_schema_info,
+    get_warehouse_path,
 )
 
-
 # ── Warehouse path resolution ──────────────────────────────────────────
+
 
 class TestWarehousePath:
     def test_env_override(self, monkeypatch):
@@ -37,6 +36,7 @@ class TestWarehousePath:
 
 
 # ── Schema introspection ───────────────────────────────────────────────
+
 
 class TestSchemaIntrospection:
     """get_schema_info() should expose only allowlisted, non-PII tables."""
@@ -74,6 +74,7 @@ class TestSchemaIntrospection:
 
 # ── Connection isolation ───────────────────────────────────────────────
 
+
 class TestConnectionIsolation:
     """Each create_session() returns an independent read-only handle."""
 
@@ -91,6 +92,7 @@ class TestConnectionIsolation:
 
 # ── Execution limits ───────────────────────────────────────────────────
 
+
 class TestExecutionLimits:
     def test_max_result_rows_constant(self):
         assert MAX_RESULT_ROWS == 1000
@@ -105,6 +107,7 @@ class TestExecutionLimits:
 
 # ── Empty results ──────────────────────────────────────────────────────
 
+
 class TestEmptyResults:
     def test_empty_aggregate(self, db):
         sql, df = execute_safe(db, "SELECT COUNT(*) FROM main_core.dim_students WHERE 1 = 0")
@@ -112,6 +115,7 @@ class TestEmptyResults:
 
 
 # ── extract_sql edge cases ─────────────────────────────────────────────
+
 
 class TestExtractSqlEdgeCases:
     def test_whitespace_only_after_block(self):

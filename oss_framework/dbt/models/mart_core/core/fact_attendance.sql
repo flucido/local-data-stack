@@ -14,7 +14,7 @@ SELECT
     {{ hash_pii_secure('sta.student_id_raw') }} as student_id_hash,
     sta.school_id,
     sta.academic_year,
-    
+
     -- Enrollment counts
     sta.days_enrolled,
     sta.days_present,
@@ -27,7 +27,7 @@ SELECT
     sta.days_in_school_suspension,
     sta.days_complete_independent_study,
     sta.days_incomplete_independent_study,
-    
+
     -- Period-based attendance
     sta.periods_expected,
     sta.periods_attended,
@@ -35,7 +35,7 @@ SELECT
     sta.periods_unexcused_absence,
     sta.periods_out_of_school_suspension,
     sta.periods_in_school_suspension,
-    
+
     -- Calculated rates
     sta.attendance_rate,
     sta.absence_rate,
@@ -45,4 +45,3 @@ SELECT
     CURRENT_TIMESTAMP as dbt_processed_date
 
 FROM {{ ref('stg_aeries__attendance') }} sta
-

@@ -19,11 +19,12 @@ Based on production best practices:
 - WAL checkpointing enabled
 """
 
+import logging
 import os
 from pathlib import Path
 from typing import Optional
+
 import duckdb
-import logging
 
 logger = logging.getLogger(__name__)
 

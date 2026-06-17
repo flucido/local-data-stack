@@ -647,7 +647,7 @@ Mitigation: Use unique salt per district, re-hash with new salt annually
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: 2024  
-**Maintained By**: Data Governance Team  
+**Document Version**: 1.0
+**Last Updated**: 2024
+**Maintained By**: Data Governance Team
 **Next Review**: Annually or upon policy changes

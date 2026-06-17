@@ -100,24 +100,24 @@ CREATE TABLE IF NOT EXISTS stage_2b.students_refined AS
 SELECT
   -- Pseudonymized Keys (hash for deterministic linking)
   privacy.hash_pii(sn.student_id) as student_id_hashed,
-  
+
   -- Masked Demographics
   privacy.mask_text(sn.first_name, 2, '*') as first_name_masked,
   privacy.mask_text(sn.last_name, 1, '*') as last_name_masked,
-  
+
   -- Date of Birth: Hash for deterministic pseudonymization
   privacy.hash_pii(sn.date_of_birth::text) as dob_hashed,
   sn.birth_year as birth_year_generalized,  -- generalized, not exact date
-  
+
   -- Non-sensitive Demographics (no transformation)
   sn.gender,
   sn.ethnicity,
-  
+
   -- Enrollment and Programs (non-sensitive)
   sn.enrollment_status,
   sn.grade_level,
   sn.academic_program,
-  
+
   -- Special Programs (non-sensitive)
   sn.special_education,
   sn.english_learner,
@@ -126,12 +126,12 @@ SELECT
   sn.section_504_status,
   sn.immigrant_status,
   sn.homeless_status,
-  
+
   -- Masked Contact Information
   privacy.mask_email(sn.email) as email_masked,
   privacy.mask_phone(sn.phone) as phone_masked,
   privacy.mask_text(sn.address, 0, '*') as address_masked,  -- hide completely
-  
+
   -- Enrollment Timeline
   sn.enrollment_date,
   CASE
@@ -140,15 +140,15 @@ SELECT
     ELSE FALSE
   END as withdrawn_flag,
   sn.years_enrolled,
-  
+
   -- Academic Performance (non-sensitive)
   sn.gpa,
-  
+
   -- Metadata
   sn.normalized_date,
   CURRENT_TIMESTAMP as refined_date,
   'FERPA Compliant' as privacy_classification
-  
+
 FROM stage_2a.students_normalized sn;
 
 CREATE INDEX idx_students_2b_id_hash ON stage_2b.students_refined(student_id_hashed);
@@ -180,21 +180,21 @@ SELECT
   sn.capacity,
   sn.current_enrollment,
   sn.capacity_percent,
-  
+
   -- Masked Instructor Information
   privacy.mask_text(sn.instructor_name, 1, '*') as instructor_name_masked,
   privacy.mask_email(sn.instructor_email) as instructor_email_masked,
   privacy.hash_pii(sn.instructor_id) as instructor_id_hashed,
-  
+
   -- Course Description (non-sensitive)
   sn.description,
   sn.prerequisites,
-  
+
   -- Metadata
   sn.normalized_date,
   CURRENT_TIMESTAMP as refined_date,
   'FERPA Compliant' as privacy_classification
-  
+
 FROM stage_2a.courses_normalized sn;
 
 CREATE INDEX idx_courses_2b_id ON stage_2b.courses_refined(course_id);
@@ -214,11 +214,11 @@ SELECT
   privacy.hash_pii(sn.enrollment_id) as enrollment_id_hashed,
   privacy.hash_pii(sn.student_id) as student_id_hashed,
   sn.course_id,
-  
+
   -- Term and Status (non-sensitive)
   sn.term,
   sn.completion_status,
-  
+
   -- Grades and Performance (non-sensitive, no transformation needed)
   sn.letter_grade,
   sn.final_grade_percent,
@@ -227,31 +227,31 @@ SELECT
   sn.weighted_grade,
   sn.midterm_grade,
   sn.finals_grade,
-  
+
   -- Course Characteristics
   sn.advanced_placement,
   sn.honors_course,
-  
+
   -- Engagement Metrics (non-sensitive)
   sn.assignment_completion_rate,
   sn.quiz_average,
   sn.test_average,
   sn.participation_score,
   sn.project_score,
-  
+
   -- Accommodations and Flags (non-sensitive)
   sn.accommodations,
   sn.flag_for_intervention,
-  
+
   -- Dates
   sn.enrollment_date,
   sn.withdrawal_date,
-  
+
   -- Metadata
   sn.normalized_date,
   CURRENT_TIMESTAMP as refined_date,
   'FERPA Compliant' as privacy_classification
-  
+
 FROM stage_2a.enrollment_normalized sn;
 
 CREATE INDEX idx_enrollment_2b_id_hash ON stage_2b.enrollment_refined(enrollment_id_hashed);
@@ -272,10 +272,10 @@ SELECT
   privacy.hash_pii(sn.attendance_id) as attendance_id_hashed,
   privacy.hash_pii(sn.student_id) as student_id_hashed,
   sn.course_id,
-  
+
   -- Date Generalized to Week for Privacy
   sn.attendance_week,
-  
+
   -- Status and Reason (non-sensitive)
   sn.attendance_status,
   sn.reason_code,
@@ -290,31 +290,31 @@ SELECT
     THEN 'Absence notification'
     ELSE 'Unknown'
   END as reason_category,
-  
+
   -- Attendance Counts
   sn.present_count,
   sn.absent_count,
   sn.tardy_count,
   sn.excused_count,
   sn.unexcused_count,
-  
+
   -- Attendance Rates (non-sensitive)
   sn.attendance_rate,
   sn.cumulative_absence_rate,
-  
+
   -- Risk Indicators
   sn.chronically_absent,
   sn.warning_level,
   sn.trend,
-  
+
   -- Term
   sn.term,
-  
+
   -- Metadata
   sn.normalized_date,
   CURRENT_TIMESTAMP as refined_date,
   'FERPA Compliant' as privacy_classification
-  
+
 FROM stage_2a.attendance_normalized sn;
 
 CREATE INDEX idx_attendance_2b_id_hash ON stage_2b.attendance_refined(attendance_id_hashed);
@@ -335,43 +335,43 @@ SELECT
   privacy.hash_pii(sn.record_id) as record_id_hashed,
   privacy.hash_pii(sn.student_id) as student_id_hashed,
   sn.course_id,
-  
+
   -- Assignment Information (non-sensitive)
   sn.assignment_name,
   sn.assignment_type,
   sn.competency_id,
   sn.competency_name,
   sn.standard_code,
-  
+
   -- Dates
   sn.assignment_date,
   sn.submission_date,
   sn.submission_timeliness,
   sn.late_days,
   sn.on_time,
-  
+
   -- Points and Scores (non-sensitive)
   sn.max_points,
   sn.earned_points,
   sn.score_percent,
-  
+
   -- Mastery Level (non-sensitive)
   sn.mastery_level,
-  
+
   -- Retakes
   sn.retake_count,
   sn.original_score,
-  
+
   -- Support Services
   sn.feedback_provided,
   sn.remediation_offered,
   sn.enrichment_offered,
-  
+
   -- Metadata
   sn.normalized_date,
   CURRENT_TIMESTAMP as refined_date,
   'FERPA Compliant' as privacy_classification
-  
+
 FROM stage_2a.academic_records_normalized sn;
 
 CREATE INDEX idx_academic_2b_id_hash ON stage_2b.academic_records_refined(record_id_hashed);
@@ -465,7 +465,7 @@ COMMENT ON TABLE stage_2b.privacy_audit_log IS 'Audit log of all Stage 2B data a
 -- ========================================
 
 -- Verify pseudonymization completeness
-SELECT 
+SELECT
   'students' as entity,
   COUNT(*) as total_records,
   COUNT(CASE WHEN student_id_hashed IS NOT NULL THEN 1 END) as hashed_pii,
@@ -485,7 +485,7 @@ SELECT 'academic_records', COUNT(*), COUNT(CASE WHEN record_id_hashed IS NOT NUL
 FROM stage_2b.academic_records_refined;
 
 -- Privacy compliance checklist
-SELECT 
+SELECT
   'PII Removal Verification' as check_type,
   COUNT(CASE WHEN student_id_hashed IS NOT NULL THEN 1 END) as student_ids_hashed,
   COUNT(CASE WHEN first_name_masked IS NOT NULL THEN 1 END) as first_names_masked,
@@ -502,8 +502,8 @@ LIMIT 1;
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: 2024  
-**Privacy Classification**: FERPA Compliant  
-**Data Usage**: Research and Analysis Only (Stage 2B and beyond)  
+**Document Version**: 1.0
+**Last Updated**: 2024
+**Privacy Classification**: FERPA Compliant
+**Data Usage**: Research and Analysis Only (Stage 2B and beyond)
 **Next Review**: Annually or upon privacy policy changes

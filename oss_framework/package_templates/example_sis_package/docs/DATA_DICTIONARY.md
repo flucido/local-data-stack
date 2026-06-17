@@ -445,7 +445,7 @@ For more information:
 
 ---
 
-**Last Updated**: January 26, 2026  
-**Version**: 1.0  
-**Entities**: 5  
+**Last Updated**: January 26, 2026
+**Version**: 1.0
+**Entities**: 5
 **Attributes**: 113

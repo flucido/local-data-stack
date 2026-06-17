@@ -34,22 +34,21 @@ SELECT
     academic_year AS school_year,
     school_id,
     grade_level,
-    
+
     COUNT(DISTINCT student_id_hash) as total_students,
     SUM(days_present) as present_count,
     SUM(days_absent) as absent_count,
     SUM(days_tardy) as tardy_count,
     SUM(days_excused) as excused_count,
     SUM(days_unexcused) as unexcused_count,
-    
+
     ROUND(
-        SUM(days_present)::FLOAT 
+        SUM(days_present)::FLOAT
         / NULLIF(SUM(days_enrolled), 0),
         4
     ) as attendance_rate
 
 FROM attendance_with_demographics
-GROUP BY 
+GROUP BY
     academic_year, school_id, grade_level
 HAVING COUNT(DISTINCT student_id_hash) >= 5
-

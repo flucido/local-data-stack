@@ -34,14 +34,14 @@ Example:
 
 import argparse
 import logging
-import sys
-from pathlib import Path
-from typing import List, Optional, Dict, Any, Tuple
-from datetime import datetime
 import os
+import sys
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-import pandas as pd
 import duckdb
+import pandas as pd
 
 # Configure logging
 logging.basicConfig(

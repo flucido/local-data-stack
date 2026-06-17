@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import json
 import os
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import duckdb
 
@@ -18,6 +18,7 @@ JSON_FILES = [
     ROOT / "schema" / "performance_correlations_definition.json",
     ROOT / "schema" / "wellbeing_risk_definition.json",
 ]
+
 
 def load_query_manifest() -> list[tuple[str, str]]:
     if not MANIFEST_PATH.exists():

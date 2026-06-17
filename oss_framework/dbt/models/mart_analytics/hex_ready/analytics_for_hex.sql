@@ -9,10 +9,10 @@
 ) }}
 
 -- Main student analytics with race breakdown
-SELECT 
+SELECT
     -- Identifiers
     d.student_id_hash,
-    
+
     -- Demographics
     d.gender,
     d.ethnicity,
@@ -22,7 +22,7 @@ SELECT
     d.grade_level,
     d.school_id,
     d.home_language,
-    
+
     -- Program participation
     d.special_education_flag,
     d.ell_status,
@@ -31,49 +31,49 @@ SELECT
     d.foster_care_flag,
     d.section_504_flag,
     d.gate_flag,
-    
+
     -- Risk indicators
     d.high_need_flag,
     d.socioeconomic_risk,
     d.housing_risk,
-    
+
     -- Enrollment
     d.enrollment_status,
     d.cohort,
-    
+
     -- Attendance metrics (from fact_attendance)
     COALESCE(a.attendance_rate, 0) as attendance_rate,
     COALESCE(a.days_absent, 0) as days_absent,
     COALESCE(a.days_present, 0) as days_present,
     COALESCE(a.days_tardy, 0) as days_tardy,
-    
+
     -- Discipline metrics (from fact_discipline)
     COALESCE(dis.incident_count, 0) as discipline_incidents,
     COALESCE(dis.suspension_count, 0) as suspension_count,
-    
+
     -- Academic metrics (from fact_academic_records)
     COALESCE(acad.avg_gpa_points, 0) as avg_gpa,
     COALESCE(acad.total_credits, 0) as credits_earned,
     COALESCE(acad.course_count, 0) as course_count,
-    
+
     -- Derived risk score
-    CASE 
-        WHEN COALESCE(a.attendance_rate, 0) < 90 
-             OR COALESCE(dis.incident_count, 0) > 2 
-             OR COALESCE(acad.avg_gpa_points, 0) < 2.0 
+    CASE
+        WHEN COALESCE(a.attendance_rate, 0) < 90
+             OR COALESCE(dis.incident_count, 0) > 2
+             OR COALESCE(acad.avg_gpa_points, 0) < 2.0
         THEN 'High Risk'
-        WHEN COALESCE(a.attendance_rate, 0) < 95 
-             OR COALESCE(dis.incident_count, 0) > 0 
-             OR COALESCE(acad.avg_gpa_points, 0) < 2.5 
+        WHEN COALESCE(a.attendance_rate, 0) < 95
+             OR COALESCE(dis.incident_count, 0) > 0
+             OR COALESCE(acad.avg_gpa_points, 0) < 2.5
         THEN 'Moderate Risk'
         ELSE 'Low Risk'
     END as risk_level,
-    
+
     CURRENT_TIMESTAMP as _loaded_at
 
 FROM {{ ref('dim_students') }} d
 LEFT JOIN (
-    SELECT 
+    SELECT
         student_id_hash,
         AVG(attendance_rate) as attendance_rate,
         SUM(days_absent) as days_absent,
@@ -83,7 +83,7 @@ LEFT JOIN (
     GROUP BY student_id_hash
 ) a ON d.student_id_hash = a.student_id_hash
 LEFT JOIN (
-    SELECT 
+    SELECT
         student_id_hash,
         COUNT(*) as incident_count,
         SUM(suspension_flag) as suspension_count
@@ -91,7 +91,7 @@ LEFT JOIN (
     GROUP BY student_id_hash
 ) dis ON d.student_id_hash = dis.student_id_hash
 LEFT JOIN (
-    SELECT 
+    SELECT
         student_id_hash,
         AVG(COALESCE(gpa_points, 0)) as avg_gpa_points,
         SUM(COALESCE(credit_earned, 0)) as total_credits,

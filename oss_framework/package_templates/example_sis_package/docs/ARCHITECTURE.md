@@ -303,7 +303,7 @@ Stage 2B Student Record:
 
 1. **Entity Joining**
    ```
-   student_performance = 
+   student_performance =
      students JOIN enrollment ON hashed_student_id
      JOIN courses ON course_id
      JOIN attendance ON hashed_student_id
@@ -358,7 +358,7 @@ Attributes (27):
 - Identity: student_id, first_name, last_name, date_of_birth
 - Demographics: gender, ethnicity, grade_level
 - Enrollment: enrollment_status, school_id, district_id, cohort_year
-- Special Programs: special_education, english_learner, economically_disadvantaged, 
+- Special Programs: special_education, english_learner, economically_disadvantaged,
                     homeless_status, foster_care_status, military_family
 - Contact: phone_number, email_address, address (line1, city, state, zip)
 - Metadata: _sis_modified_date, _load_timestamp
@@ -450,14 +450,14 @@ sis:
   database: pssis
   username: ${SIS_USER}            # From environment
   password: ${SIS_PASSWORD}
-  
+
   query: |                         # SQL extraction query
     SELECT StudentID as student_id,
            FirstName as first_name,
            ...
     FROM STUDENTS
     WHERE ModifyDate > ?
-  
+
   batch_date_format: "%Y-%m-%d"   # Date format for parameterized queries
   connection_timeout: 30
 
@@ -490,22 +490,22 @@ Controls field mapping, validation, and pseudonymization:
 entities:
   students:
     source_table: dbo.Students
-    
+
     mappings:                      # SIS column -> standard schema
       student_id: StudentNumber
       first_name: FirstName
       # ... (27 fields total)
-    
+
     type_mappings:                 # Data type specifications
       student_id: VARCHAR(20)
       grade_level: INT
-      # ... 
-    
+      # ...
+
     pseudonymization:              # Privacy rules for Stage 2B
       student_id: hash             # Deterministic
       first_name: mask             # Irreversible
       grade_level: no-op           # Unchanged
-    
+
     validation:                    # Quality rules for Stage 2A
       null_check: [student_id, first_name, last_name]
       unique_check: [student_id]
@@ -677,6 +677,6 @@ See `TROUBLESHOOTING.md` for common issues:
 
 ---
 
-**Last Updated**: January 26, 2026  
-**Version**: 1.0  
+**Last Updated**: January 26, 2026
+**Version**: 1.0
 **Framework**: OSS (Open Source Education)

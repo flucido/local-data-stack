@@ -10,7 +10,6 @@ schema, and avoid fabricated school names.
 
 from __future__ import annotations
 
-
 # ── Header ─────────────────────────────────────────────────────────────
 
 APP_TITLE = "Ask your district a question."
@@ -60,9 +59,7 @@ INPUT_HELPER = (
     "students, attendance, discipline incidents, equity, and academic outcomes."
 )
 
-INPUT_PROMPT_EMPTY = (
-    "Type a question above, or pick one from the suggestions to get started."
-)
+INPUT_PROMPT_EMPTY = "Type a question above, or pick one from the suggestions to get started."
 
 FIRST_VISIT_NUDGE = (
     '<a href="javascript:openAboutModal()" class="first-visit-link">'
@@ -183,9 +180,7 @@ ERROR_REPHRASINGS: dict[str, str] = {
 
 SQL_DISCLOSURE_LABEL = "Show me how this was computed"
 
-PREVIOUS_RIBBON_TEMPLATE = (
-    "Your previous answer: {summary}"
-)
+PREVIOUS_RIBBON_TEMPLATE = "Your previous answer: {summary}"
 
 
 # ── Footer + explainer ─────────────────────────────────────────────────

@@ -6,7 +6,7 @@ This directory contains interactive Marimo notebooks for exploring, validating, 
 
 ### 1. **00_package_setup.py** - Setup & Configuration
 
-**Time**: ~15 minutes  
+**Time**: ~15 minutes
 **Purpose**: Configure the package for your SIS system
 
 **What you'll learn**:
@@ -31,7 +31,7 @@ This directory contains interactive Marimo notebooks for exploring, validating, 
 
 ### 2. **01_data_profiling.py** - Data Exploration
 
-**Time**: ~20 minutes  
+**Time**: ~20 minutes
 **Purpose**: Explore extracted raw SIS data
 
 **What you'll learn**:
@@ -59,7 +59,7 @@ This directory contains interactive Marimo notebooks for exploring, validating, 
 
 ### 3. **02_transformation_flow.py** - Pipeline Walkthrough
 
-**Time**: ~25 minutes  
+**Time**: ~25 minutes
 **Purpose**: Understand how data transforms through each stage
 
 **What you'll learn**:
@@ -87,7 +87,7 @@ This directory contains interactive Marimo notebooks for exploring, validating, 
 
 ### 4. **03_quality_validation.py** - Quality Checks
 
-**Time**: ~20 minutes  
+**Time**: ~20 minutes
 **Purpose**: Validate transformed data against quality rules
 
 **What you'll learn**:
@@ -117,7 +117,7 @@ This directory contains interactive Marimo notebooks for exploring, validating, 
 
 ### 5. **04_stage_comparison.py** - Stage Validation
 
-**Time**: ~20 minutes  
+**Time**: ~20 minutes
 **Purpose**: Compare data across stages to verify transformations
 
 **What you'll learn**:
@@ -321,6 +321,6 @@ For more details on each topic:
 
 ---
 
-**Last Updated**: January 26, 2026  
-**Framework**: Marimo (reactive notebooks)  
+**Last Updated**: January 26, 2026
+**Framework**: Marimo (reactive notebooks)
 **Status**: Production-ready

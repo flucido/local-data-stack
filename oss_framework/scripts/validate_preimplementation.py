@@ -5,9 +5,10 @@ Validates all prerequisites before Week 1-2 execution
 Run this AFTER answering clarification questions and BEFORE starting Week 1
 """
 
-import sys
 import os
+import sys
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 # Load environment
@@ -119,9 +120,7 @@ class PreImplementationValidator:
         try:
             import duckdb
 
-            db_path = os.getenv(
-                "DUCKDB_DATABASE_PATH", "./oss_framework/data/analytics.duckdb"
-            )
+            db_path = os.getenv("DUCKDB_DATABASE_PATH", "./oss_framework/data/analytics.duckdb")
             con = duckdb.connect(db_path)
             result = con.execute("SELECT 1").fetchall()
             con.close()
@@ -192,9 +191,7 @@ class PreImplementationValidator:
             self.test(
                 display_name,
                 is_valid,
-                f"Invalid: {freq}. Use: {', '.join(valid_frequencies)}"
-                if not is_valid
-                else "",
+                f"Invalid: {freq}. Use: {', '.join(valid_frequencies)}" if not is_valid else "",
             )
 
     def check_clarification_answers(self):
@@ -242,9 +239,7 @@ class PreImplementationValidator:
         # Summary
         total = self.passed + self.failed + self.skipped
         print("=" * 60)
-        print(
-            f"Results: {self.passed}✅ {self.failed}❌ {self.skipped}⏭️  (Total: {total})"
-        )
+        print(f"Results: {self.passed}✅ {self.failed}❌ {self.skipped}⏭️  (Total: {total})")
         print("=" * 60)
 
         if self.failed == 0:

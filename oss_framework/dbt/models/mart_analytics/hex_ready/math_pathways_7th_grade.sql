@@ -10,7 +10,7 @@
 
 WITH math_8 AS (
     -- Regular Math 8 (course 325)
-    SELECT 
+    SELECT
         ar.student_id_hash,
         ar.school_year,
         d.primary_race,
@@ -23,7 +23,7 @@ WITH math_8 AS (
 ),
 apex_math_8 AS (
     -- Apex Math 8 (course 329)
-    SELECT 
+    SELECT
         ar.student_id_hash,
         ar.school_year,
         d.primary_race,
@@ -40,7 +40,7 @@ combined AS (
     SELECT * FROM apex_math_8
 )
 
-SELECT 
+SELECT
     school_year,
     pathway,
     primary_race,

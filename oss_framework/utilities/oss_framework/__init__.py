@@ -22,16 +22,14 @@ Quick Start:
     rules = metadata.get_privacy_rules("students")
 """
 
+from .batch_processing import BatchProcessor, DataQualityChecker
 from .data_transformations import (
     DataTransformer,
     EngagementAggregator,
     Pseudonymizer,
     SchemaValidator,
 )
-
-from .batch_processing import BatchProcessor, DataQualityChecker
-
-from .metadata_management import MetadataManager, DataDictionary, ConfigurationManager
+from .metadata_management import ConfigurationManager, DataDictionary, MetadataManager
 
 __version__ = "1.0.0"
 

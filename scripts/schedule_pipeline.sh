@@ -37,13 +37,13 @@ log() {
 cleanup() {
     local exit_code=$?
     log "INFO" "Pipeline execution finished with exit code: ${exit_code}"
-    
+
     # Remove lock file
     if [[ -f "$LOCK_FILE" ]]; then
         rm -f "$LOCK_FILE"
         log "INFO" "Released pipeline lock"
     fi
-    
+
     # Send notification (placeholder for future integration)
     if [[ $exit_code -eq 0 ]]; then
         log "INFO" "✅ Pipeline completed successfully"
@@ -52,7 +52,7 @@ cleanup() {
         log "ERROR" "❌ Pipeline failed with exit code ${exit_code}"
         # TODO: Send failure notification
     fi
-    
+
     exit $exit_code
 }
 
@@ -63,7 +63,7 @@ check_lock() {
     if [[ -f "$LOCK_FILE" ]]; then
         local pid
         pid=$(cat "$LOCK_FILE")
-        
+
         if ps -p "$pid" > /dev/null 2>&1; then
             log "ERROR" "Pipeline already running (PID: ${pid})"
             log "ERROR" "If this is incorrect, remove ${LOCK_FILE}"
@@ -73,7 +73,7 @@ check_lock() {
             rm -f "$LOCK_FILE"
         fi
     fi
-    
+
     # Create lock file with current PID
     echo $$ > "$LOCK_FILE"
     log "INFO" "Acquired pipeline lock (PID: $$)"
@@ -82,49 +82,49 @@ check_lock() {
 # Function: Check environment
 check_environment() {
     log "INFO" "Checking environment..."
-    
+
     # Check if .env file exists
     if [[ ! -f "${PROJECT_ROOT}/.env" ]]; then
         log "WARN" "No .env file found - pipeline will run in TEST MODE"
         log "WARN" "For production: cp .env.template .env and add credentials"
     fi
-    
+
     # Check Python environment
     if [[ ! -d "${PROJECT_ROOT}/.venv" ]]; then
         log "ERROR" "Virtual environment not found at ${PROJECT_ROOT}/.venv"
         log "ERROR" "Run: python3 -m venv .venv && source .venv/bin/activate && pip install -e ."
         exit 1
     fi
-    
+
     # Check DuckDB database
     if [[ ! -f "${PROJECT_ROOT}/oss_framework/data/analytics.duckdb" ]]; then
         log "WARN" "DuckDB database not found - will be created on first run"
     fi
-    
+
     # Check Rill installation
     if ! command -v rill &> /dev/null; then
         log "WARN" "Rill not installed - dashboards will not be accessible"
         log "WARN" "Install: curl https://rill.sh | sh"
     fi
-    
+
     log "INFO" "✅ Environment checks passed"
 }
 
 # Function: Run pipeline with timeout
 run_pipeline() {
     local stage="${1:-all}"
-    
+
     log "INFO" "========================================="
     log "INFO" "Starting pipeline execution: Stage ${stage}"
     log "INFO" "========================================="
     log "INFO" "Project root: ${PROJECT_ROOT}"
     log "INFO" "Log file: ${LOG_FILE}"
     log "INFO" "Max runtime: ${MAX_RUNTIME_MINUTES} minutes"
-    
+
     # Activate virtual environment
     # shellcheck disable=SC1091
     source "${PROJECT_ROOT}/.venv/bin/activate"
-    
+
     # Run pipeline with timeout
     if timeout "${MAX_RUNTIME_MINUTES}m" python3 "${PROJECT_ROOT}/scripts/run_pipeline.py" --stage "$stage" 2>&1 | tee -a "$LOG_FILE"; then
         log "INFO" "Pipeline completed successfully"
@@ -143,21 +143,21 @@ run_pipeline() {
 # Function: Post-execution tasks
 post_execution() {
     log "INFO" "Running post-execution tasks..."
-    
+
     # Archive old logs (keep last 30 days)
     log "INFO" "Archiving old logs..."
     find "$LOG_DIR" -name "pipeline_scheduled_*.log" -mtime +30 -delete 2>/dev/null || true
-    
+
     # Compress large log files (>10MB)
     find "$LOG_DIR" -name "*.log" -size +10M ! -name "*.gz" -exec gzip {} \; 2>/dev/null || true
-    
+
     # Check database size
     if [[ -f "${PROJECT_ROOT}/oss_framework/data/analytics.duckdb" ]]; then
         local db_size
         db_size=$(du -h "${PROJECT_ROOT}/oss_framework/data/analytics.duckdb" | cut -f1)
         log "INFO" "Database size: ${db_size}"
     fi
-    
+
     # Check Parquet export size
     if [[ -d "${PROJECT_ROOT}/rill_project/data" ]]; then
         local export_size
@@ -166,7 +166,7 @@ post_execution() {
         file_count=$(find "${PROJECT_ROOT}/rill_project/data" -name "*.parquet" | wc -l)
         log "INFO" "Parquet exports: ${file_count} files, ${export_size}"
     fi
-    
+
     log "INFO" "✅ Post-execution tasks complete"
 }
 
@@ -174,7 +174,7 @@ post_execution() {
 main() {
     local stage="all"
     local dry_run=false
-    
+
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -220,14 +220,14 @@ EOF
                 ;;
         esac
     done
-    
+
     if [[ "$dry_run" == true ]]; then
         log "INFO" "DRY RUN MODE - No pipeline execution"
         check_environment
         log "INFO" "Would run: python3 scripts/run_pipeline.py --stage ${stage}"
         exit 0
     fi
-    
+
     # Execute pipeline
     check_lock
     check_environment

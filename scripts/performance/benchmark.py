@@ -17,12 +17,12 @@ Usage:
 
 import argparse
 import json
+import subprocess
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any
-import subprocess
-import sys
+from typing import Any, Dict
 
 import duckdb
 
@@ -73,7 +73,7 @@ class PerformanceBenchmark:
                 LIMIT 100
             """,
             "school_summary": """
-                SELECT 
+                SELECT
                     school_id,
                     COUNT(*) as total_records,
                     AVG(CASE WHEN present_flag THEN 1.0 ELSE 0.0 END) as attendance_rate
@@ -89,7 +89,7 @@ class PerformanceBenchmark:
                 LIMIT 100
             """,
             "wellbeing_profile": """
-                SELECT 
+                SELECT
                     w.*,
                     s.first_name,
                     s.last_name,
@@ -163,12 +163,14 @@ class PerformanceBenchmark:
         db_size_mb = DUCKDB_PATH.stat().st_size / (1024 * 1024)
 
         # Get table row counts
-        tables_info = con.execute("""
+        tables_info = con.execute(
+            """
             SELECT table_schema, table_name, estimated_size as row_count
             FROM duckdb_tables()
             WHERE table_schema LIKE 'main_%'
             ORDER BY estimated_size DESC
-        """).fetchall()
+        """
+        ).fetchall()
 
         con.close()
 
@@ -316,7 +318,7 @@ class PerformanceBenchmark:
         # Export performance
         if "export" in self.results and self.results["export"].get("status") == "success":
             export = self.results["export"]
-            print(f"\n📤 EXPORT PERFORMANCE:")
+            print("\n📤 EXPORT PERFORMANCE:")
             print(f"  • Duration: {export['duration_seconds']:.2f}s")
             print(f"  • Files created: {export['file_count']}")
             print(f"  • Total size: {export['total_size_mb']:.2f} MB")

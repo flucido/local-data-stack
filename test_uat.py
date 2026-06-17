@@ -7,13 +7,11 @@ Phase 3: Load Testing
 Phase 4: Sign-off
 """
 
-import json
 import os
 import time
-import random
-from datetime import datetime
-from typing import List, Dict, Tuple
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+
 import requests
 
 
@@ -192,9 +190,7 @@ class Phase3LoadTesting:
         """Simulate multiple concurrent users"""
         print("\nPhase 3: Load Testing")
         print("=" * 70)
-        print(
-            f"Simulating {num_users} concurrent users with {num_requests} requests each..."
-        )
+        print(f"Simulating {num_users} concurrent users with {num_requests} requests each...")
 
         def make_requests():
             times = []
@@ -238,11 +234,11 @@ class Phase3LoadTesting:
         print(f"  P99 response time: {p99_time:.2f}ms")
 
         if p95_time < 2000 and p99_time < 3000:
-            print(f"  ✓ Load test PASSED (within SLA targets)")
+            print("  ✓ Load test PASSED (within SLA targets)")
             self.results.append(("Load Test", "PASS"))
             return True
         else:
-            print(f"  ⚠ Load test shows performance issues")
+            print("  ⚠ Load test shows performance issues")
             self.results.append(("Load Test", "WARNING"))
             return True  # Not a hard fail
 
@@ -263,9 +259,7 @@ class Phase4SignOff:
 
         total_tests = len(self.phase1) + len(self.phase2) + len(self.phase3)
         passed_tests = sum(
-            1
-            for p in self.phase1 + self.phase2 + self.phase3
-            if p[1] in ["PASS", "INCONCLUSIVE"]
+            1 for p in self.phase1 + self.phase2 + self.phase3 if p[1] in ["PASS", "INCONCLUSIVE"]
         )
 
         report = f"""
@@ -358,9 +352,7 @@ def run_full_uat():
     # Phase 2: Acceptance
     phase2 = Phase2AcceptanceTesting()
     p2_pass = (
-        phase2.test_user_permissions()
-        and phase2.test_data_accuracy()
-        and phase2.test_data_export()
+        phase2.test_user_permissions() and phase2.test_data_accuracy() and phase2.test_data_export()
     )
 
     # Phase 3: Load

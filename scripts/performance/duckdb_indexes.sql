@@ -19,7 +19,7 @@
 
 -- Students dimension - Already has PK on student_id
 -- Additional index on frequently filtered columns
-CREATE INDEX IF NOT EXISTS idx_students_school_grade 
+CREATE INDEX IF NOT EXISTS idx_students_school_grade
 ON main_core.dim_students (school_id, grade_level);
 
 CREATE INDEX IF NOT EXISTS idx_students_demographics
@@ -160,7 +160,7 @@ ON main_scoring.score_wellbeing_risk (student_id);
 -- ================================================================================
 
 -- View all indexes
-SELECT 
+SELECT
     schema_name,
     table_name,
     index_name,
@@ -171,7 +171,7 @@ WHERE schema_name LIKE 'main_%'
 ORDER BY schema_name, table_name, index_name;
 
 -- Check table sizes (row counts and storage)
-SELECT 
+SELECT
     table_schema,
     table_name,
     estimated_size AS rows,
@@ -189,13 +189,13 @@ ORDER BY estimated_size DESC;
 -- ================================================================================
 
 -- Test 1: Student attendance lookup (should use idx_attendance_student_date)
--- EXPLAIN SELECT * 
--- FROM main_core.fact_attendance_daily 
--- WHERE student_id = 'STU0001' 
+-- EXPLAIN SELECT *
+-- FROM main_core.fact_attendance_daily
+-- WHERE student_id = 'STU0001'
 --   AND attendance_date BETWEEN '2025-01-01' AND '2025-12-31';
 
 -- Test 2: School attendance summary (should use idx_attendance_school_date)
--- EXPLAIN SELECT 
+-- EXPLAIN SELECT
 --     school_id,
 --     COUNT(*) as total_records,
 --     AVG(CASE WHEN present_flag THEN 1.0 ELSE 0.0 END) as attendance_rate
@@ -211,7 +211,7 @@ ORDER BY estimated_size DESC;
 -- LIMIT 100;
 
 -- Test 4: Student wellbeing profile (should use idx_wellbeing_risk_student)
--- EXPLAIN SELECT 
+-- EXPLAIN SELECT
 --     w.*,
 --     s.first_name,
 --     s.last_name

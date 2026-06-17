@@ -36,7 +36,7 @@ SELECT
     COUNT(*) AS assignment_count,
     SUM(CASE WHEN grade_numeric >= 2.0 THEN 1 ELSE 0 END) AS passing_assignments,
     ROUND(
-        100.0 * SUM(CASE WHEN grade_numeric >= 2.0 THEN 1 ELSE 0 END) / 
+        100.0 * SUM(CASE WHEN grade_numeric >= 2.0 THEN 1 ELSE 0 END) /
         NULLIF(COUNT(*), 0),
         2
     ) AS pct_passing,

@@ -6,9 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import duckdb
-
 from config import DUCKDB_DATABASE_PATH, STAGE1_PATH
-
 
 RAW_ENTITIES = [
     "raw_students",

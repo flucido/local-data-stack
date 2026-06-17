@@ -97,7 +97,7 @@ When k-anonymity filtering is applied, some groups may be suppressed:
 
 Student dimension with pseudonymized identifiers.
 
-**Grain**: One row per student  
+**Grain**: One row per student
 **Privacy**: Uses `student_id_hash` from privacy layer
 
 **Key Columns**:
@@ -117,7 +117,7 @@ Student dimension with pseudonymized identifiers.
 
 Aggregated demographics with k-anonymity enforcement (k≥5).
 
-**Grain**: One row per unique demographic combination (with ≥5 students)  
+**Grain**: One row per unique demographic combination (with ≥5 students)
 **Privacy**: K-anonymity enforced via HAVING clause
 
 **Key Columns**:
@@ -138,7 +138,7 @@ Aggregated demographics with k-anonymity enforcement (k≥5).
 
 School reference dimension.
 
-**Grain**: One row per school  
+**Grain**: One row per school
 **Key Columns**: school_id, school_name
 
 ---
@@ -149,7 +149,7 @@ School reference dimension.
 
 Daily student attendance records with pseudonymized identifiers.
 
-**Grain**: One row per student per attendance date  
+**Grain**: One row per student per attendance date
 **Privacy**: Uses `student_id_hash` (SHA256)
 
 **Key Columns**:
@@ -168,7 +168,7 @@ Daily student attendance records with pseudonymized identifiers.
 
 Daily attendance aggregations with k-anonymity enforcement (k≥5).
 
-**Grain**: One row per date/school/grade combination (with ≥5 students)  
+**Grain**: One row per date/school/grade combination (with ≥5 students)
 **Privacy**: K-anonymity enforced via HAVING clause
 
 **Key Columns**:
@@ -190,7 +190,7 @@ Daily attendance aggregations with k-anonymity enforcement (k≥5).
 
 Student academic performance data with pseudonymized identifiers.
 
-**Grain**: One row per student per course per term  
+**Grain**: One row per student per course per term
 **Privacy**: Uses `student_id_hash` (SHA256)
 
 **Key Columns**:
@@ -211,7 +211,7 @@ Student academic performance data with pseudonymized identifiers.
 
 Student discipline incident records with pseudonymized identifiers.
 
-**Grain**: One row per incident  
+**Grain**: One row per incident
 **Privacy**: Uses `student_id_hash` (SHA256)
 
 **Key Columns**:
@@ -231,7 +231,7 @@ Student discipline incident records with pseudonymized identifiers.
 
 Student enrollment records with pseudonymized identifiers.
 
-**Grain**: One row per enrollment period  
+**Grain**: One row per enrollment period
 **Privacy**: Uses `student_id_hash` (SHA256)
 
 **Key Columns**:

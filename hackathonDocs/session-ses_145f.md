@@ -22,7 +22,7 @@ Watch the logs — you should now get past "🔗 Applying LoRA adapter" to "✅ 
 
 ## User
 
-Running but it's pretty slow. I don't know if there's a way to improve that. Here's the login point so let's check and see what it's doing Running but it's pretty slow. I don't know if there's a way to improve that. Here's the login point so let's check and see what it's doing 
+Running but it's pretty slow. I don't know if there's a way to improve that. Here's the login point so let's check and see what it's doing Running but it's pretty slow. I don't know if there's a way to improve that. Here's the login point so let's check and see what it's doing
 
 ---
 
@@ -38,7 +38,7 @@ _Thinking:_
 
 curl -N \
      -H "Authorization: Bearer $HF_TOKEN" \
-     "https://huggingface.co/api/spaces/build-small-hackathon/Kasualdad_LFED/logs/run" 
+     "https://huggingface.co/api/spaces/build-small-hackathon/Kasualdad_LFED/logs/run"
 
 ---
 
@@ -228,7 +228,7 @@ Want me to implement the top three (streaming UI + few-shot trim + duration=30)?
 
 ## User
 
-Let's make the changes 
+Let's make the changes
 
 ---
 
@@ -570,7 +570,7 @@ Once it's up, try the example chips. Expect: status flips to "Generating" within
 
 ## User
 
-Can you make sure this is on my local Git repo as well? Ultimately this is going to run locally so I want to, on much better hardware so I want to test it on my Mac 
+Can you make sure this is on my local Git repo as well? Ultimately this is going to run locally so I want to, on much better hardware so I want to test it on my Mac
 
 ---
 
@@ -631,7 +631,7 @@ Want me to add the llama.cpp/Metal fallback backend? It's mostly resurrecting th
 
 ## User
 
-The last version of the local runs great on my machine. Let's just leave it as is then because that's the one I'm going to really expand into a much more developed product 
+The last version of the local runs great on my machine. Let's just leave it as is then because that's the one I'm going to really expand into a much more developed product
 
 ---
 
@@ -655,7 +655,7 @@ Want me to create that tag (and optionally the branch) now, or leave the repo un
 
 ## User
 
-Yeah let's absolutely tag it. Would it be worth branching it off as a working tree? I can then spin that out into Real product branch . Does that make sense? 
+Yeah let's absolutely tag it. Would it be worth branching it off as a working tree? I can then spin that out into Real product branch . Does that make sense?
 
 ---
 
@@ -1043,7 +1043,7 @@ One caveat: `product` currently has no remote tracking branch — it exists only
 
 ## User
 
-Not worried about that for right now. The pushing it to the space remote, it's going to go somewhere else anyway but I am a little concerned I am getting different results. It seems like on the same queries. I want to figure out: are we reading from the parquet files or are we generating new data each time a query is run? In space, current version that we just pushed 
+Not worried about that for right now. The pushing it to the space remote, it's going to go somewhere else anyway but I am a little concerned I am getting different results. It seems like on the same queries. I want to figure out: are we reading from the parquet files or are we generating new data each time a query is run? In space, current version that we just pushed
 
 ---
 
@@ -1650,9 +1650,9 @@ error: failed to push some refs to 'https://huggingface.co/spaces/build-small-ha
 
 **Output:**
 ```
-remote: [31mOffending files:[0m        
-remote: [31m  - data/grades.parquet (ref: refs/heads/main)[0m        
-remote: [31m-------------------------------------------------------------------------[0m        
+remote: [31mOffending files:[0m
+remote: [31m  - data/grades.parquet (ref: refs/heads/main)[0m
+remote: [31m-------------------------------------------------------------------------[0m
 To https://huggingface.co/spaces/build-small-hackathon/Kasualdad_LFED
  ! [remote rejected] main -> main (pre-receive hook declined)
 error: failed to push some refs to 'https://huggingface.co/spaces/build-small-hackathon/Kasualdad_LFED'
@@ -1676,14 +1676,14 @@ error: failed to push some refs to 'https://huggingface.co/spaces/build-small-ha
 
 **Output:**
 ```
-remote: [31m-------------------------------------------------------------------------[0m        
-remote: [31mYour push was rejected because it contains binary files.[0m        
-remote: [31mPlease use https://huggingface.co/docs/hub/xet to store binary files.[0m        
-remote: [31mSee also: https://huggingface.co/docs/hub/xet/using-xet-storage#git[0m        
-remote: [31m[0m        
-remote: [31mOffending files:[0m        
-remote: [31m  - data/grades.parquet (ref: refs/heads/main)[0m        
-remote: [31m-------------------------------------------------------------------------[0m        
+remote: [31m-------------------------------------------------------------------------[0m
+remote: [31mYour push was rejected because it contains binary files.[0m
+remote: [31mPlease use https://huggingface.co/docs/hub/xet to store binary files.[0m
+remote: [31mSee also: https://huggingface.co/docs/hub/xet/using-xet-storage#git[0m
+remote: [31m[0m
+remote: [31mOffending files:[0m
+remote: [31m  - data/grades.parquet (ref: refs/heads/main)[0m
+remote: [31m-------------------------------------------------------------------------[0m
 To https://huggingface.co/spaces/build-small-hackathon/Kasualdad_LFED
  ! [remote rejected] main -> main (pre-receive hook declined)
 error: failed to push some refs to 'https://huggingface.co/spaces/build-small-hackathon/Kasualdad_LFED'
@@ -1827,7 +1827,7 @@ Same fix applies to your Mac automatically since it's all in the repo — and no
 
 One last thing or two last things:
 - What would it take to keep the results available so we could do a comparison?
-- What would it take to chart some of this? If I wanted to produce charts or graphs in this Gradio interface, I don't want you to build it yet. I just want to know what the capabilities are. 
+- What would it take to chart some of this? If I wanted to produce charts or graphs in this Gradio interface, I don't want you to build it yet. I just want to know what the capabilities are.
 
 ---
 
@@ -1880,7 +1880,7 @@ Both features are pure UI/CPU — no GPU, no model, no ZeroGPU complications. Wh
 
 ## User
 
-I'm going to just keep this state across sessions. We can run a query and then if I run a next query, I can see in the same session multiple queries that I've run. I can mark them to be saved or something so I can actually do comparisons 
+I'm going to just keep this state across sessions. We can run a query and then if I run a next query, I can see in the same session multiple queries that I've run. I can mark them to be saved or something so I can actually do comparisons
 
 ---
 
@@ -1954,7 +1954,7 @@ That's a pretty big feature update but let's just play with it and see where tha
 
 ## User
 
-There was a mistake in the first question. I do not want to build it yet Just want to build out the spec 
+There was a mistake in the first question. I do not want to build it yet Just want to build out the spec
 
 ---
 
@@ -2006,7 +2006,7 @@ Read it when you're ready; fill in §12 and I'll build to it.
 
 ## User
 
-Okay one last thing Let's update the reading docs to make sure they are current with all of the changes we've made 
+Okay one last thing Let's update the reading docs to make sure they are current with all of the changes we've made
 
 ---
 
@@ -2083,46 +2083,46 @@ TRAINING_PLAYBOOK.md
 18: - gradio
 19: - gguf
 20: ---
-21: 
+21:
 22: # 🏫 Kasualdad LFED
-23: 
+23:
 24: **Local-First Education Data** — ask questions about your district in plain English, get answers instantly. All inference runs on your machine. No data ever leaves.
-25: 
+25:
 26: > 🏆 Built for the **HF Build Small Hackathon** (Chapter One: Backyard AI)
-27: 
+27:
 28: ---
-29: 
+29:
 30: ## 🏅 Hackathon Badges
-31: 
+31:
 32: | Badge | Status | How |
 33: |---|---|---|
 34: | **Off the Grid** | ✅ | All inference via llama.cpp + local GGUF. No API calls. No cloud. |
 35: | **Well-Tuned** | ✅ | Fine-tuned Qwen2.5-Coder-7B on 1,200+ synthetic NL→SQL pairs via Unsloth QLoRA on Modal A10G. |
 36: | **Llama Champion** | ✅ | llama.cpp as the sole inference backend. Q4_K_M quantization. Streaming token generation. |
 37: | **Off-Brand** | ✅ | Custom design system (Linear/Vercel inspired), WCAG AA, Inter + JetBrains Mono, documented below. |
-38: 
+38:
 39: ---
-40: 
+40:
 41: ## 🎯 What It Does
-42: 
+42:
 43: A school district admin (principal, superintendent, department head) types a question:
-44: 
+44:
 45: > *"What percentage of students at Lincoln Elementary were chronically absent in 2023-2024?"*
-46: 
+46:
 47: Kasualdad LFED:
-48: 
+48:
 49: 1. Sends the question + schema context to a local LLM (llama.cpp)
 50: 2. Streams the generated SQL back in real-time
 51: 3. Validates the SQL against the actual schema (column names, safety)
 52: 4. Executes it on an in-memory DuckDB database
 53: 5. Returns the results as a table
-54: 
+54:
 55: All local. No API keys. No data exfiltration.
-56: 
+56:
 57: ---
-58: 
+58:
 59: ## 🏗 Architecture
-60: 
+60:
 61: ```mermaid
 62: flowchart TD
 63:     U[👤 School Admin] -->|natural language| UI[Gradio UI]
@@ -2132,34 +2132,34 @@ TRAINING_PLAYBOOK.md
 67:     GUARD -->|extract → validate| DUCK[DuckDB in-memory]
 68:     DUCK -->|dataframe| UI
 69:     UI -->|table| U
-70: 
+70:
 71:     subgraph Training [Offline Fine-Tuning]
 72:         SYNTH[generate_synthetic.py<br/>1.2k NL→SQL pairs]
 73:         TRAIN[train.py<br/>Unsloth QLoRA on A10G]
 74:         EXPORT[export_gguf.py<br/>merge → GGUF → HF Hub]
 75:         SYNTH --> TRAIN --> EXPORT
 76:     end
-77: 
+77:
 78:     EXPORT -.->|fine-tuned model| GGUF
 79: ```
-80: 
+80:
 81: ---
-82: 
+82:
 83: ## 📊 Data Schema
-84: 
+84:
 85: Seed data: **5 schools × 4 school years × 13 grade levels**, ~2,900 students, 15% chronic absenteeism rate.
-86: 
+86:
 87: ### `enrollment`
-88: 
+88:
 89: | Column | Type | Description |
 90: |---|---|---|
 91: | `school_year` | VARCHAR | School year, format `'YYYY-YYYY'` |
 92: | `school_name` | VARCHAR | One of 5 schools (see below) |
 93: | `grade_level` | INTEGER | Grade level (K=0 through 12) |
 94: | `student_count` | INTEGER | Students enrolled in that grade/year/school |
-95: 
+95:
 96: ### `attendance`
-97: 
+97:
 98: | Column | Type | Description |
 99: |---|---|---|
 100: | `student_id` | INTEGER | Unique student identifier |
@@ -2167,9 +2167,9 @@ TRAINING_PLAYBOOK.md
 102: | `school_year` | VARCHAR | School year, format `'YYYY-YYYY'` |
 103: | `absence_count` | INTEGER | Total absences for that year |
 104: | `is_chronically_absent` | BOOLEAN | TRUE if missed ≥10% of school days |
-105: 
+105:
 106: ### Schools
-107: 
+107:
 108: | School | Grades |
 109: |---|---|
 110: | Lincoln Elementary | K–5 |
@@ -2177,30 +2177,30 @@ TRAINING_PLAYBOOK.md
 112: | Jefferson High | 9–12 |
 113: | Roosevelt Academy | K–8 |
 114: | Kennedy Prep | 6–12 |
-115: 
+115:
 116: ---
-117: 
+117:
 118: ## 🚀 How to Run Locally
-119: 
+119:
 120: ### Prerequisites
-121: 
+121:
 122: - Python 3.12+
 123: - ~5 GB free disk space (for the GGUF model)
 124: - macOS, Linux, or WSL (llama.cpp builds from source if no wheel)
-125: 
+125:
 126: ### Quick Start
-127: 
+127:
 128: ```bash
 129: # 1. Clone and enter the project
 130: cd Kasualdad_LFED
-131: 
+131:
 132: # 2. Create virtual environment
 133: python3.12 -m venv .venv
 134: source .venv/bin/activate
-135: 
+135:
 136: # 3. Install dependencies
 137: pip install -r requirements.txt
-138: 
+138:
 139: # 4. Download the model (4.4 GB)
 140: python -c "
 141: from huggingface_hub import hf_hub_download
@@ -2210,49 +2210,49 @@ TRAINING_PLAYBOOK.md
 145:     local_dir='/tmp/lfed-models/qwen'
 146: )
 147: "
-148: 
+148:
 149: # 5. Launch the app
 150: python app.py
 151: ```
-152: 
+152:
 153: Open **http://localhost:7860** and start asking questions.
-154: 
+154:
 155: ## 🔧 Fine-Tuning Pipeline
-156: 
+156:
 157: The Modal training pipeline lives in `modal_train/`. To run it:
-158: 
+158:
 159: ```bash
 160: # 1. Install Modal CLI
 161: pip install modal
-162: 
+162:
 163: # 2. Set your Hugging Face token as a Modal secret
 164: modal secret create huggingface HF_TOKEN=hf_your_token_here
-165: 
+165:
 166: # 3. Generate synthetic data + train + export + push to HF Hub
 167: modal run modal_train/modal_app.py
 168: ```
-169: 
+169:
 170: | Script | What it does |
 171: |---|---|
 172: | `generate_synthetic.py` | Creates 1,200+ NL→SQL pairs from 32 query templates |
 173: | `train.py` | Unsloth QLoRA on Qwen2.5-Coder-7B (r=16, 4-bit, 3 epochs, A10G) |
 174: | `export_gguf.py` | Merges LoRA → converts to GGUF Q4_K_M → pushes to HF Hub |
 175: | `modal_app.py` | Modal orchestration — `modal.App("kasualdad-lfed-train")` |
-176: 
+176:
 177: ---
-178: 
+178:
 179: ## 🧪 Tests
-180: 
+180:
 181: ```bash
 182: pytest tests/ -v
 183: ```
-184: 
+184:
 185: 81 tests covering execution guard (SQL injection, forbidden tokens, schema validation), data engine (isolation, seed integrity, timeout), and model inference (prompt assembly, streaming, JSON parsing).
-186: 
+186:
 187: ---
-188: 
+188:
 189: ## 📁 Project Structure
-190: 
+190:
 191: ```
 192: Kasualdad_LFED/
 193: ├── app.py                  # Gradio UI (thin controller)
@@ -2279,15 +2279,15 @@ TRAINING_PLAYBOOK.md
 214: ├── packages.txt
 215: └── README.md
 216: ```
-217: 
+217:
 218: ---
-219: 
+219:
 220: ## Design (Off-Brand)
-221: 
+221:
 222: Kasualdad LFED uses a custom design system built on Gradio's CSS injection to satisfy the **Off-Brand** hackathon badge. Every visual decision is documented below.
-223: 
+223:
 224: ### Color Palette
-225: 
+225:
 226: | Token | Value | Usage |
 227: |---|---|---|
 228: | `--bg` | `#fcfbfa` | Page background |
@@ -2299,15 +2299,15 @@ TRAINING_PLAYBOOK.md
 234: | `--accent-hover` | `#0f766e` | Button hover state |
 235: | `--error` | `#ef4444` | Error messages |
 236: | `--success` | `#10b981` | Success messages |
-237: 
+237:
 238: ### Typography
-239: 
+239:
 240: - **UI font**: Inter (Google Fonts) with system-ui fallback — clean, modern, high legibility
 241: - **Code font**: JetBrains Mono (Google Fonts) with SF Mono / Cascadia Code fallbacks — clear distinction between UI and code
 242: - **Scale**: 0.75rem (table headers) → 0.875rem (body) → 0.9375rem (inputs) → 2rem (heading)
-243: 
+243:
 244: ### Accessibility (WCAG AA)
-245: 
+245:
 246: | Criterion | Implementation |
 247: |---|---|
 248: | **Color contrast** | All text/background pairs meet WCAG AA (4.5:1 minimum). Body text achieves AAA (18:1). |
@@ -2315,23 +2315,23 @@ TRAINING_PLAYBOOK.md
 250: | **Reduced motion** | `prefers-reduced-motion: reduce` disables all transitions and animations. |
 251: | **Color independence** | Teal accent is never the sole indicator of state — icons and text labels always accompany color. |
 252: | **Semantic HTML** | Gradio's component hierarchy preserves heading levels, label associations, and table semantics. |
-253: 
+253:
 254: ### Interaction
-255: 
+255:
 256: - **Transitions**: 120ms ease-out on all interactive states (hover, focus, active)
 257: - **Example chips**: 6 one-click query starters with hover-to-teal affordance
 258: - **Status feedback**: Streaming SQL generation with live status line (`⏳ Generating…` → `✅ Done — N rows`)
 259: - **Flat design**: No box-shadows — borders and whitespace define visual hierarchy
 260: - **Radius**: Consistent 8px border-radius on all containers
-261: 
+261:
 262: ### Inspiration
-263: 
+263:
 264: Linear, Vercel — minimal monochrome with a single accent color, generous whitespace, typography-driven hierarchy.
-265: 
+265:
 266: ---
-267: 
+267:
 268: ## 📝 License
-269: 
+269:
 270: Apache 2.0
 
 (End of file - total 270 lines)
@@ -3012,7 +3012,7 @@ Edit applied successfully.
 
 ## User
 
-Read the documents that were being written and let's finish them up. Everything should get the context 
+Read the documents that were being written and let's finish them up. Everything should get the context
 
 ---
 
@@ -4012,7 +4012,7 @@ User aborted the command
 
 ## User
 
-Already tested the seed data fix. You don't need to do anything about the testing. I just want you to finish the docs 
+Already tested the seed data fix. You don't need to do anything about the testing. I just want you to finish the docs
 
 ---
 
@@ -4136,7 +4136,7 @@ Want me to commit the three doc files, or leave them uncommitted for your review
 
 ## User
 
-I'm uncommitted for my review 
+I'm uncommitted for my review
 
 ---
 
@@ -4149,4 +4149,3 @@ The user wants to leave the doc updates uncommitted so they can review them. Not
 They're all uncommitted — `README.md`, `DEPLOY.md`, `PROJECT.md`, and the new `docs/SPEC_query-history-dashboards.md`. Read them when you're ready, fill in `§12` of the spec, and I'll build to the decisions.
 
 ---
-

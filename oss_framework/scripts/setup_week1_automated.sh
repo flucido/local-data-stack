@@ -80,7 +80,7 @@ echo -e "${GREEN}✅ Python dependencies installed${NC}"
 echo -e "${YELLOW}[5/10]${NC} Checking environment configuration..."
 if [ ! -f "$PROJECT_DIR/.env" ]; then
     echo -e "${YELLOW}⚠️  .env file not found. Creating template...${NC}"
-    
+
     cat > "$PROJECT_DIR/.env.template" << 'EOF'
 # Aeries API Configuration
 # Choose ONE authentication method:
@@ -136,7 +136,7 @@ DASHBOARD_USER_ACCESS_LEVEL=role_based  # Options: role_based, unrestricted
 LOG_LEVEL=INFO
 LOG_FILE=./oss_framework/logs/oea.log
 EOF
-    
+
     echo -e "${YELLOW}📄 Template created at .env.template${NC}"
     echo -e "${YELLOW}❌ REQUIRED: Copy .env.template to .env and fill in your credentials${NC}"
     echo -e "${YELLOW}   cp .env.template .env${NC}"
@@ -251,19 +251,19 @@ Path(LOG_FILE).parent.mkdir(parents=True, exist_ok=True)
 def validate_config():
     """Validate that required configuration is set"""
     errors = []
-    
+
     if AERIES_AUTH_METHOD == "api_key" and not AERIES_API_KEY:
         errors.append("AERIES_API_KEY not set")
-    
+
     if AERIES_AUTH_METHOD == "oauth2" and (not AERIES_CLIENT_ID or not AERIES_CLIENT_SECRET):
         errors.append("AERIES_CLIENT_ID or AERIES_CLIENT_SECRET not set")
-    
+
     if AERIES_AUTH_METHOD == "database" and not all([AERIES_DB_HOST, AERIES_DB_DATABASE]):
         errors.append("Database configuration incomplete")
-    
+
     if errors:
         raise ValueError(f"Configuration errors: {', '.join(errors)}")
-    
+
     return True
 
 if __name__ == "__main__":
@@ -291,11 +291,11 @@ logger = logging.getLogger(__name__)
 
 class DataQualityValidator:
     """Validates data quality across all stages"""
-    
+
     def __init__(self, db_path: str):
         self.con = duckdb.connect(db_path)
         self.results = []
-    
+
     def validate_table_exists(self, table_name: str) -> bool:
         """Check if table exists"""
         try:
@@ -309,7 +309,7 @@ class DataQualityValidator:
         except Exception as e:
             logger.error(f"❌ Error checking table {table_name}: {e}")
             return False
-    
+
     def validate_no_null_ids(self, table_name: str, id_column: str) -> bool:
         """Check for null IDs (data integrity issue)"""
         try:
@@ -326,7 +326,7 @@ class DataQualityValidator:
         except Exception as e:
             logger.error(f"❌ Error validating {table_name}.{id_column}: {e}")
             return False
-    
+
     def validate_row_count(self, table_name: str, min_rows: int = 0) -> bool:
         """Check table has data"""
         try:
@@ -341,11 +341,11 @@ class DataQualityValidator:
         except Exception as e:
             logger.error(f"❌ Error counting rows in {table_name}: {e}")
             return False
-    
+
     def run_all_validations(self) -> Dict[str, bool]:
         """Run complete validation suite"""
         logger.info("Starting data quality validation...")
-        
+
         validations = {
             "raw_students_exists": self.validate_table_exists("raw_students"),
             "raw_attendance_exists": self.validate_table_exists("raw_attendance"),
@@ -354,13 +354,13 @@ class DataQualityValidator:
             "raw_students_no_nulls": self.validate_no_null_ids("raw_students", "student_id"),
             "raw_attendance_data": self.validate_row_count("raw_attendance", min_rows=100),
         }
-        
+
         passed = sum(1 for v in validations.values() if v)
         total = len(validations)
         logger.info(f"Validation complete: {passed}/{total} passed")
-        
+
         return validations
-    
+
     def close(self):
         """Close database connection"""
         self.con.close()
@@ -380,23 +380,23 @@ from config import LOG_LEVEL, LOG_FILE
 
 def setup_logging(name: str) -> logging.Logger:
     """Configure logging for a module"""
-    
+
     # Create logger
     logger = logging.getLogger(name)
     logger.setLevel(getattr(logging, LOG_LEVEL))
-    
+
     # Create formatters
     detailed_formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
-    
+
     # Create console handler
     console_handler = logging.StreamHandler()
     console_handler.setLevel(getattr(logging, LOG_LEVEL))
     console_handler.setFormatter(detailed_formatter)
     logger.addHandler(console_handler)
-    
+
     # Create file handler
     file_handler = logging.handlers.RotatingFileHandler(
         LOG_FILE,
@@ -406,7 +406,7 @@ def setup_logging(name: str) -> logging.Logger:
     file_handler.setLevel(getattr(logging, LOG_LEVEL))
     file_handler.setFormatter(detailed_formatter)
     logger.addHandler(file_handler)
-    
+
     return logger
 EOF
 
@@ -428,7 +428,7 @@ def test_environment_variables():
     """Verify required environment variables are set"""
     from dotenv import load_dotenv
     load_dotenv()
-    
+
     # Should have at least one auth method configured
     auth_method = os.getenv("AERIES_AUTH_METHOD")
     assert auth_method in ["api_key", "oauth2", "database"], f"Invalid auth method: {auth_method}"
@@ -448,7 +448,7 @@ def test_duckdb_connection():
     """Test DuckDB can connect"""
     import duckdb
     import os
-    
+
     db_path = os.getenv("DUCKDB_DATABASE_PATH", "./oss_framework/data/analytics.duckdb")
     con = duckdb.connect(db_path)
     result = con.execute("SELECT 1").fetchall()

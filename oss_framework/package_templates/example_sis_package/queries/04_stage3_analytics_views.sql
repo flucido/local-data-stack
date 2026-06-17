@@ -23,7 +23,7 @@ SELECT
   (SELECT COUNT(DISTINCT student_id_hashed) FROM stage_2b.students_refined WHERE enrollment_status = 'Active') as active_students,
   (SELECT COUNT(DISTINCT student_id_hashed) FROM stage_2b.students_refined WHERE enrollment_status = 'Graduated') as graduated_students,
   (SELECT COUNT(DISTINCT student_id_hashed) FROM stage_2b.students_refined WHERE enrollment_status = 'Withdrawn') as withdrawn_students,
-  
+
   -- By Grade Level
   (SELECT JSON_OBJECT_AGG(grade_level, count) FROM (
     SELECT grade_level, COUNT(DISTINCT student_id_hashed) as count
@@ -31,25 +31,25 @@ SELECT
     WHERE grade_level IS NOT NULL
     GROUP BY grade_level
   ) t) as students_by_grade,
-  
+
   -- Special Programs
   (SELECT COUNT(DISTINCT student_id_hashed) FROM stage_2b.students_refined WHERE special_education = true) as special_ed_count,
   (SELECT COUNT(DISTINCT student_id_hashed) FROM stage_2b.students_refined WHERE english_learner = true) as english_learner_count,
   (SELECT COUNT(DISTINCT student_id_hashed) FROM stage_2b.students_refined WHERE free_reduced_lunch = true) as frpl_count,
-  
+
   -- Academic Performance
   (SELECT ROUND(AVG(gpa), 2) FROM stage_2b.students_refined WHERE gpa IS NOT NULL) as district_avg_gpa,
-  
+
   -- Attendance
   (SELECT ROUND(AVG(attendance_rate), 4) FROM stage_2b.attendance_refined) as district_avg_attendance_rate,
   (SELECT COUNT(DISTINCT student_id_hashed) FROM stage_2b.attendance_refined WHERE chronically_absent = true) as chronically_absent_count,
-  
+
   -- Courses
   (SELECT COUNT(DISTINCT course_id) FROM stage_2b.courses_refined) as total_courses,
-  
+
   -- Enrollment
   (SELECT COUNT(DISTINCT enrollment_id_hashed) FROM stage_2b.enrollment_refined) as total_enrollments,
-  
+
   CURRENT_TIMESTAMP as report_generated_at;
 
 COMMENT ON VIEW stage_3.district_summary IS 'District-level overview: enrollment, programs, performance metrics (aggregated only)';
@@ -64,26 +64,26 @@ CREATE VIEW stage_3.grade_level_performance AS
 SELECT
   sr.grade_level,
   COUNT(DISTINCT sr.student_id_hashed) as student_count,
-  
+
   -- Demographics
   ROUND(100.0 * COUNT(CASE WHEN sr.special_education = true THEN 1 END) / NULLIF(COUNT(*), 0), 1) as percent_special_ed,
   ROUND(100.0 * COUNT(CASE WHEN sr.english_learner = true THEN 1 END) / NULLIF(COUNT(*), 0), 1) as percent_english_learner,
-  
+
   -- Academic Performance
   ROUND(AVG(sr.gpa), 2) as avg_gpa,
   ROUND(MAX(sr.gpa), 2) as max_gpa,
   ROUND(MIN(sr.gpa), 2) as min_gpa,
-  
+
   -- Enrollment Performance
   COUNT(CASE WHEN er.letter_grade IN ('A', 'A-', 'B+') THEN 1 END) as high_achiever_count,
   COUNT(CASE WHEN er.letter_grade IN ('D', 'D-', 'F') THEN 1 END) as struggling_count,
   ROUND(100.0 * COUNT(CASE WHEN er.letter_grade IN ('D', 'D-', 'F') THEN 1 END) / NULLIF(COUNT(DISTINCT er.enrollment_id_hashed), 0), 1) as failure_rate_percent,
-  
+
   -- Attendance
   ROUND(AVG(ar.attendance_rate), 4) as avg_attendance_rate,
   COUNT(CASE WHEN ar.chronically_absent = true THEN 1 END) as chronically_absent_count,
   ROUND(100.0 * COUNT(CASE WHEN ar.warning_level = 'High Risk' THEN 1 END) / NULLIF(COUNT(DISTINCT ar.student_id_hashed), 0), 1) as high_risk_attendance_percent
-  
+
 FROM stage_2b.students_refined sr
 LEFT JOIN stage_2b.enrollment_refined er ON sr.student_id_hashed = er.student_id_hashed
 LEFT JOIN stage_2b.attendance_refined ar ON sr.student_id_hashed = ar.student_id_hashed
@@ -106,21 +106,21 @@ SELECT
   COUNT(DISTINCT cr.course_id) as course_count,
   COUNT(DISTINCT er.enrollment_id_hashed) as total_enrollments,
   COUNT(DISTINCT er.student_id_hashed) as unique_students,
-  
+
   -- Grade Distribution
   ROUND(AVG(er.final_grade_percent), 1) as avg_grade_percent,
   COUNT(CASE WHEN er.letter_grade IN ('A', 'A-') THEN 1 END) as grade_A_count,
   COUNT(CASE WHEN er.letter_grade IN ('B+', 'B', 'B-') THEN 1 END) as grade_B_count,
   COUNT(CASE WHEN er.letter_grade IN ('C+', 'C', 'C-') THEN 1 END) as grade_C_count,
   COUNT(CASE WHEN er.letter_grade IN ('D+', 'D', 'D-', 'F') THEN 1 END) as grade_D_F_count,
-  
+
   -- Intervention Flags
   ROUND(100.0 * COUNT(CASE WHEN er.flag_for_intervention = true THEN 1 END) / NULLIF(COUNT(*), 0), 1) as intervention_flag_percent,
-  
+
   -- Engagement
   ROUND(AVG(er.assignment_completion_rate), 2) as avg_assignment_completion_rate,
   ROUND(AVG(er.participation_score), 1) as avg_participation_score
-  
+
 FROM stage_2b.courses_refined cr
 LEFT JOIN stage_2b.enrollment_refined er ON cr.course_id = er.course_id
 WHERE cr.department IS NOT NULL
@@ -141,20 +141,20 @@ SELECT
   COUNT(DISTINCT er.student_id_hashed) as unique_students,
   COUNT(DISTINCT er.enrollment_id_hashed) as enrollment_count,
   COUNT(DISTINCT cr.course_id) as courses_offered,
-  
+
   -- Academic Performance Trend
   ROUND(AVG(er.final_grade_percent), 1) as avg_grade_percent,
   ROUND(AVG(er.gpa_contribution), 2) as avg_gpa_contribution,
   COUNT(CASE WHEN er.letter_grade IN ('D', 'D-', 'F') THEN 1 END) as failing_enrollments,
-  
+
   -- Engagement Metrics
   ROUND(AVG(er.assignment_completion_rate), 3) as avg_assignment_completion_rate,
   ROUND(AVG(ar.attendance_rate), 4) as avg_attendance_rate,
-  
+
   -- Risk Indicators
   COUNT(CASE WHEN er.flag_for_intervention = true THEN 1 END) as intervention_flagged_enrollments,
   COUNT(CASE WHEN ar.chronically_absent = true THEN 1 END) as chronically_absent_students
-  
+
 FROM stage_2b.enrollment_refined er
 LEFT JOIN stage_2b.courses_refined cr ON er.course_id = cr.course_id
 LEFT JOIN stage_2b.attendance_refined ar ON er.student_id_hashed = ar.student_id_hashed AND er.term = ar.term
@@ -241,16 +241,16 @@ SELECT
   cr.capacity,
   cr.current_enrollment,
   cr.capacity_percent,
-  
+
   -- Enrollment Demand
   COUNT(DISTINCT er.enrollment_id_hashed) as actual_enrollment,
   COUNT(DISTINCT er.student_id_hashed) as unique_students,
-  
+
   -- Performance in Course
   ROUND(AVG(er.final_grade_percent), 1) as avg_grade_percent,
   COUNT(CASE WHEN er.letter_grade IN ('A', 'A-', 'B+') THEN 1 END) as high_achiever_count,
   COUNT(CASE WHEN er.letter_grade IN ('D', 'D-', 'F') THEN 1 END) as failing_count,
-  
+
   -- Course Demand
   CASE
     WHEN cr.capacity_percent >= 100 THEN 'Over Capacity'
@@ -259,7 +259,7 @@ SELECT
     WHEN cr.capacity_percent >= 50 THEN 'Moderate Enrollment'
     ELSE 'Low Enrollment'
   END as demand_level
-  
+
 FROM stage_2b.courses_refined cr
 LEFT JOIN stage_2b.enrollment_refined er ON cr.course_id = er.course_id
 GROUP BY cr.course_id, cr.course_name, cr.department, cr.term, cr.capacity, cr.current_enrollment, cr.capacity_percent
@@ -419,7 +419,7 @@ COMMENT ON VIEW stage_3.data_quality_summary IS 'Overall data quality and comple
 -- Export Certification
 -- ========================================
 
-SELECT 
+SELECT
   'Stage 3 Analytics Database' as export_type,
   CURRENT_TIMESTAMP as certified_at,
   'De-identified aggregates only - no individual records' as privacy_classification,
@@ -428,9 +428,9 @@ SELECT
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: 2024  
-**Privacy Classification**: Public / Dashboard-Ready  
-**Individual Records**: None (aggregated only)  
-**Re-identification Risk**: Negligible  
+**Document Version**: 1.0
+**Last Updated**: 2024
+**Privacy Classification**: Public / Dashboard-Ready
+**Individual Records**: None (aggregated only)
+**Re-identification Risk**: Negligible
 **Suitable For**: Public dashboards, research reports, district accountability reporting

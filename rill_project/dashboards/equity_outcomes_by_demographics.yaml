@@ -54,4 +54,3 @@ measures:
     label: "% Below C Average"
     expression: AVG(pct_below_c) / 100.0
     format_preset: percentage
-

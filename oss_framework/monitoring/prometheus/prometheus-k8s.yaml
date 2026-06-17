@@ -11,22 +11,22 @@ data:
     global:
       scrape_interval: 15s
       evaluation_interval: 15s
-    
+
     alerting:
       alertmanagers:
         - static_configs:
             - targets:
                 - 'alertmanager:9093'
-    
+
     rule_files:
       - '/etc/prometheus/rules/alerts.yml'
       - '/etc/prometheus/rules/recording_rules.yml'
-    
+
     scrape_configs:
       - job_name: 'prometheus'
         static_configs:
           - targets: ['localhost:9090']
-      
+
       - job_name: 'kubernetes-pods'
         kubernetes_sd_configs:
           - role: pod
@@ -62,7 +62,7 @@ data:
               severity: critical
             annotations:
               summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is crash looping"
-          
+
           - alert: HighErrorRate
             expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
             for: 5m
@@ -70,7 +70,7 @@ data:
               severity: warning
             annotations:
               summary: "High error rate detected"
-  
+
   recording_rules.yml: |
     groups:
       - name: cpu_metrics

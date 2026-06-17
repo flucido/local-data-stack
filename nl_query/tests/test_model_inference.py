@@ -11,20 +11,19 @@ These tests mock the LLM so no 14B model is loaded.
 """
 
 from unittest.mock import MagicMock, patch
-import pytest
 
+from data_engine import extract_sql
 from prompts import (
+    DEFAULT_SCHEMA,
+    FEW_SHOT_EXAMPLES,
     SYSTEM_PROMPT,
+    build_few_shot_block,
     build_prompt,
     build_schema_context,
-    build_few_shot_block,
-    FEW_SHOT_EXAMPLES,
-    DEFAULT_SCHEMA,
 )
-from data_engine import extract_sql
-
 
 # ── Prompt assembly ────────────────────────────────────────────────────
+
 
 class TestBuildPrompt:
     """build_prompt() should assemble all prompt components correctly."""
@@ -78,6 +77,7 @@ class TestBuildPrompt:
 
 # ── Schema context builder ─────────────────────────────────────────────
 
+
 class TestBuildSchemaContext:
     """build_schema_context() should format table docs correctly."""
 
@@ -109,6 +109,7 @@ class TestBuildSchemaContext:
 
 # ── Few-shot block builder ─────────────────────────────────────────────
 
+
 class TestBuildFewShotBlock:
     def test_includes_all_examples(self):
         result = build_few_shot_block()
@@ -130,14 +131,17 @@ class TestBuildFewShotBlock:
 
 # ── Model singleton ────────────────────────────────────────────────────
 
+
 class TestModelSingleton:
     def test_get_model_returns_none_before_load(self):
         import model_inference
+
         model_inference._llm = None
         assert model_inference.get_model() is None
 
     def test_load_model_caches_instance(self):
         import model_inference
+
         original = model_inference._llm
         with patch("model_inference.TransformersLLM") as mock_class:
             mock_llama = MagicMock()
@@ -153,9 +157,11 @@ class TestModelSingleton:
 
 # ── SQL generation (mocked) ────────────────────────────────────────────
 
+
 class TestGenerateSql:
     def test_generates_sql_with_mock_llm(self):
         import model_inference
+
         mock_llm = MagicMock()
         mock_llm.return_value = {"choices": [{"text": "```sql\nSELECT 1\n```"}]}
         raw, prompt = model_inference.generate_sql("How many students?", llm=mock_llm)
@@ -165,11 +171,10 @@ class TestGenerateSql:
 
     def test_generates_sql_with_custom_params(self):
         import model_inference
+
         mock_llm = MagicMock()
         mock_llm.return_value = {"choices": [{"text": "SELECT 2"}]}
-        raw, _ = model_inference.generate_sql(
-            "test", llm=mock_llm, max_tokens=100, temperature=0.5
-        )
+        raw, _ = model_inference.generate_sql("test", llm=mock_llm, max_tokens=100, temperature=0.5)
         call_kwargs = mock_llm.call_args.kwargs
         assert call_kwargs["max_tokens"] == 100
         assert call_kwargs["temperature"] == 0.5
@@ -177,27 +182,34 @@ class TestGenerateSql:
 
 # ── Streaming generation (mocked) ──────────────────────────────────────
 
+
 class TestGenerateSqlStreaming:
     def test_yields_accumulated_text(self):
         import model_inference
+
         mock_llm = MagicMock()
-        mock_llm.return_value = iter([
-            {"choices": [{"text": "SE"}]},
-            {"choices": [{"text": "LECT"}]},
-            {"choices": [{"text": " 1"}]},
-        ])
+        mock_llm.return_value = iter(
+            [
+                {"choices": [{"text": "SE"}]},
+                {"choices": [{"text": "LECT"}]},
+                {"choices": [{"text": " 1"}]},
+            ]
+        )
         chunks = list(model_inference.generate_sql_streaming("test question", llm=mock_llm))
         assert len(chunks) >= 1
         assert chunks[-1] == "SELECT 1"
 
     def test_stops_on_double_newline(self):
         import model_inference
+
         mock_llm = MagicMock()
-        mock_llm.return_value = iter([
-            {"choices": [{"text": "SELECT 1\n"}]},
-            {"choices": [{"text": "\n"}]},
-            {"choices": [{"text": "SHOULD NOT APPEAR"}]},
-        ])
+        mock_llm.return_value = iter(
+            [
+                {"choices": [{"text": "SELECT 1\n"}]},
+                {"choices": [{"text": "\n"}]},
+                {"choices": [{"text": "SHOULD NOT APPEAR"}]},
+            ]
+        )
         chunks = list(model_inference.generate_sql_streaming("test", llm=mock_llm))
         full = "".join(chunks)
         assert "SHOULD NOT APPEAR" not in full
@@ -205,6 +217,7 @@ class TestGenerateSqlStreaming:
 
 
 # ── JSON envelope → SQL extraction ─────────────────────────────────────
+
 
 class TestJsonEnvelopeExtraction:
     def test_extracts_sql_from_json(self):
@@ -221,6 +234,7 @@ class TestJsonEnvelopeExtraction:
 
 
 # ── System prompt quality ──────────────────────────────────────────────
+
 
 class TestSystemPrompt:
     def test_mentions_duckdb(self):

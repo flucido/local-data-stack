@@ -11,7 +11,6 @@ the exposed core / analytics / cde layers.
 
 from __future__ import annotations
 
-
 # ── System prompt (schema-agnostic rules) ──────────────────────────────
 
 SYSTEM_PROMPT = """You are an expert DuckDB SQL developer for school district administration.
@@ -33,6 +32,7 @@ Follow these rules strictly:
 
 
 # ── Schema documentation builder ───────────────────────────────────────
+
 
 def build_schema_context(tables: dict[str, list[tuple[str, str, str]]]) -> str:
     """
@@ -103,18 +103,25 @@ DEFAULT_SCHEMA = {
         ("gpa_points", "DOUBLE", "GPA points for this grade"),
         ("is_passing", "BOOLEAN", "TRUE if passing grade"),
     ],
-
     # ── CDE OBT (pre-joined school accountability metrics) ──────────
     "main_analytics.mart_cde_school_accountability": [
         ("cds_code", "VARCHAR", "14-char school identifier"),
         ("academic_year", "VARCHAR", "School year (format 'YYYY-YY', e.g., '2023-24')"),
-        ("reporting_category", "VARCHAR", "Subgroup code: TA=all, RA=Asian, RB=Black, RH=Hispanic, SE=Socioeconomically Disadvantaged, EL=English Learners, SWD=Students with Disabilities"),
+        (
+            "reporting_category",
+            "VARCHAR",
+            "Subgroup code: TA=all, RA=Asian, RB=Black, RH=Hispanic, SE=Socioeconomically Disadvantaged, EL=English Learners, SWD=Students with Disabilities",
+        ),
         ("reporting_category_label", "VARCHAR", "Human-readable subgroup name"),
         ("school_name", "VARCHAR", "School name (from dim_schools)"),
         ("district_name", "VARCHAR", "District name"),
         ("county_name", "VARCHAR", "County name"),
         ("ca_eligible_enrollment", "INTEGER", "Chronic absenteeism: students enrolled >= 31 days"),
-        ("ca_chronic_absent_count", "INTEGER", "Chronic absenteeism: students missing >= 10% of days"),
+        (
+            "ca_chronic_absent_count",
+            "INTEGER",
+            "Chronic absenteeism: students missing >= 10% of days",
+        ),
         ("ca_chronic_absent_rate_pct", "DOUBLE", "Chronic absenteeism rate (%)"),
         ("en_cumulative_enrollment", "INTEGER", "Cumulative enrollment for the year"),
         ("su_total_suspensions", "INTEGER", "Total suspension incidents"),
@@ -140,7 +147,6 @@ DEFAULT_SCHEMA = {
         ("has_cde_data", "BOOLEAN", "TRUE if any CDE domain has data"),
         ("data_domains_present", "INTEGER", "Count of CDE domains with data (0-11)"),
     ],
-
     # ── CDE staging tables (for detailed single-domain queries) ─────
     "main_staging.stg_cde__chronic_absenteeism": [
         ("cds_code", "VARCHAR", "14-char school identifier"),
@@ -195,7 +201,6 @@ DEFAULT_SCHEMA = {
         ("percentage_standard_met_and_above", "DOUBLE", "% met or above standard"),
         ("students_tested", "INTEGER", "Students tested"),
     ],
-
     # ── Existing analytics marts ────────────────────────────────────
     "main_analytics.school_summary": [
         ("school_id", "VARCHAR", "School identifier"),
@@ -275,6 +280,7 @@ def build_few_shot_block(examples: list[dict] = None) -> str:
 
 
 # ── Full prompt assembler ──────────────────────────────────────────────
+
 
 def build_prompt(
     user_question: str,

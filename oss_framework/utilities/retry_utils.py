@@ -24,17 +24,18 @@ Dependencies:
     pip install tenacity structlog
 """
 
+import logging
+from typing import Any, Callable, Optional
+
+import requests
+import structlog
 from tenacity import (
+    before_sleep_log,
     retry,
+    retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
-    retry_if_exception_type,
-    before_sleep_log,
 )
-import structlog
-import requests
-from typing import Callable, Optional, Any
-import logging
 
 logger = structlog.get_logger()
 
@@ -170,8 +171,6 @@ class RetryableHTTPClient:
 
 # Example usage
 if __name__ == "__main__":
-    import time
-
     # Setup structured logging
     structlog.configure(
         processors=[

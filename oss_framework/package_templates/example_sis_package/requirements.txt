@@ -1,5 +1,5 @@
 # OEA SIS Package Template - Python Dependencies
-# 
+#
 # Core dependencies for extracting, transforming, and validating
 # Student Information System (SIS) data in the OSS Framework
 #

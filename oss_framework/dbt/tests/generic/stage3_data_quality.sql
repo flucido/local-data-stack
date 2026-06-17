@@ -70,7 +70,7 @@ WHERE d.student_id_hash IS NULL
 LIMIT 1;
 
 -- Test 10: Data freshness - views have recent data (within last 7 days)
-SELECT 
+SELECT
   COUNT(*) as total_records,
   MAX(CAST(created_at AS DATE)) as max_date
 FROM {{ ref('v_chronic_absenteeism_risk') }}

@@ -1,22 +1,22 @@
 
 {#
   Macro: mask_address
-  
+
   Completely redacts address fields for maximum privacy protection.
   Unlike other masking functions, this provides zero information
   about the original address.
-  
+
   Args:
     column_name: The address column to mask
-  
+
   Returns:
     VARCHAR - Fixed redaction string or NULL
-  
+
   Examples:
     "123 Main Street" -> "***REDACTED***"
     "Apt 4B, 789 Oak Ave" -> "***REDACTED***"
     NULL -> NULL
-    
+
   Rationale:
   - Street addresses are highly identifying (quasi-identifier)
   - Even partial addresses can enable re-identification
@@ -25,9 +25,8 @@
 #}
 
 {%- macro mask_address(column_name) -%}
-    CASE 
+    CASE
         WHEN {{ column_name }} IS NULL THEN NULL
         ELSE '***REDACTED***'
     END
 {%- endmacro -%}
-

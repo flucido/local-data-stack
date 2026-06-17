@@ -6,9 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import duckdb
-
 from config import DUCKDB_DATABASE_PATH, STAGE1_PATH
-
 
 RAW_ENTITIES = [
     "raw_students",
@@ -256,7 +254,7 @@ def sync_raw_views_from_stage1(
 
             # Create view with column mapping
             sql = f"""
-                CREATE OR REPLACE VIEW {entity} AS 
+                CREATE OR REPLACE VIEW {entity} AS
                 SELECT {column_select}
                 FROM read_parquet('{parquet_glob_sql}')
             """

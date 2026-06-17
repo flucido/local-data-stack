@@ -6,11 +6,11 @@ sis:
   database: pssis
   port: 1433
   driver: mssql+pyodbc
-  
+
   # Query to extract student data
   # Replace field names with your SIS table columns
   query: |
-    SELECT 
+    SELECT
       STUDENTID as student_id,
       FIRSTNAME as first_name,
       LASTNAME as last_name,
@@ -24,23 +24,23 @@ sis:
       LASTUPDATEDATE as _sis_modified_date
     FROM STUDENTS
     WHERE LASTUPDATEDATE > ?
-  
+
   # Date format for parameterized queries
   batch_date_format: "%Y-%m-%d"
-  
+
   # Connection timeout in seconds
   connection_timeout: 30
-  
+
   # Max records per batch
   batch_size: 10000
 
 output:
   # Output folder for extracted files
   folder: sis_exports/
-  
+
   # File format: csv or json
   format: csv
-  
+
   # CSV options
   csv:
     delimiter: ","
@@ -48,7 +48,7 @@ output:
     escape_char: '\\'
     encoding: utf-8
     include_header: true
-  
+
   # Compression: none, gzip, or bzip2
   compression: none
 
@@ -59,10 +59,10 @@ database:
   username: ${DB_USER}
   password: ${DB_PASSWORD}
   database: data_lake
-  
+
   # Database driver
   driver: postgresql          # postgresql, mssql, snowflake
-  
+
   # Schema names
   schemas:
     stage1: stage1
@@ -73,14 +73,14 @@ database:
 batch:
   # Batch mode: delta (incremental), additive (append), or snapshot (replace)
   mode: delta
-  
+
   # For delta mode: columns to use for matching
   key_columns:
     - student_id
-  
+
   # Timestamp column for delta processing
   batch_date_column: _sis_modified_date
-  
+
   # Only process records modified after this date
   # Can use: yesterday, last_week, last_month, or ISO date
   since_date: yesterday
@@ -88,9 +88,9 @@ batch:
 logging:
   # Log level: DEBUG, INFO, WARNING, ERROR
   level: INFO
-  
+
   # Log file path
   file: logs/extraction.log
-  
+
   # Keep last N log files
   max_files: 10

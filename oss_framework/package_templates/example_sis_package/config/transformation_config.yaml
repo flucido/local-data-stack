@@ -2,13 +2,13 @@ entities:
   students:
     # Source table name in SIS
     source_table: dbo.Students
-    
+
     # Target tables in data lake
     target_tables:
       stage1: stage1.students
       stage2a: stage2a.students
       stage2b: stage2b.students
-    
+
     # Field mappings: SIS_COLUMN -> standard_schema_column
     mappings:
       student_id: StudentNumber
@@ -36,7 +36,7 @@ entities:
       address_state: State
       address_zip: ZipCode
       _sis_modified_date: ModifyDate
-    
+
     # Data type specifications
     type_mappings:
       student_id: VARCHAR(20)
@@ -45,7 +45,7 @@ entities:
       grade_level: INT
       enrollment_status: VARCHAR(30)
       _sis_modified_date: TIMESTAMP
-    
+
     # Pseudonymization rules (applied at Stage 2B)
     pseudonymization:
       student_id: hash             # Deterministic, allows linking
@@ -66,7 +66,7 @@ entities:
       address_city: mask
       address_state: mask
       address_zip: mask
-    
+
     # Data validation rules (Stage 2A)
     validation:
       # Columns that cannot be null
@@ -74,23 +74,23 @@ entities:
         - student_id
         - first_name
         - last_name
-      
+
       # Columns that must be unique
       unique_check:
         - student_id
-      
+
       # Range validation: column: [min, max]
       range_check:
         grade_level: [0, 16]
-      
+
       # Pattern matching: column: regex
       pattern_check:
         student_id: '^[A-Z0-9]{5,10}$'
         email_address: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-      
+
       # Custom SQL checks
       sql_check: |
-        SELECT student_id FROM stage2a.students 
+        SELECT student_id FROM stage2a.students
         WHERE grade_level < 0 OR grade_level > 16
 
   courses:
@@ -99,7 +99,7 @@ entities:
       stage1: stage1.courses
       stage2a: stage2a.courses
       stage2b: stage2b.courses
-    
+
     mappings:
       course_id: CourseID
       school_id: SchoolCode
@@ -118,7 +118,7 @@ entities:
       end_date: EndDate
       status: Status
       _sis_modified_date: ModifyDate
-    
+
     pseudonymization:
       course_id: no-op              # Course codes not sensitive
       teacher_id: hash              # Protect teacher identity
@@ -126,7 +126,7 @@ entities:
       credit_value: no-op
       start_date: no-op
       end_date: no-op
-    
+
     validation:
       null_check:
         - course_id
@@ -144,7 +144,7 @@ entities:
       stage1: stage1.enrollment
       stage2a: stage2a.enrollment
       stage2b: stage2b.enrollment
-    
+
     mappings:
       enrollment_id: EnrollmentID
       student_id: StudentID
@@ -162,7 +162,7 @@ entities:
       absence_count: AbsenceCount
       tardy_count: TardyCount
       _sis_modified_date: ModifyDate
-    
+
     pseudonymization:
       enrollment_id: no-op
       student_id: hash
@@ -172,7 +172,7 @@ entities:
       credits_earned: no-op
       attendance_days: no-op
       absence_count: no-op
-    
+
     validation:
       null_check:
         - enrollment_id

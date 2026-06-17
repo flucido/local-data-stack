@@ -20,9 +20,9 @@ The SIS package includes 5 core entities covering K-12 student data:
 
 ## Students Entity
 
-**Purpose**: Core student demographic and enrollment status information  
-**Stage 1 Table**: `stage1.students`  
-**Stage 2A Table**: `stage2a.students`  
+**Purpose**: Core student demographic and enrollment status information
+**Stage 1 Table**: `stage1.students`
+**Stage 2A Table**: `stage2a.students`
 **Stage 2B Table**: `stage2b.students` (pseudonymized)
 
 ### Attributes (27)
@@ -81,9 +81,9 @@ The SIS package includes 5 core entities covering K-12 student data:
 
 ## Courses Entity
 
-**Purpose**: Course catalog, scheduling, and instructor information  
-**Stage 1 Table**: `stage1.courses`  
-**Stage 2A Table**: `stage2a.courses`  
+**Purpose**: Course catalog, scheduling, and instructor information
+**Stage 1 Table**: `stage1.courses`
+**Stage 2A Table**: `stage2a.courses`
 **Stage 2B Table**: `stage2b.courses` (pseudonymized)
 
 ### Attributes (18)
@@ -113,9 +113,9 @@ The SIS package includes 5 core entities covering K-12 student data:
 
 ## Enrollment Entity
 
-**Purpose**: Student-course relationships, grades, and completion tracking  
-**Stage 1 Table**: `stage1.enrollment`  
-**Stage 2A Table**: `stage2a.enrollment`  
+**Purpose**: Student-course relationships, grades, and completion tracking
+**Stage 1 Table**: `stage1.enrollment`
+**Stage 2A Table**: `stage2a.enrollment`
 **Stage 2B Table**: `stage2b.enrollment` (pseudonymized)
 
 ### Attributes (23)
@@ -150,9 +150,9 @@ The SIS package includes 5 core entities covering K-12 student data:
 
 ## Attendance Entity
 
-**Purpose**: Daily attendance tracking and absence patterns  
-**Stage 1 Table**: `stage1.attendance`  
-**Stage 2A Table**: `stage2a.attendance`  
+**Purpose**: Daily attendance tracking and absence patterns
+**Stage 1 Table**: `stage1.attendance`
+**Stage 2A Table**: `stage2a.attendance`
 **Stage 2B Table**: `stage2b.attendance` (pseudonymized)
 
 ### Attributes (21)
@@ -185,9 +185,9 @@ The SIS package includes 5 core entities covering K-12 student data:
 
 ## Academic Records Entity
 
-**Purpose**: Assignment-level grades and performance data  
-**Stage 1 Table**: `stage1.academic_records`  
-**Stage 2A Table**: `stage2a.academic_records`  
+**Purpose**: Assignment-level grades and performance data
+**Stage 1 Table**: `stage1.academic_records`
+**Stage 2A Table**: `stage2a.academic_records`
 **Stage 2B Table**: `stage2b.academic_records` (pseudonymized)
 
 ### Attributes (24)

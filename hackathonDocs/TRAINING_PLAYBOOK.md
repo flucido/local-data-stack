@@ -151,7 +151,7 @@ train_image = modal.Image.debian_slim(...)
 ### CRITICAL: CUDA Out of Memory During Merge/Export (3 crashes)
 - **Symptom:** `torch.OutOfMemoryError: Tried to allocate 14.23 GiB` during `load_adapter()`
 - **Root cause:** Training leaves model in GPU. Loading 16-bit base model for merge needs 14GB, exceeding A10G 22GB when combined.
-- **Fix:** 
+- **Fix:**
   1. Free GPU after training: `del model; gc.collect(); torch.cuda.empty_cache()`
   2. Run `export_and_push` via `.remote()` not `.local()` — fresh container with clean GPU
 - **Failed attempts:** `load_in_4bit=True` + `merge_and_unload()` (NotImplementedError on quantized models)

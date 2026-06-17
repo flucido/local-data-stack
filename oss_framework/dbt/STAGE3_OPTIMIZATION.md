@@ -139,7 +139,7 @@ SELECT compression, count(*) FROM information_schema.schemata;
 #### Analytical Functions
 ```sql
 -- Use OVER clauses for efficient windowing
-SELECT 
+SELECT
     student_key,
     chronic_absenteeism_risk_score,
     ROW_NUMBER() OVER (PARTITION BY school_id ORDER BY chronic_absenteeism_risk_score DESC) as rank_in_school

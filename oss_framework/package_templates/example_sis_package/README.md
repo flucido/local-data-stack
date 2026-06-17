@@ -1,8 +1,8 @@
 # OEA SIS Package Template
 
-**Version**: 1.0  
-**Description**: Student Information System (SIS) data package for Open Education Analytics  
-**Data Source**: Student Information System (any vendor: Powerschool, Skyward, etc.)  
+**Version**: 1.0
+**Description**: Student Information System (SIS) data package for Open Education Analytics
+**Data Source**: Student Information System (any vendor: Powerschool, Skyward, etc.)
 **Scope**: K-12 student demographics, enrollment, and academic data
 
 ---
@@ -201,7 +201,7 @@ Pre-built SQL queries for common analytics:
 ### Stage 2B Views (Privacy-compliant)
 ```sql
 -- Anonymized student enrollment
-SELECT 
+SELECT
   hashed_student_id,
   course_id,
   final_grade,
@@ -210,7 +210,7 @@ FROM stage2b.enrollments
 WHERE school_id = 'SCH001';
 
 -- Course engagement metrics
-SELECT 
+SELECT
   course_id,
   COUNT(DISTINCT hashed_student_id) as student_count,
   AVG(engagement_score) as avg_engagement
@@ -242,12 +242,12 @@ sis:
   password: ${SIS_PASSWORD}
   database: sisdata
   query: SELECT * FROM dbo.Students WHERE ModifyDate > ?
-  
+
 output:
   format: csv                  # csv or json
   delimiter: ","
   encoding: utf-8
-  
+
 batch:
   mode: delta                  # delta, additive, or snapshot
   key_columns: [student_id]
@@ -268,7 +268,7 @@ entities:
       student_id: hash
       first_name: mask
       last_name: mask
-      
+
 validation:
   null_check: [student_id, first_name]
   unique_check: [student_id]
@@ -337,6 +337,6 @@ This package template is part of the Open Source Education (OSE) Framework. See 
 
 ---
 
-**Last Updated**: January 26, 2026  
-**Maintainer**: OSE Framework Team  
+**Last Updated**: January 26, 2026
+**Maintainer**: OSE Framework Team
 **Status**: Template - Ready to customize for your SIS system

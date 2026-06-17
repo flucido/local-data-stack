@@ -4,9 +4,10 @@ OSS Framework: Metadata Management
 Handles schema definitions, privacy rules, and data dictionaries
 """
 
-import pandas as pd
-from typing import Dict, List, Optional, Any
 import logging
+from typing import Any, Dict, List
+
+import pandas as pd
 import yaml
 
 logger = logging.getLogger(__name__)
@@ -174,7 +175,7 @@ class ConfigurationManager:
     def _load_config(self) -> Dict[str, Any]:
         """Load configuration from YAML file"""
         try:
-            with open(self.config_path, "r") as f:
+            with open(self.config_path) as f:
                 return yaml.safe_load(f) or {}
         except FileNotFoundError:
             logger.error(f"Configuration file not found: {self.config_path}")

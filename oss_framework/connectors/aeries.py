@@ -5,7 +5,7 @@ Supports both real API access (AERIES-CERT header auth) and synthetic test data.
 """
 
 import os
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -28,9 +28,7 @@ class AeriesConnector(SISConnector):
         self.base_url = base_url or os.getenv(
             "SIS_API_URL", os.getenv("AERIES_API_URL", "https://api.aeries.com/v5")
         )
-        self.api_key = api_key or os.getenv(
-            "SIS_API_KEY", os.getenv("AERIES_API_KEY", "")
-        )
+        self.api_key = api_key or os.getenv("SIS_API_KEY", os.getenv("AERIES_API_KEY", ""))
         self.test_mode = test_mode or not self.api_key
 
         if not self.test_mode:
@@ -87,16 +85,12 @@ class AeriesConnector(SISConnector):
     # Internal: API helpers
     # ------------------------------------------------------------------
 
-    def _make_request(
-        self, endpoint: str, params: Optional[Dict] = None
-    ) -> List[Dict]:
+    def _make_request(self, endpoint: str, params: Optional[Dict] = None) -> List[Dict]:
         if self.test_mode:
             return []
         url = f"{self.base_url}{endpoint}"
         try:
-            response = requests.get(
-                url, headers=self.headers, params=params, timeout=30
-            )
+            response = requests.get(url, headers=self.headers, params=params, timeout=30)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
@@ -116,13 +110,9 @@ class AeriesConnector(SISConnector):
                     "student_id": f"STU{i:04d}",
                     "first_name": "Student",
                     "last_name": f"Name{i}",
-                    "date_of_birth": (
-                        date(2010, 1, 1) + timedelta(days=i % 365)
-                    ).isoformat(),
+                    "date_of_birth": (date(2010, 1, 1) + timedelta(days=i % 365)).isoformat(),
                     "gender": "M" if i % 2 == 0 else "F",
-                    "ethnicity": ["Hispanic", "White", "Asian", "Black", "Other"][
-                        i % 5
-                    ],
+                    "ethnicity": ["Hispanic", "White", "Asian", "Black", "Other"][i % 5],
                     "free_reduced_lunch": i % 4 == 0,
                     "ell_status": i % 10 == 0,
                     "special_education": i % 20 == 0,
@@ -192,9 +182,7 @@ class AeriesConnector(SISConnector):
                     "incident_id": f"DIS{i:06d}",
                     "student_id": f"STU{((i % 1700) + 1):04d}",
                     "school_id": f"SCH{((i % 1700) % 3) + 1}",
-                    "incident_date": (
-                        date(2025, 1, 1) + timedelta(days=(i - 1) // 50)
-                    ).isoformat(),
+                    "incident_date": (date(2025, 1, 1) + timedelta(days=(i - 1) // 50)).isoformat(),
                     "incident_type": [
                         "Tardy",
                         "Behavior",

@@ -20,14 +20,13 @@ Outputs CSV (Parquet if pyarrow is available).
 
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
-import os
-import csv
 import re
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 # ── Configuration ──────────────────────────────────────────────────────
 
@@ -43,44 +42,70 @@ STAFF_SALT = "aeries_staff_2026_salt_v1"
 
 # Columns to hash with student salt (same function → same hash → joins work)
 STUDENT_ID_COLUMNS = {
-    "StudentID", "Admin_StudentID", "OldStudentID",
-    "StateStudentID", "StudentNumber",
+    "StudentID",
+    "Admin_StudentID",
+    "OldStudentID",
+    "StateStudentID",
+    "StudentNumber",
 }
 
 # Columns to hash with staff salt
 STAFF_ID_COLUMNS = {
-    "CounselorNumber", "HomeRoomTeacherNumber", "ElementaryTeacherNumber",
-    "TeacherNumber", "MP_PrimaryStaffID",
+    "CounselorNumber",
+    "HomeRoomTeacherNumber",
+    "ElementaryTeacherNumber",
+    "TeacherNumber",
+    "MP_PrimaryStaffID",
 }
 
 # Columns to drop entirely (direct PII)
 DROP_COLUMNS = {
     # Names
-    "LastName", "FirstName", "MiddleName",
-    "LastNameAlias", "FirstNameAlias", "MiddleNameAlias",
-    "NameSuffix", "ParentGuardianName", "ElementaryTeacherName",
+    "LastName",
+    "FirstName",
+    "MiddleName",
+    "LastNameAlias",
+    "FirstNameAlias",
+    "MiddleNameAlias",
+    "NameSuffix",
+    "ParentGuardianName",
+    "ElementaryTeacherName",
     # DOB
     "Birthdate",
     # Addresses
-    "MailingAddress", "MailingAddressCity", "MailingAddressState",
-    "MailingAddressZipCode", "MailingAddressZipExt",
-    "ResidenceAddress", "ResidenceAddressCity", "ResidenceAddressState",
-    "ResidenceAddressZipCode", "ResidenceAddressZipExt",
+    "MailingAddress",
+    "MailingAddressCity",
+    "MailingAddressState",
+    "MailingAddressZipCode",
+    "MailingAddressZipExt",
+    "ResidenceAddress",
+    "ResidenceAddressCity",
+    "ResidenceAddressState",
+    "ResidenceAddressZipCode",
+    "ResidenceAddressZipExt",
     # Phones
-    "HomePhone", "StudentMobilePhone",
+    "HomePhone",
+    "StudentMobilePhone",
     # Emails
-    "StudentPersonalEmailAddress", "ParentEmailAddress",
+    "StudentPersonalEmailAddress",
+    "ParentEmailAddress",
     "StudentEmailAddress",
     # Login
     "NetworkLoginID",
     # Quasi-PII
-    "LockerNumber", "FamilyKey",
+    "LockerNumber",
+    "FamilyKey",
 }
 
 # Free-text columns to null out (keep column, set value to empty string)
 NULL_TEXT_COLUMNS = {
-    "Comment", "ShortDescription", "ReferredByOther", "Initials",
-    "MP_Comment1Code", "MP_Comment2Code", "MP_Comment3Code",
+    "Comment",
+    "ShortDescription",
+    "ReferredByOther",
+    "Initials",
+    "MP_Comment1Code",
+    "MP_Comment2Code",
+    "MP_Comment3Code",
 }
 
 # UserCode columns to drop (unknown content, default to drop)
@@ -101,6 +126,7 @@ SOURCE_MAP = {
 
 # ── Hashing ────────────────────────────────────────────────────────────
 
+
 def hash_student_id(value: str) -> str:
     """SHA-256 hash of student ID with student salt. Deterministic across files."""
     if not value or not value.strip():
@@ -116,6 +142,7 @@ def hash_staff_id(value: str) -> str:
 
 
 # ── File discovery (works around macOS TCC on ~/Desktop) ──────────────
+
 
 def list_source_files() -> dict[str, list[Path]]:
     """Find all source CSV files, grouped by output category.
@@ -145,12 +172,13 @@ def list_source_files() -> dict[str, list[Path]]:
 def _list_via_applescript(directory: Path, pattern: str) -> list[Path]:
     """List files in a TCC-restricted directory via AppleScript."""
     import subprocess
+
     try:
         # Convert glob pattern to regex
         regex_pattern = pattern.replace(".", r"\.").replace("*", ".*")
         regex = re.compile(f"^{regex_pattern}$")
 
-        script = f'''
+        script = f"""
         tell application "System Events"
             set folderPath to "{directory}"
             try
@@ -161,11 +189,10 @@ def _list_via_applescript(directory: Path, pattern: str) -> list[Path]:
                 return ""
             end try
         end tell
-        '''
+        """
 
         proc = subprocess.run(
-            ["osascript", "-e", script],
-            capture_output=True, text=True, timeout=10
+            ["osascript", "-e", script], capture_output=True, text=True, timeout=10
         )
         names = [n.strip() for n in proc.stdout.strip().split("\n") if n.strip()]
         matched = []
@@ -186,7 +213,7 @@ def read_csv_rows(file_path: Path) -> tuple[list[str], list[dict]]:
 
     # Try normal file open first
     try:
-        with open(file_path, "r", encoding="utf-8", errors="replace", newline="") as f:
+        with open(file_path, encoding="utf-8", errors="replace", newline="") as f:
             reader = csv.DictReader(f)
             headers = [h.strip() for h in reader.fieldnames or []]
             rows = []
@@ -202,24 +229,21 @@ def read_csv_rows(file_path: Path) -> tuple[list[str], list[dict]]:
         pass
 
     # Fallback: AppleScript read file
-    script = f'''
+    script = f"""
     set filePath to POSIX file "{file_path}"
     try
         return read filePath as «class utf8»
     on error
         return read filePath
     end try
-    '''
+    """
 
-    import subprocess
-    proc = subprocess.run(
-        ["osascript", "-e", script],
-        capture_output=True, text=True, timeout=30
-    )
+    proc = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=30)
     content = proc.stdout
 
     # Parse CSV from string
     import io
+
     reader = csv.DictReader(io.StringIO(content))
     headers = [h.strip() for h in reader.fieldnames or []]
     rows = []
@@ -234,6 +258,7 @@ def read_csv_rows(file_path: Path) -> tuple[list[str], list[dict]]:
 
 
 # ── Anonymization ─────────────────────────────────────────────────────
+
 
 def anonymize_row(headers: list[str], row: dict) -> dict:
     """Apply anonymization rules to a single row."""
@@ -325,6 +350,7 @@ def anonymize_file(file_path: Path, output_path: Path) -> dict:
 
 # ── Main ───────────────────────────────────────────────────────────────
 
+
 def main():
     print(f"Source: {SOURCE_DIR}")
     print(f"Output: {OUTPUT_DIR}")
@@ -363,7 +389,7 @@ def main():
             "total_columns_dropped": 0,
             "total_student_ids_hashed": 0,
             "total_staff_ids_hashed": 0,
-        }
+        },
     }
 
     for category, files in sorted(source_files.items()):
@@ -381,16 +407,22 @@ def main():
                 manifest["summary"]["total_rows_in"] += meta["rows_in"]
                 manifest["summary"]["total_rows_out"] += meta["rows_out"]
                 manifest["summary"]["total_columns_dropped"] += len(meta["dropped_columns"])
-                manifest["summary"]["total_student_ids_hashed"] += len(meta["hashed_student_columns"])
+                manifest["summary"]["total_student_ids_hashed"] += len(
+                    meta["hashed_student_columns"]
+                )
                 manifest["summary"]["total_staff_ids_hashed"] += len(meta["hashed_staff_columns"])
-                print(f"  {src_file.name}: {meta['rows_in']}→{meta['rows_out']} rows, "
-                      f"{meta['columns_in']}→{meta['columns_out']} cols ({meta['format']})")
+                print(
+                    f"  {src_file.name}: {meta['rows_in']}→{meta['rows_out']} rows, "
+                    f"{meta['columns_in']}→{meta['columns_out']} cols ({meta['format']})"
+                )
             except Exception as e:
                 print(f"  ERROR {src_file.name}: {e}")
-                manifest["files"].append({
-                    "source_file": str(src_file),
-                    "error": str(e),
-                })
+                manifest["files"].append(
+                    {
+                        "source_file": str(src_file),
+                        "error": str(e),
+                    }
+                )
 
     # Write manifest
     manifest_path = OUTPUT_DIR / "MANIFEST.json"
@@ -398,8 +430,10 @@ def main():
     with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2)
 
-    print(f"\nDone: {manifest['summary']['total_files']} files, "
-          f"{manifest['summary']['total_rows_in']}→{manifest['summary']['total_rows_out']} rows")
+    print(
+        f"\nDone: {manifest['summary']['total_files']} files, "
+        f"{manifest['summary']['total_rows_in']}→{manifest['summary']['total_rows_out']} rows"
+    )
     print(f"Manifest: {manifest_path}")
 
 

@@ -13,45 +13,45 @@ refresh:
 data:
   sql: |
     WITH data_freshness AS (
-      SELECT 
+      SELECT
         'fct_attendance_daily' AS table_name,
         MAX(attendance_date) AS last_update,
         CURRENT_DATE - INTERVAL '2 days' AS threshold,
-        CASE 
-          WHEN MAX(attendance_date) < CURRENT_DATE - INTERVAL '2 days' 
-          THEN 'STALE' 
-          ELSE 'FRESH' 
+        CASE
+          WHEN MAX(attendance_date) < CURRENT_DATE - INTERVAL '2 days'
+          THEN 'STALE'
+          ELSE 'FRESH'
         END AS status
       FROM analytics.fct_attendance_daily
-      
+
       UNION ALL
-      
-      SELECT 
+
+      SELECT
         'fct_student_grades' AS table_name,
         MAX(grade_date) AS last_update,
         CURRENT_DATE - INTERVAL '7 days' AS threshold,
-        CASE 
-          WHEN MAX(grade_date) < CURRENT_DATE - INTERVAL '7 days' 
-          THEN 'STALE' 
-          ELSE 'FRESH' 
+        CASE
+          WHEN MAX(grade_date) < CURRENT_DATE - INTERVAL '7 days'
+          THEN 'STALE'
+          ELSE 'FRESH'
         END AS status
       FROM analytics.fct_student_grades
-      
+
       UNION ALL
-      
-      SELECT 
+
+      SELECT
         'dim_students' AS table_name,
         MAX(updated_at) AS last_update,
         CURRENT_DATE - INTERVAL '30 days' AS threshold,
-        CASE 
-          WHEN MAX(updated_at) < CURRENT_DATE - INTERVAL '30 days' 
-          THEN 'STALE' 
-          ELSE 'FRESH' 
+        CASE
+          WHEN MAX(updated_at) < CURRENT_DATE - INTERVAL '30 days'
+          THEN 'STALE'
+          ELSE 'FRESH'
         END AS status
       FROM analytics.dim_students
     )
-    
-    SELECT 
+
+    SELECT
       table_name,
       last_update,
       threshold,

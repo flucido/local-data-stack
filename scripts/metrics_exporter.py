@@ -19,19 +19,19 @@ References:
 - Best Practices: https://www.cncf.io/blog/2025/07/22/prometheus-labels-understanding-and-best-practices/
 """
 
-import time
 import logging
+import time
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 try:
     from prometheus_client import (
-        Counter,
-        Histogram,
-        Gauge,
         CollectorRegistry,
-        write_to_textfile,
+        Counter,
+        Gauge,
+        Histogram,
         start_http_server,
+        write_to_textfile,
     )
 
     PROMETHEUS_AVAILABLE = True
@@ -113,7 +113,7 @@ class MetricsCollector:
                 self.enabled = False
 
         logger.info(
-            f"Metrics collector initialized",
+            "Metrics collector initialized",
             mode=mode,
             export_path=str(export_path) if mode == "textfile" else None,
             http_port=http_port if mode == "http" else None,
@@ -340,7 +340,7 @@ if __name__ == "__main__":
         "stage4_export", error_type="connection", error_message="DuckDB connection lost"
     )
 
-    print(f"\nMetrics exported to: /tmp/test_metrics.prom")
+    print("\nMetrics exported to: /tmp/test_metrics.prom")
     print("\nView metrics with:")
     print("  cat /tmp/test_metrics.prom")
     print("\nFor local inspection or optional collection:")

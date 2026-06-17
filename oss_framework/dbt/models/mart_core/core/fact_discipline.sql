@@ -15,30 +15,29 @@ SELECT
     sd.school_id,
     sd.incident_id,
     sd.academic_year,
-    
+
     -- Incident tracking
     sd.incident_date,
     sd.short_description as incident_type,
     sd.severity_category as severity,
     sd.disposition_code as resolution,
-    
+
     -- Consequence
     sd.suspension_days,
-    
+
     -- Derived flags
-    CASE 
+    CASE
         WHEN sd.suspension_days > 0 THEN 1
         ELSE 0
     END as suspension_flag,
-    
-    CASE 
+
+    CASE
         WHEN sd.severity_category IN ('High', 'Medium') THEN 1
         ELSE 0
     END as serious_incident_flag,
-    
+
     -- Audit
     CAST(NULL AS TIMESTAMP) as created_at,
     CURRENT_TIMESTAMP as dbt_processed_date
 
 FROM {{ ref('stg_aeries__discipline') }} sd
-

@@ -8,7 +8,7 @@ WITH quasi_identifier_groups AS (
         {% endfor %},
         COUNT(*) as group_size
     FROM {{ model }}
-    GROUP BY 
+    GROUP BY
         {% for qi in quasi_identifiers %}
         {{ qi }}{{ "," if not loop.last else "" }}
         {% endfor %}
@@ -29,4 +29,3 @@ SELECT
 FROM violations
 
 {% endtest %}
-

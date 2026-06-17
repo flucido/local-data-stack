@@ -1,8 +1,8 @@
 """Education-specific validation tests"""
 
-import pytest
-import pandas as pd
 import numpy as np
+import pandas as pd
+import pytest
 
 
 @pytest.mark.education
@@ -49,9 +49,7 @@ class TestEducationMetrics:
         )
 
         students["attendance_rate"] = (
-            (students["total_days"] - students["absence_count"])
-            / students["total_days"]
-            * 100
+            (students["total_days"] - students["absence_count"]) / students["total_days"] * 100
         )
         students["chronic_absence"] = students["attendance_rate"] <= 90
 
@@ -117,8 +115,7 @@ class TestStudentOutcomesPrediction:
         )
 
         completion_factors = students[
-            (students["attendance_rate"] >= 85)
-            & (students["assignment_submission_rate"] >= 0.8)
+            (students["attendance_rate"] >= 85) & (students["assignment_submission_rate"] >= 0.8)
         ]
 
         assert len(completion_factors) >= 2
@@ -135,9 +132,7 @@ class TestStudentOutcomesPrediction:
             }
         )
 
-        correlation_engagement = (
-            data[["engagement_score", "final_grade"]].corr().iloc[0, 1]
-        )
+        correlation_engagement = data[["engagement_score", "final_grade"]].corr().iloc[0, 1]
 
         assert correlation_engagement > 0
 
@@ -180,9 +175,7 @@ class TestDataIntegrity:
             {"assignment": ["A1", "A2", "A3", "A4"], "grade_percent": [95, 87, 102, 75]}
         )
 
-        invalid_grades = grades[
-            (grades["grade_percent"] < 0) | (grades["grade_percent"] > 100)
-        ]
+        invalid_grades = grades[(grades["grade_percent"] < 0) | (grades["grade_percent"] > 100)]
 
         assert len(invalid_grades) == 1
 
@@ -198,9 +191,7 @@ class TestDataIntegrity:
 
         passing_grades = ["A", "B", "C", "D"]
         student["credits_earned"] = student.apply(
-            lambda row: row["credits_attempted"]
-            if row["grade_letter"] in passing_grades
-            else 0,
+            lambda row: row["credits_attempted"] if row["grade_letter"] in passing_grades else 0,
             axis=1,
         )
 
@@ -215,12 +206,8 @@ class TestDataIntegrity:
         events = pd.DataFrame(
             {
                 "event_id": ["E1", "E2", "E3"],
-                "enrollment_date": pd.to_datetime(
-                    ["2023-08-15", "2023-08-20", "2023-08-18"]
-                ),
-                "completion_date": pd.to_datetime(
-                    ["2023-12-15", "2023-12-10", "2023-12-20"]
-                ),
+                "enrollment_date": pd.to_datetime(["2023-08-15", "2023-08-20", "2023-08-18"]),
+                "completion_date": pd.to_datetime(["2023-12-15", "2023-12-10", "2023-12-20"]),
             }
         )
 

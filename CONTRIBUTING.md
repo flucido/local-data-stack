@@ -308,7 +308,7 @@ dbt build --target test
 - **Title**: Use conventional commit format
   - `feat: Add student cohort analysis`
   - `fix: Resolve null handling in attendance`
-  
+
 - **Description**: Include:
   - What changed and why
   - Related issue number (`Fixes #123`)

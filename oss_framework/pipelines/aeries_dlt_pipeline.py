@@ -14,11 +14,13 @@ Features:
 """
 
 import os
-from typing import Iterator, Dict, Any, List, Optional
-from datetime import datetime, date
+from collections.abc import Iterator
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
 import dlt
-from dlt.sources import DltResource
 from dlt.common.pipeline import LoadInfo
+from dlt.sources import DltResource
 
 from oss_framework.connectors import get_sis_connector
 
@@ -137,12 +139,10 @@ def run_aeries_pipeline(
             dataset_name=dataset_name,
         )
 
-    source = aeries_source(
-        base_url=base_url or "", api_key=api_key or "", test_mode=test_mode
-    )
+    source = aeries_source(base_url=base_url or "", api_key=api_key or "", test_mode=test_mode)
     info = pipeline.run(source)
 
-    print(f"\n✅ Pipeline completed successfully")
+    print("\n✅ Pipeline completed successfully")
     print(f"   Pipeline: {info.pipeline.pipeline_name}")
     print(f"   Destination: {destination_type}")
     print(f"   Dataset: {dataset_name}")

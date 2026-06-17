@@ -54,14 +54,14 @@ The privacy layer serves as the bridge between raw source data and analytics mar
 
 Pseudonymized student identifiers with masked PII for privacy-preserving analytics.
 
-**Schema**: `main_privacy`  
-**Materialization**: Table  
+**Schema**: `main_privacy`
+**Materialization**: Table
 **Grain**: One row per student
 
 **Key Columns**:
 - `student_id_hash` (VARCHAR) - SHA256 hash of student_id_raw (64 characters)
 - `first_name_masked` (VARCHAR) - Masked first name ("Johnson" → "J******")
-- `last_name_masked` (VARCHAR) - Masked last name  
+- `last_name_masked` (VARCHAR) - Masked last name
 - `age_at_event` (INTEGER) - Age in years (NOT date of birth - better privacy)
 - Demographics fields (gender, ethnicity, grade_level, school_id, etc.)
 
@@ -93,8 +93,8 @@ WHERE school_id = 'SCH001'
 
 Secure lookup table mapping hashed identifiers back to raw PII.
 
-**Schema**: `main_privacy_sensitive` (restricted access)  
-**Materialization**: Table  
+**Schema**: `main_privacy_sensitive` (restricted access)
+**Materialization**: Table
 **Grain**: One row per student
 
 **⚠️ CRITICAL SECURITY NOTICE**:
@@ -119,14 +119,14 @@ Secure lookup table mapping hashed identifiers back to raw PII.
 **Access Control**:
 ```sql
 -- Example: Grant restricted access
-GRANT SELECT ON main_privacy_sensitive.priv_pii_lookup_table 
+GRANT SELECT ON main_privacy_sensitive.priv_pii_lookup_table
 TO ROLE registrar;
 
-GRANT SELECT ON main_privacy_sensitive.priv_pii_lookup_table 
+GRANT SELECT ON main_privacy_sensitive.priv_pii_lookup_table
 TO ROLE compliance_officer;
 
 -- Deny access to analysts
-REVOKE SELECT ON main_privacy_sensitive.priv_pii_lookup_table 
+REVOKE SELECT ON main_privacy_sensitive.priv_pii_lookup_table
 FROM ROLE analyst;
 ```
 

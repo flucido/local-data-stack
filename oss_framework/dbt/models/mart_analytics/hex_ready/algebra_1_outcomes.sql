@@ -8,7 +8,7 @@
     tags=['analytics', 'hex', 'algebra']
 ) }}
 
-SELECT 
+SELECT
     ar.school_year,
     ar.term,
     d.primary_race,

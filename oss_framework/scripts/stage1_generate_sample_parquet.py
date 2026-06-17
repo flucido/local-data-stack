@@ -13,7 +13,6 @@ from datetime import date
 from pathlib import Path
 
 import duckdb
-
 from config import STAGE1_PATH
 
 
@@ -23,18 +22,10 @@ class Stage1Paths:
     load_date: str
 
     def entity_dir(self, entity: str) -> Path:
-        return (
-            self.base
-            / "transactional"
-            / "aeries"
-            / entity
-            / f"load_date={self.load_date}"
-        )
+        return self.base / "transactional" / "aeries" / entity / f"load_date={self.load_date}"
 
 
-def _copy_query_to_parquet(
-    con: duckdb.DuckDBPyConnection, query: str, out_file: Path
-) -> None:
+def _copy_query_to_parquet(con: duckdb.DuckDBPyConnection, query: str, out_file: Path) -> None:
     out_file.parent.mkdir(parents=True, exist_ok=True)
     con.execute(
         "COPY (" + query + ") TO ? (FORMAT PARQUET)",
@@ -42,9 +33,7 @@ def _copy_query_to_parquet(
     )
 
 
-def generate_stage1_parquet(
-    stage1_path: Path | None = None, load_date: str | None = None
-) -> dict:
+def generate_stage1_parquet(stage1_path: Path | None = None, load_date: str | None = None) -> dict:
     stage1 = Path(stage1_path or STAGE1_PATH).resolve()
     ld = load_date or date.today().isoformat()
     paths = Stage1Paths(base=Path(stage1), load_date=ld)

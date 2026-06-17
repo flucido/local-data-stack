@@ -349,7 +349,7 @@ Output a table like:
 ```
 stg_aeries__students:
   student_id        -> Indirect PII (join key)
-  permanent_id      -> Indirect PII (join key)  
+  permanent_id      -> Indirect PII (join key)
   first_name        -> Direct PII
   last_name         -> Direct PII
   date_of_birth     -> Direct PII

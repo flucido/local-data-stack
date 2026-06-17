@@ -21,9 +21,7 @@ AERIES_DB_USERNAME = os.getenv("AERIES_DB_USERNAME")
 AERIES_DB_PASSWORD = os.getenv("AERIES_DB_PASSWORD")
 
 # DuckDB Configuration
-DUCKDB_DATABASE_PATH = os.getenv(
-    "DUCKDB_DATABASE_PATH", "./oss_framework/data/analytics.duckdb"
-)
+DUCKDB_DATABASE_PATH = os.getenv("DUCKDB_DATABASE_PATH", "./oss_framework/data/analytics.duckdb")
 DUCKDB_MEMORY_LIMIT = os.getenv("DUCKDB_MEMORY_LIMIT", "8GB")
 
 # Data Lake Paths
@@ -38,16 +36,12 @@ EXCEL_RFEP_PATH = os.getenv("EXCEL_RFEP_PATH")
 
 # Update Frequencies
 EXCEL_DF_UPDATE_FREQUENCY = os.getenv("EXCEL_DF_UPDATE_FREQUENCY", "weekly")
-EXCEL_DEMOGRAPHIC_UPDATE_FREQUENCY = os.getenv(
-    "EXCEL_DEMOGRAPHIC_UPDATE_FREQUENCY", "static"
-)
+EXCEL_DEMOGRAPHIC_UPDATE_FREQUENCY = os.getenv("EXCEL_DEMOGRAPHIC_UPDATE_FREQUENCY", "static")
 EXCEL_RFEP_UPDATE_FREQUENCY = os.getenv("EXCEL_RFEP_UPDATE_FREQUENCY", "monthly")
 
 # Data Retention
 DATA_RETENTION_YEARS = int(os.getenv("DATA_RETENTION_YEARS", 5))
-ARCHIVE_GRADUATED_STUDENTS = (
-    os.getenv("ARCHIVE_GRADUATED_STUDENTS", "true").lower() == "true"
-)
+ARCHIVE_GRADUATED_STUDENTS = os.getenv("ARCHIVE_GRADUATED_STUDENTS", "true").lower() == "true"
 
 # Pseudonymization
 PSEUDONYMIZATION_LEVEL = os.getenv("PSEUDONYMIZATION_LEVEL", "full")
@@ -72,14 +66,10 @@ def validate_config(require_aeries: bool = True):
         if AERIES_AUTH_METHOD == "api_key" and not AERIES_API_KEY:
             errors.append("AERIES_API_KEY not set")
 
-        if AERIES_AUTH_METHOD == "oauth2" and (
-            not AERIES_CLIENT_ID or not AERIES_CLIENT_SECRET
-        ):
+        if AERIES_AUTH_METHOD == "oauth2" and (not AERIES_CLIENT_ID or not AERIES_CLIENT_SECRET):
             errors.append("AERIES_CLIENT_ID or AERIES_CLIENT_SECRET not set")
 
-        if AERIES_AUTH_METHOD == "database" and not all(
-            [AERIES_DB_HOST, AERIES_DB_DATABASE]
-        ):
+        if AERIES_AUTH_METHOD == "database" and not all([AERIES_DB_HOST, AERIES_DB_DATABASE]):
             errors.append("Database configuration incomplete")
 
     if errors:

@@ -1,9 +1,9 @@
 """Unit tests for data_transformations module"""
 
-import pytest
-import pandas as pd
 import numpy as np
-from oss_framework import DataTransformer, Pseudonymizer
+import pytest
+
+from oss_framework import DataTransformer
 
 
 @pytest.mark.unit
@@ -38,9 +38,7 @@ class TestDataTransformer:
 
         assert result["final_grade_numeric"].min() >= 0
         assert result["final_grade_numeric"].max() <= 100
-        assert (
-            not result["final_grade_numeric"].isna().any() or grades_before.isna().any()
-        )
+        assert not result["final_grade_numeric"].isna().any() or grades_before.isna().any()
 
     def test_handle_missing_values_drop(self, sample_academic_records_df):
         """Test dropping rows with missing values"""
@@ -61,9 +59,7 @@ class TestDataTransformer:
         df_with_nulls.loc[1, "duration_seconds"] = np.nan
 
         transformer = DataTransformer(None)
-        result = transformer.handle_missing_values(
-            df_with_nulls, strategy="forward_fill"
-        )
+        result = transformer.handle_missing_values(df_with_nulls, strategy="forward_fill")
 
         assert result["duration_seconds"].isna().sum() == 0
 
@@ -126,12 +122,9 @@ class TestEngagementAggregator:
 
     def test_calculate_attendance_metrics(self, sample_enrollment_df):
         """Test attendance metrics calculation"""
-        result = sample_enrollment_df[
-            ["student_id", "attendance_days", "absence_count"]
-        ].copy()
+        result = sample_enrollment_df[["student_id", "attendance_days", "absence_count"]].copy()
         result["attendance_rate"] = (
-            result["attendance_days"]
-            / (result["attendance_days"] + result["absence_count"])
+            result["attendance_days"] / (result["attendance_days"] + result["absence_count"])
         ) * 100
 
         assert (result["attendance_rate"] >= 0).all()
@@ -167,9 +160,10 @@ class TestPseudonymizer:
         result = pseudonymizer.pseudonymize(df, entity="enrollment")
 
         # Grades should remain unchanged
-        assert result["final_grade_numeric"].equals(df["final_grade_numeric"]) or (
-            result["final_grade_numeric"].isna() & df["final_grade_numeric"].isna()
-        ).all()
+        assert (
+            result["final_grade_numeric"].equals(df["final_grade_numeric"])
+            or (result["final_grade_numeric"].isna() & df["final_grade_numeric"].isna()).all()
+        )
 
     def test_hash_consistency(self, pseudonymizer, sample_students_df):
         """Test that same input produces same hash"""

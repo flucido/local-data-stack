@@ -1,8 +1,8 @@
 """Create Stage 1 landing zone tables"""
 
-import duckdb
 import logging
 
+import duckdb
 from config import DUCKDB_DATABASE_PATH
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,8 @@ class Stage1Initializer:
         """Create all Stage 1 raw landing tables"""
         try:
             # Create raw_students table
-            self.con.execute("""
+            self.con.execute(
+                """
                 CREATE TABLE IF NOT EXISTS raw_students (
                     student_id VARCHAR,
                     first_name VARCHAR,
@@ -41,12 +42,14 @@ class Stage1Initializer:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
             self.tables_created["raw_students"] = "OK"
             logger.info("Created raw_students table")
 
             # Create raw_attendance table
-            self.con.execute("""
+            self.con.execute(
+                """
                 CREATE TABLE IF NOT EXISTS raw_attendance (
                     attendance_id VARCHAR,
                     student_id VARCHAR,
@@ -61,12 +64,14 @@ class Stage1Initializer:
                     unexcused_flag BOOLEAN,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
             self.tables_created["raw_attendance"] = "OK"
             logger.info("Created raw_attendance table")
 
             # Create raw_academic_records table
-            self.con.execute("""
+            self.con.execute(
+                """
                 CREATE TABLE IF NOT EXISTS raw_academic_records (
                     record_id VARCHAR,
                     student_id VARCHAR,
@@ -80,12 +85,14 @@ class Stage1Initializer:
                     school_year VARCHAR,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
             self.tables_created["raw_academic_records"] = "OK"
             logger.info("Created raw_academic_records table")
 
             # Create raw_discipline table
-            self.con.execute("""
+            self.con.execute(
+                """
                 CREATE TABLE IF NOT EXISTS raw_discipline (
                     incident_id VARCHAR,
                     student_id VARCHAR,
@@ -97,12 +104,14 @@ class Stage1Initializer:
                     suspension_days INTEGER,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
             self.tables_created["raw_discipline"] = "OK"
             logger.info("Created raw_discipline table")
 
             # Create raw_enrollment table
-            self.con.execute("""
+            self.con.execute(
+                """
                 CREATE TABLE IF NOT EXISTS raw_enrollment (
                     enrollment_id VARCHAR,
                     student_id VARCHAR,
@@ -114,7 +123,8 @@ class Stage1Initializer:
                     enrollment_status VARCHAR,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
             self.tables_created["raw_enrollment"] = "OK"
             logger.info("Created raw_enrollment table")
 

@@ -9,11 +9,12 @@ This module provides common data transformation functions for education analytic
 - Feature engineering
 """
 
-import json
 import hashlib
-import pandas as pd
-from typing import Any, Dict, List, Optional, Tuple, Union
+import json
 import logging
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -80,17 +81,14 @@ class DataTransformer:
 
         Accepts a single dict or a list of dicts."""
         if isinstance(json_obj, list):
-            return pd.DataFrame([
-                DataTransformer.flatten_json(item, parent_key, sep)
-                for item in json_obj
-            ])
+            return pd.DataFrame(
+                [DataTransformer.flatten_json(item, parent_key, sep) for item in json_obj]
+            )
         items: List[tuple] = []
         for k, v in json_obj.items():
             new_key = f"{parent_key}{sep}{k}" if parent_key else k
             if isinstance(v, dict):
-                items.extend(
-                    DataTransformer.flatten_json(v, new_key, sep=sep).items()
-                )
+                items.extend(DataTransformer.flatten_json(v, new_key, sep=sep).items())
             else:
                 items.append((new_key, v))
         return dict(items)
@@ -115,9 +113,7 @@ class DataTransformer:
                 continue
 
             # Parse JSON strings to objects
-            json_data = df_copy[col].apply(
-                lambda x: json.loads(x) if isinstance(x, str) else x
-            )
+            json_data = df_copy[col].apply(lambda x: json.loads(x) if isinstance(x, str) else x)
 
             # Flatten each JSON object
             flattened = json_data.apply(DataTransformer.flatten_json)
@@ -200,18 +196,16 @@ class EngagementAggregator:
         # Aggregate
         agg_dict = {
             "event_id": "count",  # Number of events
-            "duration_minutes": ["sum", "mean"]
-            if "duration_minutes" in df.columns
-            else "count",
+            "duration_minutes": ["sum", "mean"] if "duration_minutes" in df.columns else "count",
         }
 
         result = (
             df_copy.groupby([student_col, "period"])
             .agg(
                 event_count=("event_id", "count"),
-                avg_duration_minutes=("duration_minutes", "mean")
-                if "duration_minutes" in df.columns
-                else "count",
+                avg_duration_minutes=(
+                    ("duration_minutes", "mean") if "duration_minutes" in df.columns else "count"
+                ),
             )
             .reset_index()
         )
@@ -251,12 +245,8 @@ class EngagementAggregator:
             .reset_index()
         )
 
-        result["attendance_rate"] = (
-            result["days_present"] / result["total_days"]
-        ).round(3)
-        result["chronically_absent"] = (
-            result["attendance_rate"] < 0.9
-        )  # <90% attendance
+        result["attendance_rate"] = (result["days_present"] / result["total_days"]).round(3)
+        result["chronically_absent"] = result["attendance_rate"] < 0.9  # <90% attendance
 
         return result
 
@@ -288,12 +278,8 @@ class EngagementAggregator:
             .reset_index()
         )
 
-        result["completion_rate"] = (
-            result["completed_courses"] / result["total_courses"]
-        ).round(3)
-        result["courses_in_progress"] = (
-            result["total_courses"] - result["completed_courses"]
-        )
+        result["completion_rate"] = (result["completed_courses"] / result["total_courses"]).round(3)
+        result["courses_in_progress"] = result["total_courses"] - result["completed_courses"]
 
         return result
 
@@ -322,16 +308,12 @@ class Pseudonymizer:
         for col in df.columns:
             col_lower = col.lower()
             if col_lower in ("student_id", "permanent_id", "student_id_raw", "ssn"):
-                df_pseudo[col] = df_pseudo[col].apply(
-                    lambda v: self.hash_value(str(v))
-                )
+                df_pseudo[col] = df_pseudo[col].apply(lambda v: self.hash_value(str(v)))
             elif any(
                 name in col_lower
                 for name in ("first_name", "last_name", "address", "phone", "email")
             ):
-                df_pseudo[col] = df_pseudo[col].apply(
-                    lambda v: self.mask_value(str(v))
-                )
+                df_pseudo[col] = df_pseudo[col].apply(lambda v: self.mask_value(str(v)))
         return df_pseudo
 
     def hash_value(self, value: str, length: int = 16) -> str:
@@ -349,9 +331,7 @@ class Pseudonymizer:
         hash_obj = hashlib.sha256((value_str + self.salt).encode())
         return hash_obj.hexdigest()[:length]
 
-    def mask_value(
-        self, value: str, mask_char: str = "*", visible_chars: int = 0
-    ) -> str:
+    def mask_value(self, value: str, mask_char: str = "*", visible_chars: int = 0) -> str:
         """
         Mask a value (irreversible)
 
@@ -365,9 +345,7 @@ class Pseudonymizer:
         """
         value_str = str(value)
         if visible_chars > 0:
-            return value_str[:visible_chars] + mask_char * (
-                len(value_str) - visible_chars
-            )
+            return value_str[:visible_chars] + mask_char * (len(value_str) - visible_chars)
         return mask_char * len(value_str)
 
     def pseudonymize_dataframe(

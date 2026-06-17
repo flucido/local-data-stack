@@ -9,7 +9,6 @@ Runs all Stage 1 data ingestion pipelines:
 Writes all data to Parquet files in stage1/ following medallion architecture.
 """
 
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -86,9 +85,7 @@ def run_stage1_ingestion():
         print()
         print("Next steps:")
         print("  1. Verify Parquet files:")
-        print(
-            "     find oss_framework/data/stage1 -name '*.parquet' -type f | head -20"
-        )
+        print("     find oss_framework/data/stage1 -name '*.parquet' -type f | head -20")
         print("  2. Run dbt to create DuckDB views:")
         print("     cd oss_framework/dbt && dbt build")
         print()

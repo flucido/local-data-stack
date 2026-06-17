@@ -15,24 +15,23 @@ SELECT
     -- Foreign keys
     {{ hash_pii_secure('se.student_id_raw') }} as student_id_hash,
     se.school_id,
-    
+
     -- Enrollment tracking
     se.school_year,
     se.enrollment_date,
     se.withdrawal_date,
     se.grade_level,
     se.enrollment_status,
-    
+
     -- Derived flags
-    CASE 
+    CASE
         WHEN se.withdrawal_date IS NOT NULL AND se.withdrawal_date <= CURRENT_DATE THEN 'WITHDRAWN'
         WHEN se.enrollment_status = 'ACTIVE' THEN 'ACTIVE'
         ELSE 'UNKNOWN'
     END as enrollment_status_derived,
-    
+
     -- Audit
     CAST(NULL AS TIMESTAMP) as created_at,
     CURRENT_TIMESTAMP as dbt_processed_date
 
 FROM {{ ref('stg_aeries__enrollment') }} se
-

@@ -30,10 +30,11 @@ def __():
     This notebook will walk you through configuring the SIS package template
     for your specific Student Information System.
     """
+    import json
     import os
     from pathlib import Path
+
     import yaml
-    import json
 
     return os.path, Path, yaml, json
 
@@ -62,17 +63,19 @@ def __(app):
 
     import marimo as mo
 
-    mo.md(f"""
+    mo.md(
+        f"""
     ### Current Extraction Configuration
-    
-    **SIS System**: {extraction_config["sis"]["system"]}  
-    **Host**: {extraction_config["sis"]["host"]}  
-    **Database**: {extraction_config["sis"]["database"]}  
-    **Batch Mode**: {extraction_config["batch"]["mode"]}  
-    
-    **Output Format**: {extraction_config["output"]["format"]}  
-    **Output Folder**: {extraction_config["output"]["folder"]}  
-    """)
+
+    **SIS System**: {extraction_config["sis"]["system"]}
+    **Host**: {extraction_config["sis"]["host"]}
+    **Database**: {extraction_config["sis"]["database"]}
+    **Batch Mode**: {extraction_config["batch"]["mode"]}
+
+    **Output Format**: {extraction_config["output"]["format"]}
+    **Output Folder**: {extraction_config["output"]["folder"]}
+    """
+    )
 
     return extraction_config, transformation_config
 
@@ -119,18 +122,18 @@ def __(app, extraction_config, entities):
     # Current system
     current_system = extraction_config["sis"]["system"]
 
-    sis_choice = mo.ui.dropdown(
-        options=sis_systems, value=current_system, label="Select Your SIS:"
-    )
+    sis_choice = mo.ui.dropdown(options=sis_systems, value=current_system, label="Select Your SIS:")
 
     (
-        mo.md(f"""
+        mo.md(
+            f"""
     ### Your SIS Selection
-    
+
     Current: **{sis_systems.get(current_system, "Unknown")}**
-    
+
     Change to:
-    """),
+    """
+        ),
         sis_choice,
     )
 
@@ -184,14 +187,14 @@ def __(sis_choice, sis_systems):
         cfg = configs[selected]
         info = f"""
         ### {sis_systems[selected]} Configuration
-        
-        **Connection Type**: {cfg["connection"]}  
-        **Host Example**: {cfg.get("host_example", "N/A")}  
-        **Port**: {cfg.get("port_example", "N/A")}  
-        **Driver**: {cfg.get("driver_example", "N/A")}  
-        
-        **Key Tables/Endpoints**: {", ".join(cfg.get("key_tables", cfg.get("key_endpoints", [])))}  
-        **Timestamp Column**: {cfg.get("timestamp_column", cfg.get("timestamp_field", "N/A"))}  
+
+        **Connection Type**: {cfg["connection"]}
+        **Host Example**: {cfg.get("host_example", "N/A")}
+        **Port**: {cfg.get("port_example", "N/A")}
+        **Driver**: {cfg.get("driver_example", "N/A")}
+
+        **Key Tables/Endpoints**: {", ".join(cfg.get("key_tables", cfg.get("key_endpoints", [])))}
+        **Timestamp Column**: {cfg.get("timestamp_column", cfg.get("timestamp_field", "N/A"))}
         """
         if "note" in cfg:
             info += f"\n**Note**: {cfg['note']}"
@@ -208,8 +211,9 @@ def __(app):
 
     Before running extractions, set your SIS credentials as environment variables:
     """
-    import marimo as mo
     import os
+
+    import marimo as mo
 
     env_vars = {
         "SIS_HOST": os.getenv("SIS_HOST", "NOT SET"),
@@ -225,13 +229,14 @@ def __(app):
         status = "✓ SET" if value != "NOT SET" else "✗ NOT SET"
         status_lines.append(f"- {var}: {status}")
 
-    mo.md(f"""
+    mo.md(
+        f"""
     ### Environment Variable Status
-    
+
     {"".join(status_lines)}
-    
+
     ### To Set Environment Variables
-    
+
     **Option 1: Terminal (Linux/Mac)**
     ```bash
     export SIS_HOST="ps.school.edu"
@@ -241,7 +246,7 @@ def __(app):
     export DB_USER="datalake_user"
     export DB_PASSWORD="your-password"
     ```
-    
+
     **Option 2: Create .env file**
     ```
     SIS_HOST=ps.school.edu
@@ -251,20 +256,21 @@ def __(app):
     DB_USER=datalake_user
     DB_PASSWORD=your-password
     ```
-    
+
     Then load in Python:
     ```python
     from dotenv import load_dotenv
     load_dotenv()
     ```
-    
+
     **Option 3: Windows (Command Prompt)**
     ```
     set SIS_HOST=ps.school.edu
     set SIS_USER=svc_extract
     set SIS_PASSWORD=your-password
     ```
-    """)
+    """
+    )
 
 
 @app.cell
@@ -276,11 +282,12 @@ def __(app):
     """
     import marimo as mo
 
-    mo.md("""
+    mo.md(
+        """
     ### Example: Student Field Mapping
-    
+
     **Standard Field** → **Your SIS Column**
-    
+
     ```yaml
     mappings:
       student_id: StudentNumber        # Change to your SIS column name
@@ -290,24 +297,25 @@ def __(app):
       grade_level: GradeLevel
       enrollment_status: Status
     ```
-    
+
     ### Common Variations by Vendor
-    
+
     | Field | PowerSchool | Skyward | Infinite Campus |
     |-------|-------------|--------|-----------------|
     | Student ID | STUDENTID | StudentNumber | studentId |
     | First Name | FIRSTNAME | FirstName | firstName |
     | Grade Level | GRADE_LEVEL | Grade | gradeLevel |
     | Status | STATUS | StatusCode | enrollmentStatus |
-    
+
     ### Steps to Customize
-    
+
     1. **Export sample data** from your SIS to understand column names
     2. **Open config/transformation_config.yaml**
     3. **Update mappings** section with your actual column names
     4. **Save the file**
     5. **Run validation** (next notebook)
-    """)
+    """
+    )
 
 
 @app.cell
@@ -344,17 +352,19 @@ def __(app):
     )
 
     (
-        mo.md(f"""
+        mo.md(
+            """
     ### Batch Mode Comparison
-    
+
     | Mode | Description | Schedule | Use Case |
     |------|-------------|----------|----------|
     | **delta** | Incremental changes | Daily/Hourly | Production with large datasets |
     | **additive** | Append all records | Weekly | Historical snapshots |
     | **snapshot** | Replace entire table | Weekly/Monthly | Small reference data |
-    
+
     Your Choice:
-    """),
+    """
+        ),
         mode_choice,
     )
 
@@ -378,36 +388,38 @@ def __(app):
     """
     import marimo as mo
 
-    mo.md("""
+    mo.md(
+        """
     ### Pseudonymization Rules (Applied at Stage 2B)
-    
+
     | Rule | Effect | Use For | Security |
     |------|--------|---------|----------|
     | **hash** | Deterministic hashing | IDs, DoB | Linkable by authorized users |
     | **mask** | Irreversible masking | Names, addresses | Fully anonymous |
     | **no-op** | Keep unchanged | Grades, codes | Non-sensitive data |
-    
+
     ### Current Privacy Configuration
-    
+
     **PII Fields (Hashed)**:
     - student_id, teacher_id, date_of_birth
-    
+
     **Personal Information (Masked)**:
     - first_name, last_name, phone_number, email_address, addresses
-    
+
     **Non-Sensitive (No Change)**:
     - grade_level, enrollment_status, grades, attendance
-    
+
     ### FERPA Compliance
-    
+
     This package implements FERPA-compliant pseudonymization:
     - ✓ Student IDs are hashed (deterministic for authorized linking)
     - ✓ Names are masked (irreversible)
     - ✓ Dates are protected (birth dates hashed)
     - ✓ Non-sensitive grades/codes remain for analytics
-    
+
     See `docs/PRIVACY_RULES.md` for detailed rationale.
-    """)
+    """
+    )
 
 
 @app.cell
@@ -419,17 +431,18 @@ def __(app):
     """
     import marimo as mo
 
-    mo.md("""
+    mo.md(
+        """
     ### Configuration Validation Checklist
-    
+
     - [ ] **extraction_config.yaml** updated with your SIS details
     - [ ] **transformation_config.yaml** updated with your field mappings
     - [ ] **Environment variables** set for credentials
     - [ ] **Database connection** tested
     - [ ] **SIS query** tested in SIS query tool
-    
+
     ### Testing Steps
-    
+
     **1. Test Database Connection**
     ```python
     import sqlalchemy as sa
@@ -439,7 +452,7 @@ def __(app):
     with engine.connect() as conn:
         print("✓ Connected to data lake!")
     ```
-    
+
     **2. Test SIS Connection**
     ```python
     import pyodbc
@@ -450,7 +463,7 @@ def __(app):
     )
     print("✓ Connected to SIS!")
     ```
-    
+
     **3. Test Sample Extraction** (next notebook)
     ```bash
     python -m oss_framework.orchestrator \\
@@ -458,7 +471,8 @@ def __(app):
       --limit 100 \\
       --dry-run
     ```
-    """)
+    """
+    )
 
 
 @app.cell
@@ -489,9 +503,10 @@ def __(app):
     """
     import marimo as mo
 
-    mo.md("""
+    mo.md(
+        """
     ## Summary
-    
+
     You've learned how to:
     - ✓ Understand the two main configuration files
     - ✓ Identify your SIS system and connection parameters
@@ -500,11 +515,12 @@ def __(app):
     - ✓ Choose the right batch mode for your use case
     - ✓ Understand FERPA-compliant privacy rules
     - ✓ Test your configuration before running extractions
-    
+
     **Status**: Configuration setup complete!
-    
+
     **Next Notebook**: `01_data_profiling.py` - Explore sample data
-    """)
+    """
+    )
 
 
 if __name__ == "__main__":

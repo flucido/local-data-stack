@@ -7,10 +7,10 @@ Supports three batch processing modes:
 - Snapshot: Full replacement
 """
 
-import pandas as pd
-from typing import Dict, Any, Optional, List
-from datetime import datetime
 import logging
+from typing import Any, Dict, List, Optional
+
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +66,12 @@ class BatchProcessor:
     @staticmethod
     def check_quality(df: pd.DataFrame, entity: str = "") -> Dict[str, Any]:
         """Run data quality checks and return a report."""
-        report: Dict[str, Any] = {"entity": entity, "checks": {}, "valid": True,
-                                  "quality_issues": []}
+        report: Dict[str, Any] = {
+            "entity": entity,
+            "checks": {},
+            "valid": True,
+            "quality_issues": [],
+        }
         null_pct = DataQualityChecker.check_null_percentage(df)
         report["checks"]["null_percentage"] = null_pct
         dupes = DataQualityChecker.check_duplicates(df, df.columns.tolist())
@@ -104,18 +108,14 @@ class BatchProcessor:
         existing_not_in_new = existing_data.merge(
             new_data[key_columns], on=key_columns, how="left", indicator=True
         )
-        existing_not_in_new = existing_data[
-            existing_not_in_new["_merge"] == "left_only"
-        ]
+        existing_not_in_new = existing_data[existing_not_in_new["_merge"] == "left_only"]
 
         # Combine
         result = pd.concat(
             [
                 existing_not_in_new,
                 new_records,
-                new_data[
-                    new_data[key_columns].isin(existing_data[key_columns]).all(axis=1)
-                ],
+                new_data[new_data[key_columns].isin(existing_data[key_columns]).all(axis=1)],
             ],
             ignore_index=True,
         )
@@ -181,9 +181,7 @@ class DataQualityChecker:
         return change_pct > threshold_pct
 
     @staticmethod
-    def check_null_percentage(
-        df: pd.DataFrame, threshold_pct: float = 0.1
-    ) -> Dict[str, float]:
+    def check_null_percentage(df: pd.DataFrame, threshold_pct: float = 0.1) -> Dict[str, float]:
         """
         Check for excessive nulls per column
 
@@ -218,9 +216,7 @@ class DataQualityChecker:
         return df.duplicated(subset=key_columns).sum()
 
     @staticmethod
-    def check_schema_conformance(
-        df: pd.DataFrame, expected_columns: List[str]
-    ) -> Dict[str, Any]:
+    def check_schema_conformance(df: pd.DataFrame, expected_columns: List[str]) -> Dict[str, Any]:
         """
         Verify DataFrame matches expected schema
 

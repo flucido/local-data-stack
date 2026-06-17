@@ -81,10 +81,10 @@ sis:
   database: pssis
   port: 1433
   query: |
-    SELECT 
-      STUDENTID, 
-      FIRSTNAME, 
-      LASTNAME, 
+    SELECT
+      STUDENTID,
+      FIRSTNAME,
+      LASTNAME,
       DOB,
       CURRENT_STATUS,
       GRADE_LEVEL
@@ -104,9 +104,9 @@ sis:
   database: skywarddb
   port: 5432                         # Skyward uses PostgreSQL
   query: |
-    SELECT 
-      STUDENTID, 
-      FIRSTNAME, 
+    SELECT
+      STUDENTID,
+      FIRSTNAME,
       LASTNAME,
       DOB,
       ENROLLMENT_STATUS,
@@ -161,7 +161,7 @@ entities:
   students:
     source_table: dbo.Students      # Your SIS table name
     target_table: stage2a.students
-    
+
     # Map SIS columns to standard schema
     mappings:
       student_id: StudentNumber     # SIS_COLUMN: standard_column
@@ -176,13 +176,13 @@ entities:
       english_learner: ELStatus
       special_education: SPEDStatus
       economically_disadvantaged: EconomicDisadvantaged
-      
+
     # Define data type conversions
     type_mappings:
       date_of_birth: DATE
       grade_level: INT
       enrollment_status: VARCHAR(50)
-      
+
     # Pseudonymization rules (Stage 2B)
     pseudonymization:
       student_id: hash               # hash, mask, or no-op
@@ -192,7 +192,7 @@ entities:
       date_of_birth: hash
       gender: no-op                  # Non-sensitive
       grade_level: no-op
-      
+
     # Data validation rules
     validation:
       null_check: [student_id, first_name, last_name]
@@ -210,7 +210,7 @@ batch:
   mode: delta                        # delta, additive, or snapshot
   key_columns: [student_id]          # How to match existing records
   batch_date_column: LASTUPDATEDATE # Timestamp column for delta
-  
+
   # For delta mode: only load records modified since last run
   # For additive mode: append all new records
   # For snapshot mode: replace entire table

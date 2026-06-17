@@ -46,17 +46,16 @@ ANALYTICS_VIEWS = {
 }
 
 
-
 def get_partition_columns(view_name: str) -> list[str]:
     """
     Determine optimal partition columns for a view.
-    
+
     Partitioning provides 40-60% query speedup when filtering by partition column.
     Only partition views with school_id (low cardinality, common filter).
-    
+
     Args:
         view_name: Fully qualified view name
-    
+
     Returns:
         List of column names to partition by (empty list if no partitioning)
     """
@@ -67,10 +66,10 @@ def get_partition_columns(view_name: str) -> list[str]:
     #     "main_analytics.v_class_section_comparison",
     #     "main_analytics.v_wellbeing_risk_profiles",
     # ]
-    # 
+    #
     # if view_name in views_with_school_id:
     #     return ["school_id"]
-    
+
     return []
 
 
@@ -111,10 +110,11 @@ def export_view_to_parquet(
     try:
         # Ensure output directory exists
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # When partitioning, DuckDB creates a directory structure
         # Remove existing file/directory to avoid conflicts
         import shutil
+
         if output_path.exists():
             if output_path.is_dir():
                 shutil.rmtree(output_path)
@@ -127,7 +127,7 @@ def export_view_to_parquet(
         # See: DuckDB partitioning docs and Definite.app case study
         partition_cols = get_partition_columns(view_name)
         partition_clause = f", PARTITION_BY ({', '.join(partition_cols)})" if partition_cols else ""
-        
+
         copy_sql = f"""
         COPY (SELECT * FROM {view_name})
         TO '{output_path}'
@@ -138,7 +138,9 @@ def export_view_to_parquet(
         # Get file/directory size
         if output_path.is_dir():
             # Sum all files in partitioned directory
-            file_size_mb = sum(f.stat().st_size for f in output_path.rglob('*.parquet')) / (1024 * 1024)
+            file_size_mb = sum(f.stat().st_size for f in output_path.rglob("*.parquet")) / (
+                1024 * 1024
+            )
         else:
             file_size_mb = output_path.stat().st_size / (1024 * 1024)
 

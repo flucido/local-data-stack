@@ -449,7 +449,7 @@ psql -d stage_3 -c "SELECT * FROM stage_3.competency_mastery_trends ORDER BY adv
 
 ### Find student GPA trend across terms
 ```sql
-SELECT 
+SELECT
   er.term,
   AVG(er.gpa_contribution) as avg_gpa,
   COUNT(*) as enrollment_count
@@ -461,7 +461,7 @@ ORDER BY er.term;
 
 ### Find courses with highest failure rate
 ```sql
-SELECT 
+SELECT
   cr.course_id,
   cr.course_name,
   COUNT(*) as total_enrollments,
@@ -477,7 +477,7 @@ LIMIT 10;
 
 ### Find chronically absent students by grade level
 ```sql
-SELECT 
+SELECT
   sr.grade_level,
   COUNT(DISTINCT sr.student_id_hashed) as chronic_absence_count,
   ROUND(AVG(sr.gpa), 2) as avg_gpa_of_chronic_absentees
@@ -490,7 +490,7 @@ ORDER BY sr.grade_level;
 
 ### Analyze special education program effectiveness
 ```sql
-SELECT 
+SELECT
   'With Special Ed' as group_type,
   COUNT(DISTINCT sr.student_id_hashed) as student_count,
   ROUND(AVG(sr.gpa), 2) as avg_gpa,
@@ -500,7 +500,7 @@ FROM stage_2b.students_refined sr
 LEFT JOIN stage_2b.attendance_refined ar ON sr.student_id_hashed = ar.student_id_hashed
 WHERE sr.special_education = true
 UNION ALL
-SELECT 
+SELECT
   'Without Special Ed',
   COUNT(DISTINCT sr.student_id_hashed),
   ROUND(AVG(sr.gpa), 2),
@@ -545,7 +545,7 @@ WHERE sr.special_education = false;
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: 2024  
-**Maintained By**: Data Operations Team  
+**Document Version**: 1.0
+**Last Updated**: 2024
+**Maintained By**: Data Operations Team
 **Next Review**: When SIS schema changes or annually

@@ -12,10 +12,10 @@ Package templates provide reusable blueprints for integrating different educatio
 
 ### 1. **Example SIS Package** (Student Information System)
 
-**Purpose**: Integrate student demographics, enrollment, and academic data from any SIS vendor  
-**Data Sources**: PowerSchool, Skyward, Infinite Campus, custom databases  
-**Entities**: Students, Courses, Enrollment, Attendance, Academic Records  
-**Status**: Production-ready template  
+**Purpose**: Integrate student demographics, enrollment, and academic data from any SIS vendor
+**Data Sources**: PowerSchool, Skyward, Infinite Campus, custom databases
+**Entities**: Students, Courses, Enrollment, Attendance, Academic Records
+**Status**: Production-ready template
 
 **Location**: `/oss_framework/package_templates/example_sis_package/`
 
@@ -175,17 +175,17 @@ Defines field mappings, data types, and validation rules:
 entities:
   students:
     source_table: dbo.Students
-    
+
     # Map source columns to standard schema
     mappings:
       student_id: StudentNumber
       first_name: FirstName
-    
+
     # Pseudonymization rules (Stage 2B)
     pseudonymization:
       student_id: hash             # Hash, mask, or no-op
       first_name: mask
-    
+
     # Validation rules (Stage 2A)
     validation:
       null_check: [student_id]
@@ -201,36 +201,36 @@ Each package includes 5 standard pipeline JSON templates:
 ### Pipeline 0: Extract Source
 Connects to the data source system and exports data to CSV/JSON.
 
-**Input**: Source system configuration  
-**Output**: CSV/JSON files in `sis_exports/` folder  
+**Input**: Source system configuration
+**Output**: CSV/JSON files in `sis_exports/` folder
 **Example**: PowerSchool → CSV export
 
 ### Pipeline 1: Land Stage 1
 Organizes extracted data into Stage 1 directory structure with date partitions.
 
-**Input**: `sis_exports/` CSV files  
-**Output**: `stage1/` partitioned by date  
+**Input**: `sis_exports/` CSV files
+**Output**: `stage1/` partitioned by date
 **Transformations**: Minimal (preserve raw structure)
 
 ### Pipeline 2: Transform Stage 2A
 Flattens nested structures, deduplicates, standardizes formats.
 
-**Input**: `stage1/` data  
-**Output**: `stage2a/` normalized tables  
+**Input**: `stage1/` data
+**Output**: `stage2a/` normalized tables
 **Transformations**: Flatten JSON, deduplicate, type conversion
 
 ### Pipeline 3: Refine Stage 2B
 Applies pseudonymization rules, creates aggregated views.
 
-**Input**: `stage2a/` data  
-**Output**: `stage2b/` privacy-compliant data  
+**Input**: `stage2a/` data
+**Output**: `stage2b/` privacy-compliant data
 **Transformations**: Hash/mask sensitive fields, aggregate metrics
 
 ### Pipeline 4: Aggregate Stage 3
 Creates clean, analytics-ready tables with computed features.
 
-**Input**: `stage2b/` data  
-**Output**: `stage3/` analytics tables  
+**Input**: `stage2b/` data
+**Output**: `stage3/` analytics tables
 **Transformations**: Join entities, compute metrics, create features
 
 ## SQL Queries
@@ -241,8 +241,8 @@ Pre-built queries for common analytics scenarios:
 Quality checks on raw data:
 ```sql
 -- Check for required fields
-SELECT COUNT(*) as missing_student_ids 
-FROM stage1.students 
+SELECT COUNT(*) as missing_student_ids
+FROM stage1.students
 WHERE student_id IS NULL;
 
 -- Check for duplicates
@@ -257,7 +257,7 @@ Normalized entity views:
 ```sql
 -- Flattened student data
 CREATE VIEW stage2a.vw_students AS
-SELECT 
+SELECT
   student_id,
   first_name,
   grade_level
@@ -269,7 +269,7 @@ Privacy-compliant analytics views:
 ```sql
 -- Anonymized student metrics
 CREATE VIEW stage2b.vw_student_metrics AS
-SELECT 
+SELECT
   hashed_student_id,
   AVG(attendance_rate) as avg_attendance,
   AVG(final_grade) as avg_grade
@@ -282,7 +282,7 @@ Dashboard and analytics data:
 ```sql
 -- Ready for dashboards
 CREATE TABLE stage3.student_performance AS
-SELECT 
+SELECT
   hashed_student_id,
   course_id,
   final_grade,

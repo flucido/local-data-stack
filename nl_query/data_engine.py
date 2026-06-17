@@ -21,9 +21,9 @@ import json
 import os
 import re
 import threading
-import duckdb
 from pathlib import Path
 
+import duckdb
 
 # ── Warehouse location ─────────────────────────────────────────────────
 
@@ -61,9 +61,12 @@ def get_warehouse_path() -> Path:
 # / ``main_analytics``. The bare ``core`` / ``analytics`` / ``cde`` names are
 # included so the same allowlist works once the unified warehouse lands.
 DEFAULT_EXPOSED_SCHEMAS = [
-    "core", "main_core",
-    "analytics", "main_analytics",
-    "cde", "main_cde",
+    "core",
+    "main_core",
+    "analytics",
+    "main_analytics",
+    "cde",
+    "main_cde",
 ]
 
 
@@ -78,7 +81,7 @@ def get_exposed_schemas() -> list[str]:
 # Never expose these schemas regardless of the allowlist — they contain
 # re-identification keys or are not query targets.
 BLOCKED_SCHEMAS = {
-    "main_privacy_sensitive",   # priv_pii_lookup_table — de-anonymization keys
+    "main_privacy_sensitive",  # priv_pii_lookup_table — de-anonymization keys
     "information_schema",
     "pg_catalog",
 }
@@ -93,6 +96,7 @@ def _is_blocked_schema(schema_name: str) -> bool:
     if schema_name in BLOCKED_SCHEMAS:
         return True
     return any(p.search(schema_name) for p in _BLOCKED_SCHEMA_PATTERNS)
+
 
 # Table-name patterns to hide (dlt bookkeeping + any PII lookup leakage).
 _BLOCKED_TABLE_PATTERNS = [
@@ -109,12 +113,24 @@ def _is_blocked_table(table_name: str) -> bool:
 
 PII_COLUMNS: dict[str, set[str]] = {
     "core.dim_students": {
-        "first_name", "last_name", "date_of_birth", "student_id",
-        "ssn", "email", "phone", "address",
+        "first_name",
+        "last_name",
+        "date_of_birth",
+        "student_id",
+        "ssn",
+        "email",
+        "phone",
+        "address",
     },
     "main_core.dim_students": {
-        "first_name", "last_name", "date_of_birth", "student_id",
-        "ssn", "email", "phone", "address",
+        "first_name",
+        "last_name",
+        "date_of_birth",
+        "student_id",
+        "ssn",
+        "email",
+        "phone",
+        "address",
     },
 }
 
@@ -126,8 +142,16 @@ def _get_pii_columns(key: str) -> set[str]:
 # ── Forbidden SQL terms (case-insensitive) ─────────────────────────────
 
 FORBIDDEN_TOKENS = [
-    "drop", "delete", "insert", "update", "alter", "truncate",
-    "create", "attach", "detach", "pragma",
+    "drop",
+    "delete",
+    "insert",
+    "update",
+    "alter",
+    "truncate",
+    "create",
+    "attach",
+    "detach",
+    "pragma",
 ]
 
 # ── Execution limits ───────────────────────────────────────────────────
@@ -137,6 +161,7 @@ QUERY_TIMEOUT_SEC = 10
 
 
 # ── Connection factory ─────────────────────────────────────────────────
+
 
 def get_connection(read_only: bool = True) -> duckdb.DuckDBPyConnection:
     """
@@ -166,6 +191,7 @@ def create_session() -> duckdb.DuckDBPyConnection:
 
 
 # ── Schema introspection ───────────────────────────────────────────────
+
 
 def get_schema_info(
     conn: duckdb.DuckDBPyConnection,
@@ -208,6 +234,7 @@ def get_schema_info(
 
 # ── JSON envelope parsing ──────────────────────────────────────────────
 
+
 def _try_parse_json_envelope(text: str) -> str | None:
     """
     Try to parse the LLM output as a JSON envelope like:
@@ -227,6 +254,7 @@ def _try_parse_json_envelope(text: str) -> str | None:
 
 
 # ── SQL extraction ─────────────────────────────────────────────────────
+
 
 def extract_sql(raw_llm_output: str) -> str:
     """
@@ -253,6 +281,7 @@ def extract_sql(raw_llm_output: str) -> str:
 
 
 # ── SQL validation ─────────────────────────────────────────────────────
+
 
 def validate_sql(sql: str, conn: duckdb.DuckDBPyConnection | None = None) -> None:
     """
@@ -303,14 +332,16 @@ def validate_sql(sql: str, conn: duckdb.DuckDBPyConnection | None = None) -> Non
             msg = str(e).strip()
             for prefix in ["Parser Error: ", "Catalog Error: ", "Binder Error: "]:
                 if msg.startswith(prefix):
-                    msg = msg[len(prefix):]
+                    msg = msg[len(prefix) :]
             raise ValueError(f"SQL validation failed: {msg}") from e
 
 
 # ── Timeout helper ─────────────────────────────────────────────────────
 
+
 class QueryTimeoutError(TimeoutError):
     """Raised when a query exceeds the time budget."""
+
     pass
 
 
@@ -352,11 +383,12 @@ def _execute_with_timeout(
 
 # ── Safe SQL execution ─────────────────────────────────────────────────
 
+
 def execute_safe(
     conn: duckdb.DuckDBPyConnection,
     raw_llm_output: str,
     timeout_sec: int = QUERY_TIMEOUT_SEC,
-) -> tuple[str, "DataFrame"]:
+) -> tuple[str, DataFrame]:
     """
     Extract, validate, and execute LLM-generated SQL.
 

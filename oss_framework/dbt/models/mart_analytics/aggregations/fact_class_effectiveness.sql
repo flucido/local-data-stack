@@ -67,17 +67,17 @@ SELECT
     ) AS pct_a_b_grades,
     -- Disaggregated by subgroup
     ROUND(
-        100.0 * SUM(CASE WHEN english_learner THEN passed ELSE 0 END) / 
+        100.0 * SUM(CASE WHEN english_learner THEN passed ELSE 0 END) /
         NULLIF(SUM(CASE WHEN english_learner THEN 1 ELSE 0 END), 0),
         2
     ) AS pct_passed_ell,
     ROUND(
-        100.0 * SUM(CASE WHEN special_education THEN passed ELSE 0 END) / 
+        100.0 * SUM(CASE WHEN special_education THEN passed ELSE 0 END) /
         NULLIF(SUM(CASE WHEN special_education THEN 1 ELSE 0 END), 0),
         2
     ) AS pct_passed_sped,
     ROUND(
-        100.0 * SUM(CASE WHEN free_reduced_lunch THEN passed ELSE 0 END) / 
+        100.0 * SUM(CASE WHEN free_reduced_lunch THEN passed ELSE 0 END) /
         NULLIF(SUM(CASE WHEN free_reduced_lunch THEN 1 ELSE 0 END), 0),
         2
     ) AS pct_passed_frl,

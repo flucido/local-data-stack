@@ -5,13 +5,11 @@ Stage 1 canonical landing is Parquet under STAGE1_PATH.
 
 from __future__ import annotations
 
+import logging
 from datetime import date
 from pathlib import Path
 
-import logging
-
 import pandas as pd
-
 from config import STAGE1_PATH
 
 logger = logging.getLogger(__name__)
@@ -33,17 +31,11 @@ class DAndFImporter:
             # Read Excel file
             df = pd.read_excel(file_path)
             self.records_imported = len(df)
-            logger.info(
-                f"Loaded D&F report with {self.records_imported} rows from {file_path}"
-            )
+            logger.info(f"Loaded D&F report with {self.records_imported} rows from {file_path}")
 
             load_date = date.today().isoformat()
             out_dir = (
-                Path(STAGE1_PATH)
-                / "reference"
-                / "excel"
-                / "raw_d_and_f"
-                / f"load_date={load_date}"
+                Path(STAGE1_PATH) / "reference" / "excel" / "raw_d_and_f" / f"load_date={load_date}"
             )
             out_dir.mkdir(parents=True, exist_ok=True)
             out_file = out_dir / "part-000.parquet"

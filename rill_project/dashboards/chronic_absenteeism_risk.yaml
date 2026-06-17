@@ -88,4 +88,3 @@ measures:
     label: "High Risk Students"
     expression: SUM(CASE WHEN risk_level = 'High' THEN 1 ELSE 0 END)
     format_preset: humanize
-

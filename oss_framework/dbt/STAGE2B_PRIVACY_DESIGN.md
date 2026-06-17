@@ -45,7 +45,7 @@ mart_core (Analytics)
 {%- macro hash_pii_secure(column_name, salt=var('salt_pii', 'oea_2026')) -%}
     -- SHA256 implementation for DuckDB (native function)
     -- More secure than MD5, follows FERPA best practices
-    -- 
+    --
     -- ⚠️ NOTE: DuckDB uses native sha256() function, NOT PostgreSQL's ENCODE()
     -- Output: 64-character hexadecimal string
     sha256(CONCAT('{{ salt }}', {{ column_name }}))
@@ -65,7 +65,7 @@ mart_core (Analytics)
 
 ```sql
 {%- macro mask_name(column_name, visible_chars=1) -%}
-    CASE 
+    CASE
         WHEN {{ column_name }} IS NULL THEN NULL
         WHEN LENGTH({{ column_name }}) <= {{ visible_chars }} THEN REPEAT('*', LENGTH({{ column_name }}))
         ELSE CONCAT(
@@ -86,7 +86,7 @@ mart_core (Analytics)
 
 ```sql
 {%- macro mask_email(column_name) -%}
-    CASE 
+    CASE
         WHEN {{ column_name }} IS NULL THEN NULL
         WHEN {{ column_name }} NOT LIKE '%@%' THEN REPEAT('*', LENGTH({{ column_name }}))
         ELSE CONCAT(
@@ -109,7 +109,7 @@ mart_core (Analytics)
 
 ```sql
 {%- macro mask_phone(column_name) -%}
-    CASE 
+    CASE
         WHEN {{ column_name }} IS NULL THEN NULL
         WHEN LENGTH(REGEXP_REPLACE({{ column_name }}, '[^0-9]', '', 'g')) >= 10
             THEN CONCAT(SUBSTRING({{ column_name }}, 1, 6), '****')
@@ -128,7 +128,7 @@ mart_core (Analytics)
 ```sql
 {%- macro mask_address(column_name) -%}
     -- Complete suppression for addresses
-    CASE 
+    CASE
         WHEN {{ column_name }} IS NULL THEN NULL
         ELSE '***REDACTED***'
     END
@@ -152,20 +152,20 @@ mart_core (Analytics)
 SELECT
     -- Hashed identifier (deterministic, allows linkage)
     {{ hash_pii_secure('student_id_raw') }} as student_id_hash,
-    
+
     -- Masked PII (irreversible, display only)
     {{ mask_name('first_name_raw', 1) }} as first_name_masked,
     {{ mask_name('last_name_raw', 1) }} as last_name_masked,
     {{ mask_email('email_address') }} as email_masked,
     {{ mask_phone('phone_number') }} as phone_masked,
     {{ mask_address('address_line1') }} as address_masked,
-    
+
     -- Demographics (no PII)
     gender,
     ethnicity,
     grade_level,
     -- ... rest of fields
-    
+
 FROM {{ ref('stg_aeries__students') }}
 ```
 
@@ -188,30 +188,30 @@ SELECT
     gender,
     ethnicity,
     school_id,
-    
+
     -- Special populations
     special_education_flag,
     ell_status,
     free_reduced_lunch_flag,
-    
+
     -- Aggregated counts
     COUNT(DISTINCT student_id_hash) as student_count,
-    
+
     -- Age statistics
     ROUND(AVG(age_at_event), 1) as avg_age,
     MIN(age_at_event) as min_age,
     MAX(age_at_event) as max_age,
-    
+
     -- Enrollment metrics
     COUNT(CASE WHEN enrollment_date IS NOT NULL AND withdrawal_date IS NULL THEN 1 END) as active_count,
     ROUND(
-        COUNT(CASE WHEN enrollment_date IS NOT NULL AND withdrawal_date IS NULL THEN 1 END)::FLOAT 
-        / COUNT(DISTINCT student_id_hash), 
+        COUNT(CASE WHEN enrollment_date IS NOT NULL AND withdrawal_date IS NULL THEN 1 END)::FLOAT
+        / COUNT(DISTINCT student_id_hash),
         3
     ) as active_rate
 
 FROM {{ ref('priv_student_hashes') }}
-GROUP BY 
+GROUP BY
     grade_level, gender, ethnicity, school_id,
     special_education_flag, ell_status, free_reduced_lunch_flag
 HAVING COUNT(DISTINCT student_id_hash) >= 5  -- FERPA k-anonymity requirement
@@ -239,11 +239,11 @@ SELECT
     school_quarter,
     day_of_week_name,
     is_weekend,
-    
+
     -- Aggregation dimensions
     school_id,
     grade_level,
-    
+
     -- Attendance metrics (aggregated)
     COUNT(DISTINCT student_id_hash) as total_students,
     SUM(CASE WHEN present_flag THEN 1 ELSE 0 END) as present_count,
@@ -251,22 +251,22 @@ SELECT
     SUM(CASE WHEN tardy_flag THEN 1 ELSE 0 END) as tardy_count,
     SUM(CASE WHEN excused_flag THEN 1 ELSE 0 END) as excused_count,
     SUM(CASE WHEN unexcused_flag THEN 1 ELSE 0 END) as unexcused_count,
-    
+
     -- Attendance rate
     ROUND(
-        SUM(CASE WHEN present_flag THEN 1 ELSE 0 END)::FLOAT 
+        SUM(CASE WHEN present_flag THEN 1 ELSE 0 END)::FLOAT
         / NULLIF(COUNT(DISTINCT student_id_hash), 0),
         4
     ) as attendance_rate,
-    
+
     -- Risk indicators
     SUM(CASE WHEN absence_reason = 'CHRONIC' THEN 1 ELSE 0 END) as chronic_absent_count
 
 FROM {{ ref('fact_attendance') }} fa
-JOIN {{ ref('stg_aeries__attendance') }} sta 
+JOIN {{ ref('stg_aeries__attendance') }} sta
     ON fa.attendance_id = sta.attendance_id
-GROUP BY 
-    attendance_date, school_year, month, school_quarter, 
+GROUP BY
+    attendance_date, school_year, month, school_quarter,
     day_of_week_name, is_weekend, school_id, grade_level
 HAVING COUNT(DISTINCT student_id_hash) >= 5  -- K-anonymity
 ```
@@ -288,7 +288,7 @@ HAVING COUNT(DISTINCT student_id_hash) >= 5  -- K-anonymity
         {% endfor %}
         COUNT(*) as group_size
     FROM {{ ref(model_name) }}
-    GROUP BY 
+    GROUP BY
         {% for qi in quasi_identifiers %}
         {{ qi }}{{ "," if not loop.last else "" }}
         {% endfor %}
@@ -303,9 +303,9 @@ HAVING COUNT(DISTINCT student_id_hash) >= 5  -- K-anonymity
 ```sql
 {% test k_anonymity_compliance(model, quasi_identifiers, k=5) %}
     -- Test fails if any quasi-identifier combination has < k records
-    
+
     {{ check_k_anonymity(model, quasi_identifiers, k) }}
-    
+
 {% endtest %}
 ```
 
@@ -454,9 +454,9 @@ Stage 2B complete when:
 - [x] ✅ **DONE** - Documentation complete (Privacy, Core, Macros READMEs)
 - [x] ✅ **DONE** - No PII exposed in core marts (all facts use student_id_hash with SHA256)
 
-**Implementation Date**: 2026-01-28  
-**Test Results**: 112/112 tests passing (100%)  
-**Models Created**: 2 new (dim_student_demographics, fact_attendance_daily)  
+**Implementation Date**: 2026-01-28
+**Test Results**: 112/112 tests passing (100%)
+**Models Created**: 2 new (dim_student_demographics, fact_attendance_daily)
 **Macros Created**: 6 (hash_pii_secure, mask_name, mask_email, mask_phone, mask_address, check_k_anonymity)
 
 ---
@@ -474,9 +474,9 @@ Stage 2B complete when:
 
 ---
 
-**Document Version:** 1.1  
-**Date:** 2026-01-28  
-**Status:** ✅ **IMPLEMENTED** - All acceptance criteria met  
+**Document Version:** 1.1
+**Date:** 2026-01-28
+**Status:** ✅ **IMPLEMENTED** - All acceptance criteria met
 **Implementation Notes**:
 - DuckDB syntax corrected (native `sha256()` function, not PostgreSQL `ENCODE()`)
 - All fact tables migrated from MD5 (`hash_pii`) to SHA256 (`hash_pii_secure`)

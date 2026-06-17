@@ -30,10 +30,11 @@ def __():
     This notebook explores the raw extracted data from your SIS system.
     We'll identify data quality issues, anomalies, and patterns.
     """
-    import pandas as pd
-    import numpy as np
-    from pathlib import Path
     import os
+    from pathlib import Path
+
+    import numpy as np
+    import pandas as pd
 
     # Configuration
     EXPORT_FOLDER = "sis_exports"
@@ -54,9 +55,7 @@ def __(pd, Path, EXPORT_FOLDER):
 
     if not export_path.exists():
         mo.md(f"❌ Export folder not found: {EXPORT_FOLDER}")
-        mo.md(
-            "Please run: `python -m oss_framework.orchestrator pipelines/00_extract_sis.json`"
-        )
+        mo.md("Please run: `python -m oss_framework.orchestrator pipelines/00_extract_sis.json`")
     else:
         # List available files
         files = list(export_path.glob("*.csv")) + list(export_path.glob("*.json"))
@@ -113,13 +112,15 @@ def __(data):
         mo.md("No data loaded. Please check extraction.")
     else:
         for entity, df in data.items():
-            mo.md(f"""
+            mo.md(
+                f"""
             ### {entity.upper()}
-            
-            **Records**: {len(df):,}  
-            **Fields**: {len(df.columns)}  
+
+            **Records**: {len(df):,}
+            **Fields**: {len(df.columns)}
             **Columns**: {", ".join(df.columns.tolist())}
-            """)
+            """
+            )
 
 
 @app.cell
@@ -142,7 +143,7 @@ def __(data, pd):
 
             quality_summary = f"""
             ### {entity.upper()} - Data Quality
-            
+
             | Metric | Value |
             |--------|-------|
             | Total Records | {len(df):,} |
@@ -150,13 +151,13 @@ def __(data, pd):
             | Null Values | {null_count.sum():,} ({null_percent.mean():.2f}%) |
             | Duplicate Rows | {duplicates:,} |
             | Memory Usage | {df.memory_usage(deep=True).sum() / 1024 / 1024:.2f} MB |
-            
+
             """
 
             # Find fields with most nulls
             fields_with_nulls = null_count[null_count > 0]
             if len(fields_with_nulls) > 0:
-                quality_summary += f"""
+                quality_summary += """
             **Fields with Nulls**:
             """
                 for field, count in fields_with_nulls.head(5).items():
@@ -192,9 +193,7 @@ def __(data):
                 dtype = str(col_data.dtype)
 
                 # Get sample value
-                sample = (
-                    col_data.dropna().iloc[0] if len(col_data.dropna()) > 0 else "NULL"
-                )
+                sample = col_data.dropna().iloc[0] if len(col_data.dropna()) > 0 else "NULL"
 
                 row = f"""
 | {col} | {dtype} | {unique_count:,} | {null_count:,} ({null_pct:.1f}%) | {str(sample)[:30]} |
@@ -233,9 +232,11 @@ def __(data):
                 summary = []
                 for col in numeric_cols:
                     col_stats = df[col].describe()
-                    summary.append(f"""
+                    summary.append(
+                        f"""
 | {col} | {col_stats["count"]:.0f} | {col_stats["mean"]:.2f} | {col_stats["min"]:.2f} | {col_stats["max"]:.2f} |
-""")
+"""
+                    )
 
                 mo.md(
                     """
@@ -312,15 +313,11 @@ def __(data):
             # Check for constant values (potential issues)
             const_cols = [
                 col
-                for col in df.select_dtypes(
-                    include=["object", "int64", "float64"]
-                ).columns
+                for col in df.select_dtypes(include=["object", "int64", "float64"]).columns
                 if df[col].nunique() == 1
             ]
             if const_cols:
-                anomalies.append(
-                    f"**⚠️  Constant value columns**: {', '.join(const_cols)}"
-                )
+                anomalies.append(f"**⚠️  Constant value columns**: {', '.join(const_cols)}")
 
             # Check for IDs with duplicates
             id_cols = [col for col in df.columns if "id" in col.lower() and col != "id"]
@@ -382,9 +379,10 @@ def __(data):
     """
     import marimo as mo
 
-    mo.md("""
+    mo.md(
+        """
     ## Summary
-    
+
     You've analyzed:
     - ✓ Entity record counts and field counts
     - ✓ Null value patterns and percentages
@@ -392,9 +390,10 @@ def __(data):
     - ✓ Text field patterns and top values
     - ✓ Data anomalies and potential issues
     - ✓ Sample records for verification
-    
+
     This profiling establishes the baseline data quality before transformation.
-    """)
+    """
+    )
 
 
 if __name__ == "__main__":

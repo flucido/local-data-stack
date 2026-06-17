@@ -28,10 +28,11 @@ def __():
 
     Compare data across all transformation stages to verify correctness.
     """
-    import pandas as pd
-    import numpy as np
-    from pathlib import Path
     import hashlib
+    from pathlib import Path
+
+    import numpy as np
+    import pandas as pd
 
     return pd, np, Path, hashlib
 
@@ -84,22 +85,26 @@ def __(stages_data):
         if "students" in s1 and "students" in s2a:
             mo.md("### Comparison: Stage 1 → Stage 2A (Students)")
 
-            mo.md(f"""
-            **Stage 1 (Raw)**: {len(s1["students"]):,} records, {len(s1["students"].columns)} columns  
+            mo.md(
+                f"""
+            **Stage 1 (Raw)**: {len(s1["students"]):,} records, {len(s1["students"].columns)} columns
             **Stage 2A (Normalized)**: {len(s2a["students"]):,} records, {len(s2a["students"].columns)} columns
-            """)
+            """
+            )
 
             # Check field mapping worked
             s1_sample = s1["students"].iloc[0] if len(s1["students"]) > 0 else None
             s2a_sample = s2a["students"].iloc[0] if len(s2a["students"]) > 0 else None
 
             if s1_sample is not None and s2a_sample is not None:
-                mo.md("""
+                mo.md(
+                    """
                 **Sample Comparison**:
-                
+
                 | Aspect | Stage 1 | Stage 2A |
                 |--------|---------|----------|
-                """)
+                """
+                )
 
                 # Show a few sample fields
                 for i in range(min(3, len(s1_sample))):
@@ -126,10 +131,12 @@ def __(stages_data):
         if "students" in s2a and "students" in s2b:
             mo.md("### Comparison: Stage 2A → Stage 2B (Students)")
 
-            mo.md(f"""
-            **Stage 2A (Normalized)**: {len(s2a["students"]):,} records  
+            mo.md(
+                f"""
+            **Stage 2A (Normalized)**: {len(s2a["students"]):,} records
             **Stage 2B (Refined)**: {len(s2b["students"]):,} records
-            """)
+            """
+            )
 
             # Compare fields
             s2a_cols = set(s2a["students"].columns)
@@ -139,11 +146,13 @@ def __(stages_data):
             removed_cols = s2a_cols - s2b_cols
 
             if new_cols or removed_cols:
-                mo.md(f"""
+                mo.md(
+                    f"""
                 **Column Changes**:
                 - Added: {", ".join(new_cols) if new_cols else "None"}
                 - Removed: {", ".join(removed_cols) if removed_cols else "None"}
-                """)
+                """
+                )
 
             # Check for hashed fields (should contain 'hashed_' prefix)
             hashed_fields = [col for col in s2b["students"].columns if "hashed_" in col]
@@ -154,25 +163,29 @@ def __(stages_data):
             ]
 
             if hashed_fields:
-                mo.md(f"""
+                mo.md(
+                    f"""
                 **Hashed Fields (Deterministic)**:
                 {", ".join(hashed_fields)}
-                
+
                 These fields are hashed using a stable seed, allowing:
                 - ✓ Authorized users to link records across time
                 - ✓ Privacy protection (cannot reverse hash)
                 - ✓ Consistent IDs for joins
-                """)
+                """
+                )
 
             if masked_fields:
-                mo.md(f"""
+                mo.md(
+                    f"""
                 **Masked Fields (Irreversible)**:
                 {", ".join(masked_fields)}
-                
+
                 Sample masking:
                 - john → jo****
                 - smith@example.com → sm****@ex****.***
-                """)
+                """
+                )
 
 
 @app.cell
@@ -193,10 +206,12 @@ def __(stages_data):
         mo.md("### Comparison: Stage 2B → Stage 3 (Analytics)")
 
         # List available entities
-        mo.md(f"""
-        **Stage 2B entities**: {", ".join(s2b.keys())}  
+        mo.md(
+            f"""
+        **Stage 2B entities**: {", ".join(s2b.keys())}
         **Stage 3 tables**: {", ".join(s3.keys())}
-        """)
+        """
+        )
 
         # Check for new computed fields
         if "enrollments" in s2b and "student_performance" in s3:
@@ -210,15 +225,17 @@ def __(stages_data):
             ]
 
             if computed_fields:
-                mo.md(f"""
+                mo.md(
+                    f"""
                 **Computed Metrics in Stage 3**:
                 {", ".join(computed_fields)}
-                
+
                 **Example calculations**:
                 - `attendance_rate`: days_present / total_days
                 - `grade_average`: AVG(all_assignment_grades)
                 - `engagement_score`: composite metric
-                """)
+                """
+                )
 
 
 @app.cell
@@ -239,9 +256,11 @@ def __(stages_data, pd):
                 counts[stage] = len(data[entity])
 
         if counts:
-            mo.md(f"""
+            mo.md(
+                f"""
             **{entity.upper()}**:
-            """)
+            """
+            )
             for stage, count in sorted(counts.items()):
                 mo.md(f"- {stage}: {count:,} records")
 
@@ -262,18 +281,18 @@ def __(stages_data, pd):
         if "students" in s1 and "students" in s2a:
             mo.md("### Data Type Progression: Stage 1 → Stage 2A")
 
-            mo.md("""
+            mo.md(
+                """
             | Field | Stage 1 Type | Stage 2A Type | Transformation |
             |-------|-------------|---------------|----------------|
-            """)
+            """
+            )
 
             # Show sample field type conversions
             for col in list(s1["students"].columns)[:3]:
                 s1_type = str(s1["students"][col].dtype)
                 # Try to find corresponding field in s2a
-                mapped_col = (
-                    col.lower().replace("_", "").replace("studentnumber", "student_id")
-                )
+                mapped_col = col.lower().replace("_", "").replace("studentnumber", "student_id")
                 if col in s2a["students"].columns:
                     s2a_type = str(s2a["students"][col].dtype)
                     mo.md(f"| {col} | {s1_type} | {s2a_type} | Type conversion |")
@@ -302,14 +321,16 @@ def __(stages_data):
     for check, description in checks:
         mo.md(f"{check}: {description}")
 
-    mo.md("""
+    mo.md(
+        """
     **FERPA Compliance Confirmed**:
     - ✓ Student IDs are hashable (allows authorized linking)
     - ✓ Personally identifiable information is masked
     - ✓ Date of birth is protected
     - ✓ Non-sensitive academic data remains for analysis
     - ✓ Only authorized users access Stage 2B and 3
-    """)
+    """
+    )
 
 
 @app.cell
@@ -333,9 +354,11 @@ def __(stages_data):
             null_cells = sum(df.isnull().sum().sum() for df in entities.values())
             null_pct = null_cells / total_cells * 100 if total_cells > 0 else 0
 
-            quality_summary.append(f"""
+            quality_summary.append(
+                f"""
 | {stage} | {total_records:,} | {null_pct:.2f}% | Ready for {stage} |
-""")
+"""
+            )
 
     mo.md(
         """
@@ -355,11 +378,12 @@ def __(stages_data):
     """
     import marimo as mo
 
-    mo.md("""
+    mo.md(
+        """
     # Transformation Validation Summary
-    
+
     ## Verification Results
-    
+
     - ✓ **Stage 1→2A**: Field mappings verified
     - ✓ **Stage 2A→2B**: Pseudonymization rules applied
     - ✓ **Stage 2B→3**: Aggregations computed
@@ -367,42 +391,43 @@ def __(stages_data):
     - ✓ **Data types**: Properly converted
     - ✓ **Privacy compliance**: FERPA requirements met
     - ✓ **Quality metrics**: Within thresholds
-    
+
     ## Status: All Transformations Valid!
-    
+
     Your data is now:
     - **Standardized** (Stage 2A)
     - **Privacy-protected** (Stage 2B)
     - **Analytics-ready** (Stage 3)
-    
+
     ## Next Steps
-    
+
     1. **Deploy to dashboards**:
        - Use Stage 3 tables for Grafana/Superset
        - Create visualizations for stakeholders
-    
+
     2. **Implement access control**:
        - Limit Stage 2A/2B to authorized users only
        - Use role-based access (RBAC)
-    
+
     3. **Monitor ongoing**:
        - Schedule daily/weekly quality checks
        - Set alerts for anomalies
-    
+
     4. **Expand to other data sources**:
        - Use this SIS template for other packages
        - Adapt for other education data sources
-    
+
     ## Completion Checklist
-    
+
     - ✓ Data extracted from SIS
     - ✓ Transformed through 4 stages
     - ✓ Quality validated
     - ✓ Privacy compliance verified
     - ✓ Ready for analytics and reporting
-    
+
     **Next**: Explore Stage 3 data in dashboards!
-    """)
+    """
+    )
 
 
 if __name__ == "__main__":

@@ -20,14 +20,14 @@ response schema as llama_cpp.Llama, so downstream code is backend-agnostic:
 from __future__ import annotations
 
 import os
-import time
 import threading
-from typing import Generator, Optional
+import time
+from collections.abc import Generator
+from typing import Optional
 
 os.environ.setdefault("HF_HUB_ENABLE_HF_TRANSFER", "1")
 
 from prompts import build_prompt
-
 
 # ── Model configuration ────────────────────────────────────────────────
 
@@ -44,10 +44,11 @@ STOP_SEQUENCES = ["\n\n", "Question:", "User:", "<|im_end|>", "<|im_start|>"]
 
 # Thread-safe model cache
 _lock = threading.Lock()
-_llm: Optional["TransformersLLM"] = None
+_llm: Optional[TransformersLLM] = None
 
 
 # ── llama.cpp-compatible wrapper ───────────────────────────────────────
+
 
 class TransformersLLM:
     """Callable wrapper around transformers generate() that mimics the
@@ -55,8 +56,8 @@ class TransformersLLM:
 
     def __init__(self, base_model: str = BASE_MODEL_4BIT, adapter: str = ADAPTER_REPO):
         import torch
-        from transformers import AutoModelForCausalLM, AutoTokenizer
         from peft import PeftModel
+        from transformers import AutoModelForCausalLM, AutoTokenizer
 
         self.torch = torch
         use_cuda = torch.cuda.is_available()
@@ -133,10 +134,8 @@ class TransformersLLM:
 
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
         with self.torch.inference_mode():
-            output_ids = self.model.generate(
-                **inputs, **self._gen_kwargs(max_tokens, temperature)
-            )
-        new_ids = output_ids[0][inputs["input_ids"].shape[1]:]
+            output_ids = self.model.generate(**inputs, **self._gen_kwargs(max_tokens, temperature))
+        new_ids = output_ids[0][inputs["input_ids"].shape[1] :]
         text = self.tokenizer.decode(new_ids, skip_special_tokens=True)
         text, _ = self._truncate_on_stop(text, stop)
         return {"choices": [{"text": text}]}
@@ -151,9 +150,7 @@ class TransformersLLM:
         from transformers import TextIteratorStreamer
 
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
-        streamer = TextIteratorStreamer(
-            self.tokenizer, skip_prompt=True, skip_special_tokens=True
-        )
+        streamer = TextIteratorStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=True)
         kwargs = dict(inputs, streamer=streamer, **self._gen_kwargs(max_tokens, temperature))
         thread = threading.Thread(target=self.model.generate, kwargs=kwargs)
         thread.start()
@@ -163,6 +160,7 @@ class TransformersLLM:
 
 
 # ── Model loading ──────────────────────────────────────────────────────
+
 
 def load_model(verbose: bool = False) -> TransformersLLM:
     """Load the model (base 4-bit + LoRA). Thread-safe global singleton."""
@@ -187,6 +185,7 @@ def get_model() -> TransformersLLM | None:
 
 
 # ── SQL generation ─────────────────────────────────────────────────────
+
 
 def generate_sql(
     user_question: str,

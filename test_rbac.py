@@ -4,9 +4,6 @@ RBAC and Row-Level Security Testing Suite
 Tests access controls across all dashboards
 """
 
-import json
-import pytest
-from datetime import datetime, timedelta
 from enum import Enum
 
 
@@ -193,16 +190,9 @@ class TestDashboardAccessControl:
     def test_chronic_absenteeism_access(self):
         """Test chronic absenteeism dashboard access"""
         assert self._can_access_dashboard(UserRole.ADMIN, "chronic_absenteeism") is True
-        assert (
-            self._can_access_dashboard(UserRole.PRINCIPAL, "chronic_absenteeism")
-            is True
-        )
-        assert (
-            self._can_access_dashboard(UserRole.TEACHER, "chronic_absenteeism") is False
-        )
-        assert (
-            self._can_access_dashboard(UserRole.STUDENT, "chronic_absenteeism") is False
-        )
+        assert self._can_access_dashboard(UserRole.PRINCIPAL, "chronic_absenteeism") is True
+        assert self._can_access_dashboard(UserRole.TEACHER, "chronic_absenteeism") is False
+        assert self._can_access_dashboard(UserRole.STUDENT, "chronic_absenteeism") is False
 
     def test_wellbeing_access(self):
         """Test wellbeing dashboard access"""
@@ -213,22 +203,15 @@ class TestDashboardAccessControl:
     def test_equity_outcomes_access(self):
         """Test equity outcomes dashboard access"""
         assert self._can_access_dashboard(UserRole.ADMIN, "equity_outcomes") is True
-        assert (
-            self._can_access_dashboard(UserRole.DISTRICT_ANALYST, "equity_outcomes")
-            is True
-        )
+        assert self._can_access_dashboard(UserRole.DISTRICT_ANALYST, "equity_outcomes") is True
         assert self._can_access_dashboard(UserRole.TEACHER, "equity_outcomes") is False
 
     def test_class_effectiveness_access(self):
         """Test class effectiveness dashboard access"""
         # Only teachers and admins
         assert self._can_access_dashboard(UserRole.ADMIN, "class_effectiveness") is True
-        assert (
-            self._can_access_dashboard(UserRole.TEACHER, "class_effectiveness") is True
-        )
-        assert (
-            self._can_access_dashboard(UserRole.STUDENT, "class_effectiveness") is False
-        )
+        assert self._can_access_dashboard(UserRole.TEACHER, "class_effectiveness") is True
+        assert self._can_access_dashboard(UserRole.STUDENT, "class_effectiveness") is False
 
     @staticmethod
     def _can_access_dashboard(role: UserRole, dashboard: str) -> bool:

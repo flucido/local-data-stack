@@ -1,15 +1,15 @@
 """OSS Framework package."""
 
 from .utilities.oss_framework import (
+    BatchProcessor,
+    ConfigurationManager,
+    DataDictionary,
+    DataQualityChecker,
     DataTransformer,
     EngagementAggregator,
+    MetadataManager,
     Pseudonymizer,
     SchemaValidator,
-    BatchProcessor,
-    DataQualityChecker,
-    MetadataManager,
-    DataDictionary,
-    ConfigurationManager,
 )
 
 __all__ = [

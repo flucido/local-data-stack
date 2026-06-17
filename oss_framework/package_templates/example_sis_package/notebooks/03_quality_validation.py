@@ -28,9 +28,10 @@ def __():
 
     Comprehensive validation of transformed data against defined rules.
     """
-    import pandas as pd
-    import numpy as np
     from pathlib import Path
+
+    import numpy as np
+    import pandas as pd
     import yaml
 
     return pd, np, Path, yaml
@@ -156,13 +157,9 @@ def __(config, data):
             mo.md(f"**Range Check**: {len(range_check)} fields")
             for col, (min_val, max_val) in range_check.items():
                 if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
-                    out_of_range = df[(df[col] < min_val) | (df[col] > max_val)].shape[
-                        0
-                    ]
+                    out_of_range = df[(df[col] < min_val) | (df[col] > max_val)].shape[0]
                     if out_of_range > 0:
-                        mo.md(
-                            f"⚠️  {col}: {out_of_range} values outside [{min_val}, {max_val}]"
-                        )
+                        mo.md(f"⚠️  {col}: {out_of_range} values outside [{min_val}, {max_val}]")
                         results.append(
                             {
                                 "entity": entity,
@@ -203,9 +200,7 @@ def __(config, data):
 
         # Compare to thresholds
         null_status = (
-            "✓ PASS"
-            if null_pct <= quality_cfg.get("max_null_percent", 0.05) * 100
-            else "⚠️  FAIL"
+            "✓ PASS" if null_pct <= quality_cfg.get("max_null_percent", 0.05) * 100 else "⚠️  FAIL"
         )
         dup_status = (
             "✓ PASS"
@@ -213,18 +208,18 @@ def __(config, data):
             else "⚠️  FAIL"
         )
         record_status = (
-            "✓ PASS"
-            if len(df) >= quality_cfg.get("min_record_count", 100)
-            else "⚠️  FAIL"
+            "✓ PASS" if len(df) >= quality_cfg.get("min_record_count", 100) else "⚠️  FAIL"
         )
 
-        mo.md(f"""
+        mo.md(
+            f"""
         | Metric | Value | Status |
         |--------|-------|--------|
         | Records | {len(df):,} | {record_status} |
         | Null % | {null_pct:.2f}% | {null_status} |
         | Duplicate % | {dup_pct:.2f}% | {dup_status} |
-        """)
+        """
+        )
 
 
 @app.cell
@@ -248,11 +243,7 @@ def __(data):
             if pd.api.types.is_numeric_dtype(df[col]):
                 stats = f"Mean: {df[col].mean():.2f}, Min: {df[col].min():.2f}, Max: {df[col].max():.2f}"
             else:
-                sample = (
-                    str(df[col].dropna().iloc[0])[:20]
-                    if len(df[col].dropna()) > 0
-                    else "NULL"
-                )
+                sample = str(df[col].dropna().iloc[0])[:20] if len(df[col].dropna()) > 0 else "NULL"
                 stats = f"Unique: {unique:,}, Sample: {sample}"
 
             status = "✓" if null_pct < 5 else "⚠️"
@@ -289,9 +280,7 @@ def __(data):
             if std > 0:
                 outliers = df[abs((df[col] - mean) / std) > 3].shape[0]
                 if outliers > 0:
-                    anomalies.append(
-                        f"**{entity}.{col}**: {outliers} outliers (>{3} std devs)"
-                    )
+                    anomalies.append(f"**{entity}.{col}**: {outliers} outliers (>{3} std devs)")
 
     if anomalies:
         mo.md("### Detected Anomalies\n" + "\n".join([f"- {a}" for a in anomalies]))
@@ -328,31 +317,33 @@ def __(data):
     """
     import marimo as mo
 
-    mo.md("""
+    mo.md(
+        """
     ### Validation Summary
-    
+
     ✓ **Null value checks**: Verified required fields
     ✓ **Unique constraints**: Checked ID fields for duplicates
     ✓ **Range validation**: Confirmed numeric values in bounds
     ✓ **Quality metrics**: Calculated overall data quality scores
     ✓ **Anomaly detection**: Identified unusual patterns
-    
+
     ### Next Steps
-    
+
     **If issues found**:
     1. Update field mappings in `config/transformation_config.yaml`
     2. Re-run pipeline stages
     3. Re-run this validation
-    
+
     **If validation passes**:
     1. Proceed to Stage 3 aggregation
     2. Run `04_stage_comparison.py` to verify transformations
     3. Deploy to production dashboards
-    
+
     **Status**: Quality validation complete!
-    
+
     **Next Notebook**: `04_stage_comparison.py` - Compare data across stages
-    """)
+    """
+    )
 
 
 if __name__ == "__main__":

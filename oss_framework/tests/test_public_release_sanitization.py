@@ -2,7 +2,6 @@ from pathlib import Path
 
 import pyarrow.parquet as pq
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -51,4 +50,6 @@ def test_synthetic_sample_data_has_expected_shape() -> None:
         "gpa",
         "discipline_incidents",
     }.issubset(set(table.column_names))
-    assert all(student_id.startswith("SYN") for student_id in table.column("student_id").to_pylist())
+    assert all(
+        student_id.startswith("SYN") for student_id in table.column("student_id").to_pylist()
+    )

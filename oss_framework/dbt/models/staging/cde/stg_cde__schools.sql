@@ -77,11 +77,11 @@ renamed AS (
         State AS state_code,
         Phone AS phone_number,
         WebSite AS website_url,
-        CASE 
+        CASE
             WHEN OpenDate = 'No Data' OR OpenDate IS NULL THEN NULL
             ELSE TRY_CAST(OpenDate AS DATE)
         END AS open_date,
-        CASE 
+        CASE
             WHEN ClosedDate = 'No Data' OR ClosedDate IS NULL THEN NULL
             ELSE TRY_CAST(ClosedDate AS DATE)
         END AS closed_date,
@@ -103,7 +103,7 @@ renamed AS (
         Longitude AS longitude,
         AdmFName AS admin_first_name,
         AdmLName AS admin_last_name,
-        CASE 
+        CASE
             WHEN LastUpDate = 'No Data' OR LastUpDate IS NULL THEN NULL
             ELSE TRY_CAST(LastUpDate AS DATE)
         END AS last_updated_date,

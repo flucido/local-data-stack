@@ -21,11 +21,11 @@ See ``data/cde_raw/DATA_CATALOG.md`` for the full domain catalogue and quirks.
 import csv
 import logging
 import os
-import re
 import zipfile
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, List, Optional
 
 import dlt
 from dlt.common.pipeline import LoadInfo
@@ -200,22 +200,19 @@ class CDEDataLoader:
 
     # -- generic file readers ---------------------------------------------
 
-    def _read_tsv_file(
-        self, file_path: str, delimiter: str = "\t"
-    ) -> Iterator[Dict[str, Any]]:
+    def _read_tsv_file(self, file_path: str, delimiter: str = "\t") -> Iterator[Dict[str, Any]]:
         """Read a delimited text file and yield rows as dictionaries.
 
         Handles BOM on the first header name, ``\r`` in values, and suppression
         markers (``*`` / empty -> None).
         """
         try:
-            with open(file_path, "r", encoding="latin1") as f:
+            with open(file_path, encoding="latin1") as f:
                 reader = csv.DictReader(f, delimiter=delimiter)
                 if reader.fieldnames:
                     # Strip BOM from the first column name in-place.
                     reader.fieldnames = [
-                        _strip_bom(n) if i == 0 else n
-                        for i, n in enumerate(reader.fieldnames)
+                        _strip_bom(n) if i == 0 else n for i, n in enumerate(reader.fieldnames)
                     ]
                 for row in reader:
                     yield {k: _clean_value(v) for k, v in row.items()}
@@ -272,8 +269,9 @@ class CDEDataLoader:
                 break
             populated = [c for c in row if c is not None]
             if not header_found and len(populated) >= 3:
-                header = [_strip_bom(str(c)) if c is not None else f"col_{i}"
-                           for i, c in enumerate(row)]
+                header = [
+                    _strip_bom(str(c)) if c is not None else f"col_{i}" for i, c in enumerate(row)
+                ]
                 header_found = True
                 break
         if not header_found:
@@ -284,13 +282,10 @@ class CDEDataLoader:
         for row in rows_iter:
             if row is None or all(c is None for c in row):
                 continue
-            yield {header[i]: _clean_value(row[i])
-                   for i in range(min(len(header), len(row)))}
+            yield {header[i]: _clean_value(row[i]) for i in range(min(len(header), len(row)))}
         wb.close()
 
-    def _read_zip_file(
-        self, file_path: str, delimiter: str = "^"
-    ) -> Iterator[Dict[str, Any]]:
+    def _read_zip_file(self, file_path: str, delimiter: str = "^") -> Iterator[Dict[str, Any]]:
         """Read a caret-delimited data file inside a .zip (SBAC/CAASPP).
 
         Picks the largest ``all_csv_v1.txt`` member when present, otherwise the
@@ -303,9 +298,7 @@ class CDEDataLoader:
                     logger.warning("No .txt member inside %s", file_path)
                     return
                 # Prefer the full 'all_csv_v1' data member.
-                target = next(
-                    (m for m in members if "all_csv_v1" in m.lower()), members[0]
-                )
+                target = next((m for m in members if "all_csv_v1" in m.lower()), members[0])
                 with zf.open(target) as inner:
                     reader = csv.DictReader(
                         (line.decode("latin1") for line in inner),
@@ -313,8 +306,7 @@ class CDEDataLoader:
                     )
                     if reader.fieldnames:
                         reader.fieldnames = [
-                            _strip_bom(n) if i == 0 else n
-                            for i, n in enumerate(reader.fieldnames)
+                            _strip_bom(n) if i == 0 else n for i, n in enumerate(reader.fieldnames)
                         ]
                     for row in reader:
                         yield {k: _clean_value(v) for k, v in row.items()}
@@ -354,7 +346,7 @@ class CDEDataLoader:
     def _scan_txt_header(self, file_path: Path, delimiter: str) -> List[str]:
         """Read only the header line of a delimited text file."""
         try:
-            with open(file_path, "r", encoding="latin1") as f:
+            with open(file_path, encoding="latin1") as f:
                 first_line = f.readline()
             names = first_line.rstrip("\n").rstrip("\r").split(delimiter)
             return [_strip_bom(n) if i == 0 else n for i, n in enumerate(names)]
@@ -362,9 +354,7 @@ class CDEDataLoader:
             logger.warning("Could not scan header of %s: %s", file_path, e)
             return []
 
-    def _scan_xlsx_header(
-        self, file_path: Path, sheet_substr: Optional[str] = None
-    ) -> List[str]:
+    def _scan_xlsx_header(self, file_path: Path, sheet_substr: Optional[str] = None) -> List[str]:
         """Read only the detected header row of an Excel data sheet."""
         try:
             import openpyxl
@@ -387,8 +377,9 @@ class CDEDataLoader:
         for row in ws.iter_rows(min_row=1, max_row=5, values_only=True):
             populated = [c for c in row if c is not None]
             if len(populated) >= 3:
-                header = [_strip_bom(str(c)) if c is not None else f"col_{i}"
-                           for i, c in enumerate(row)]
+                header = [
+                    _strip_bom(str(c)) if c is not None else f"col_{i}" for i, c in enumerate(row)
+                ]
                 break
         wb.close()
         return header
@@ -400,9 +391,7 @@ class CDEDataLoader:
                 members = [m for m in zf.namelist() if m.lower().endswith(".txt")]
                 if not members:
                     return []
-                target = next(
-                    (m for m in members if "all_csv_v1" in m.lower()), members[0]
-                )
+                target = next((m for m in members if "all_csv_v1" in m.lower()), members[0])
                 with zf.open(target) as inner:
                     first_line = inner.readline().decode("latin1")
             names = first_line.rstrip("\n").rstrip("\r").split(delimiter)
@@ -433,9 +422,7 @@ class CDEDataLoader:
 
     # -- schema-drift-tolerant union loader -------------------------------
 
-    def _load_domain(
-        self, domain_key: str
-    ) -> Iterator[Dict[str, Any]]:
+    def _load_domain(self, domain_key: str) -> Iterator[Dict[str, Any]]:
         """Load all files for a domain, unioning columns across years.
 
         Two-pass approach for schema-drift tolerance:
@@ -596,9 +583,7 @@ _DOMAIN_METHODS: Dict[str, str] = {
 }
 
 # dlt table name per domain (cde_<domain>).
-_DOMAIN_TABLES: Dict[str, str] = {
-    key: f"cde_{key}" for key in DOMAIN_CONFIG
-}
+_DOMAIN_TABLES: Dict[str, str] = {key: f"cde_{key}" for key in DOMAIN_CONFIG}
 
 
 @dlt.source(name="cde")
@@ -624,10 +609,13 @@ def cde_source(
         """Build a dlt resource wrapping a loader method (closure factory)."""
 
         if academic_year_filter is not None:
+
             @dlt.resource(name=table_name, write_disposition="replace")
             def _r() -> Iterator[Dict[str, Any]]:
                 yield from method(academic_year=academic_year_filter)
+
         else:
+
             @dlt.resource(name=table_name, write_disposition="replace")
             def _r() -> Iterator[Dict[str, Any]]:
                 yield from method()
@@ -689,15 +677,11 @@ def run_cde_pipeline(
         stage1_path = os.getenv("STAGE1_PATH", "./oss_framework/data/stage1")
         pipeline = dlt.pipeline(
             pipeline_name="cde_to_stage1",
-            destination=dlt.destinations.filesystem(
-                bucket_url=f"{stage1_path}/transactional/cde"
-            ),
+            destination=dlt.destinations.filesystem(bucket_url=f"{stage1_path}/transactional/cde"),
             dataset_name=dataset_name,
         )
 
-    source = cde_source(
-        data_dir=data_dir, academic_year=academic_year, domains=domains
-    )
+    source = cde_source(data_dir=data_dir, academic_year=academic_year, domains=domains)
     info = pipeline.run(source)
 
     logger.info("Pipeline completed successfully")

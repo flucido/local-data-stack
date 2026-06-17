@@ -23,7 +23,7 @@ notify:
       - "#data-alerts"
       - "#data-platform"
     webhooks:
-  
+
   # Email notification for permanent record
   email:
     recipients:

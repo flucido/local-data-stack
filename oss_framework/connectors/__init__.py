@@ -18,7 +18,6 @@ from typing import Optional
 
 from oss_framework.connectors.base import SISConnector
 
-
 _CONNECTOR_REGISTRY = {
     "aeries": "oss_framework.connectors.aeries",
 }
@@ -57,7 +56,7 @@ def get_sis_connector(
         )
 
     module = importlib.import_module(module_path)
-    factory = getattr(module, "create_connector")
+    factory = module.create_connector
     return factory(
         base_url=base_url,
         api_key=api_key,

@@ -15,12 +15,12 @@ WITH scored AS (
         caf.student_id_hash,
         caf.school_id,
         caf.grade_level,
-        
+
         -- Component scores (0-100 each)
         LEAST(100, CEIL(CAST(caf.days_absent_30d AS FLOAT) * 10)) as recent_absence_score,
         LEAST(100, CEIL(CAST(caf.days_absent_90d AS FLOAT) * 3)) as trend_absence_score,
         LEAST(100, CEIL(CAST(caf.unexcused_absences_total AS FLOAT) * 5)) as unexcused_score,
-        
+
         -- Composite risk score (weighted average)
         ROUND(
             (LEAST(100, CEIL(CAST(caf.days_absent_30d AS FLOAT) * 10)) * 0.5 +
@@ -28,7 +28,7 @@ WITH scored AS (
              LEAST(100, CEIL(CAST(caf.unexcused_absences_total AS FLOAT) * 5)) * 0.2),
             1
         ) as chronic_absence_risk_score,
-        
+
         -- Raw metrics for reference
         caf.days_absent_30d,
         caf.days_absent_90d,
@@ -45,29 +45,28 @@ SELECT
     trend_absence_score,
     unexcused_score,
     chronic_absence_risk_score,
-    
+
     -- Risk classification (based on composite score)
-    CASE 
+    CASE
         WHEN chronic_absence_risk_score > 70 THEN 'CRITICAL'
         WHEN chronic_absence_risk_score > 50 THEN 'HIGH'
         WHEN chronic_absence_risk_score > 30 THEN 'MEDIUM'
         ELSE 'LOW'
     END as risk_level,
-    
+
     days_absent_30d,
     days_absent_90d,
     attendance_rate_30d,
     chronic_absence_flag,
-    
+
     -- Recommendations
-    CASE 
+    CASE
         WHEN chronic_absence_flag THEN 'CRITICAL: Schedule immediate parent conference and intervention plan'
         WHEN chronic_absence_risk_score > 50 THEN 'HIGH: Monitor closely, trending towards chronic absence'
         WHEN chronic_absence_risk_score > 30 THEN 'MEDIUM: Preventive outreach recommended'
         ELSE 'LOW: On track'
     END as recommended_action,
-    
+
     CURRENT_TIMESTAMP as calculated_at
 
 FROM scored
-

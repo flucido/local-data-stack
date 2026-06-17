@@ -52,9 +52,9 @@ oss_framework/data/stage1/
 **DuckDB Views: Fast querying layer**
 ```sql
 -- Views created by sync_raw_views_from_stage1.py
-CREATE VIEW raw_students AS 
+CREATE VIEW raw_students AS
   SELECT * FROM read_parquet('stage1/.../raw_students/**/*.parquet');
-  
+
 -- Then dbt reads from these views for Stage 2/3 transformations
 ```
 
@@ -180,8 +180,8 @@ If you're currently using the old scripts (`ingest_aeries_data.py`, `import_d_an
 ### Pre-Implementation Phase (Run BEFORE Week 1)
 
 #### 1. `setup_week1_automated.sh`
-**Purpose**: Complete setup of development environment  
-**When to run**: ONCE, at very beginning  
+**Purpose**: Complete setup of development environment
+**When to run**: ONCE, at very beginning
 **What it does**:
 - Creates Python virtual environment
 - Installs all dependencies
@@ -203,8 +203,8 @@ bash oss_framework/scripts/setup_week1_automated.sh
 ---
 
 #### 2. `validate_preimplementation.py`
-**Purpose**: Validate all prerequisites BEFORE starting Week 1  
-**When to run**: AFTER setup_week1_automated.sh and AFTER answering clarification questions  
+**Purpose**: Validate all prerequisites BEFORE starting Week 1
+**When to run**: AFTER setup_week1_automated.sh and AFTER answering clarification questions
 **What it does**:
 - Checks Python version (3.9+)
 - Verifies all required packages installed
@@ -237,8 +237,8 @@ Results: 15✅ 0❌ 2⏭️ (Total: 17)
 ### Week 1-2 Implementation Phase (Run IN SEQUENCE)
 
 #### 3. `run_week1_orchestrator.py`
-**Purpose**: Execute complete Week 1-2 data foundation in one command  
-**When to run**: AFTER validation passes  
+**Purpose**: Execute complete Week 1-2 data foundation in one command
+**When to run**: AFTER validation passes
 **What it does**:
 1. Creates Stage 1 tables in DuckDB
 2. Ingests all Aeries data (students, attendance, grades, discipline)
@@ -581,6 +581,5 @@ python oss_framework/scripts/validate_preimplementation.py -v
 
 ---
 
-**Status**: ✅ Scripts ready for Week 1-2 implementation  
+**Status**: ✅ Scripts ready for Week 1-2 implementation
 **Last Updated**: January 27, 2026
-

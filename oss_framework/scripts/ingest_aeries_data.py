@@ -1,8 +1,8 @@
 """Ingest data from Aeries API"""
 
-import duckdb
 import logging
 
+import duckdb
 from config import DUCKDB_DATABASE_PATH
 
 logger = logging.getLogger(__name__)
@@ -19,16 +19,17 @@ class AeriesDataIngestor:
         """Run complete data ingestion"""
         try:
             # Insert sample students
-            self.con.execute("""
-                INSERT INTO raw_students 
+            self.con.execute(
+                """
+                INSERT INTO raw_students
                 (student_id, first_name, last_name, date_of_birth, gender, ethnicity, school_id, grade_level)
-                SELECT 
+                SELECT
                     'STU' || LPAD(CAST(id AS VARCHAR), 4, '0'),
                     'Student',
                     'Name' || id,
                     CAST(DATE '2010-01-01' + (INTERVAL '1' DAY) * id AS DATE),
                     CASE WHEN id % 2 = 0 THEN 'M' ELSE 'F' END,
-                    CASE id % 5 
+                    CASE id % 5
                         WHEN 0 THEN 'Hispanic'
                         WHEN 1 THEN 'White'
                         WHEN 2 THEN 'Asian'
@@ -38,18 +39,18 @@ class AeriesDataIngestor:
                     'SCH' || (id % 3 + 1),
                     (id % 12) + 1
                 FROM (SELECT * FROM RANGE(1, 1701) AS r(id))
-            """)
-            student_count = self.con.execute(
-                "SELECT COUNT(*) FROM raw_students"
-            ).fetchone()[0]
+            """
+            )
+            student_count = self.con.execute("SELECT COUNT(*) FROM raw_students").fetchone()[0]
             self.results["students"] = student_count
             logger.info(f"Ingested {student_count} students")
 
             # Insert sample attendance
-            self.con.execute("""
+            self.con.execute(
+                """
                 INSERT INTO raw_attendance
                 (attendance_id, student_id, school_id, attendance_date, attendance_status, present_flag)
-                SELECT 
+                SELECT
                     'ATT' || LPAD(CAST(id AS VARCHAR), 8, '0'),
                     'STU' || LPAD(CAST((id % 1700) + 1 AS VARCHAR), 4, '0'),
                     'SCH' || ((id % 1700) % 3 + 1),
@@ -57,23 +58,23 @@ class AeriesDataIngestor:
                     CASE WHEN id % 20 = 0 THEN 'Absent' ELSE 'Present' END,
                     CASE WHEN id % 20 = 0 THEN false ELSE true END
                 FROM (SELECT * FROM RANGE(1, 45001) AS r(id))
-            """)
-            attendance_count = self.con.execute(
-                "SELECT COUNT(*) FROM raw_attendance"
-            ).fetchone()[0]
+            """
+            )
+            attendance_count = self.con.execute("SELECT COUNT(*) FROM raw_attendance").fetchone()[0]
             self.results["attendance"] = attendance_count
             logger.info(f"Ingested {attendance_count} attendance records")
 
             # Insert sample grades
-            self.con.execute("""
+            self.con.execute(
+                """
                 INSERT INTO raw_academic_records
                 (record_id, student_id, school_id, course_id, grade, score, term, school_year)
-                SELECT 
+                SELECT
                     'GRD' || LPAD(CAST(id AS VARCHAR), 8, '0'),
                     'STU' || LPAD(CAST((id % 1700) + 1 AS VARCHAR), 4, '0'),
                     'SCH' || ((id % 1700) % 3 + 1),
                     'CRS' || ((id % 50) + 1),
-                    CASE WHEN id % 100 < 10 THEN 'F' 
+                    CASE WHEN id % 100 < 10 THEN 'F'
                          WHEN id % 100 < 25 THEN 'D'
                          WHEN id % 100 < 50 THEN 'C'
                          WHEN id % 100 < 75 THEN 'B'
@@ -82,23 +83,25 @@ class AeriesDataIngestor:
                     'Q1',
                     '2024-2025'
                 FROM (SELECT * FROM RANGE(1, 200001) AS r(id))
-            """)
-            grade_count = self.con.execute(
-                "SELECT COUNT(*) FROM raw_academic_records"
-            ).fetchone()[0]
+            """
+            )
+            grade_count = self.con.execute("SELECT COUNT(*) FROM raw_academic_records").fetchone()[
+                0
+            ]
             self.results["grades"] = grade_count
             logger.info(f"Ingested {grade_count} grade records")
 
             # Insert sample discipline
-            self.con.execute("""
+            self.con.execute(
+                """
                 INSERT INTO raw_discipline
                 (incident_id, student_id, school_id, incident_date, incident_type, severity)
-                SELECT 
+                SELECT
                     'DIS' || LPAD(CAST(id AS VARCHAR), 6, '0'),
                     'STU' || LPAD(CAST((id % 1700) + 1 AS VARCHAR), 4, '0'),
                     'SCH' || ((id % 1700) % 3 + 1),
                     CAST(DATE '2025-01-01' + (INTERVAL '1' DAY) * ((id - 1) / 50) AS DATE),
-                    CASE id % 5 
+                    CASE id % 5
                         WHEN 0 THEN 'Tardy'
                         WHEN 1 THEN 'Behavior'
                         WHEN 2 THEN 'Class Disruption'
@@ -110,18 +113,18 @@ class AeriesDataIngestor:
                         ELSE 'High'
                     END
                 FROM (SELECT * FROM RANGE(1, 2001) AS r(id))
-            """)
-            discipline_count = self.con.execute(
-                "SELECT COUNT(*) FROM raw_discipline"
-            ).fetchone()[0]
+            """
+            )
+            discipline_count = self.con.execute("SELECT COUNT(*) FROM raw_discipline").fetchone()[0]
             self.results["discipline"] = discipline_count
             logger.info(f"Ingested {discipline_count} discipline records")
 
             # Insert sample enrollment
-            self.con.execute("""
+            self.con.execute(
+                """
                 INSERT INTO raw_enrollment
                 (enrollment_id, student_id, school_id, school_year, enrollment_date, grade_level)
-                SELECT 
+                SELECT
                     'ENR' || LPAD(CAST(id AS VARCHAR), 6, '0'),
                     'STU' || LPAD(CAST(id AS VARCHAR), 4, '0'),
                     'SCH' || (id % 3 + 1),
@@ -129,10 +132,9 @@ class AeriesDataIngestor:
                     CAST(DATE '2024-08-01' + (INTERVAL '1' DAY) * ((id - 1) / 1700) AS DATE),
                     (id % 12) + 1
                 FROM (SELECT * FROM RANGE(1, 1701) AS r(id))
-            """)
-            enrollment_count = self.con.execute(
-                "SELECT COUNT(*) FROM raw_enrollment"
-            ).fetchone()[0]
+            """
+            )
+            enrollment_count = self.con.execute("SELECT COUNT(*) FROM raw_enrollment").fetchone()[0]
             self.results["enrollment"] = enrollment_count
             logger.info(f"Ingested {enrollment_count} enrollment records")
 

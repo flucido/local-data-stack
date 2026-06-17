@@ -3,16 +3,15 @@ Orchestrator for Week 1-2 Data Foundation Implementation
 Runs all data ingestion, transformation, and validation in sequence
 """
 
-import logging
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 # Add scripts directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
+from config import STAGE1_PATH, validate_config
 from logging_config import setup_logging
-from config import validate_config, STAGE1_PATH, STAGE2_PATH
 
 logger = setup_logging(__name__)
 
@@ -66,8 +65,8 @@ class Week1Orchestrator:
         """Import D&F (D grades, F grades, 504, SPED) report"""
         logger.info("STEP 4: Importing D&F report from Excel...")
         try:
-            from import_d_and_f_report import DAndFImporter
             from config import EXCEL_DF_REPORT_PATH
+            from import_d_and_f_report import DAndFImporter
 
             if not EXCEL_DF_REPORT_PATH:
                 logger.warning("⚠️  D&F report path not configured, skipping")
@@ -90,8 +89,8 @@ class Week1Orchestrator:
         """Import demographic data from Excel"""
         logger.info("STEP 5: Importing demographic data from Excel...")
         try:
-            from import_demographic_data import DemographicImporter
             from config import EXCEL_DEMOGRAPHIC_PATH
+            from import_demographic_data import DemographicImporter
 
             if not EXCEL_DEMOGRAPHIC_PATH:
                 logger.warning("⚠️  Demographic report path not configured, skipping")
@@ -114,8 +113,8 @@ class Week1Orchestrator:
         """Run data quality validation tests"""
         logger.info("STEP 6: Running data quality validation tests...")
         try:
-            from data_quality import DataQualityValidator
             from config import DUCKDB_DATABASE_PATH
+            from data_quality import DataQualityValidator
 
             validator = DataQualityValidator(DUCKDB_DATABASE_PATH)
             results = validator.run_all_validations()

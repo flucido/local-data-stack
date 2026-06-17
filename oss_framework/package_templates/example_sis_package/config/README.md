@@ -82,7 +82,7 @@ sis:
 
 **Student Query**:
 ```sql
-SELECT 
+SELECT
   STUDENTID as student_id,
   FIRSTNAME as first_name,
   LASTNAME as last_name,
@@ -120,7 +120,7 @@ sis:
 
 **Student Query**:
 ```sql
-SELECT 
+SELECT
   STU.StudentNumber,
   STU.FirstName,
   STU.LastName,
@@ -154,7 +154,7 @@ sis:
   driver: rest+https
   username: ${IC_USER}
   password: ${IC_PASSWORD}
-  
+
   # REST API endpoint
   query: "/services/v2/students"
 ```
@@ -192,7 +192,7 @@ sis:
 
 **Student Query**:
 ```sql
-SELECT 
+SELECT
   student_number,
   first_name,
   last_name,
@@ -451,7 +451,7 @@ Fails if pattern doesn't match.
 ```yaml
 validation:
   sql_check: |
-    SELECT student_id FROM stage2a.students 
+    SELECT student_id FROM stage2a.students
     WHERE grade_level < 0 OR grade_level > 16
 ```
 
@@ -495,7 +495,7 @@ sis:
   password: ${SIS_PASSWORD}
   database: pssis
   query: SELECT ...                # Your extraction query
-  
+
 batch:
   mode: delta
   batch_date_column: LastModified  # Your timestamp column
@@ -643,5 +643,5 @@ For more information:
 
 ---
 
-**Last Updated**: January 26, 2026  
+**Last Updated**: January 26, 2026
 **Maintainer**: OSE Framework Team

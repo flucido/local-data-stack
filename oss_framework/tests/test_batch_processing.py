@@ -1,9 +1,8 @@
 """Integration tests for batch_processing module"""
 
-import pytest
-import pandas as pd
 import numpy as np
-from oss_framework import BatchProcessor
+import pandas as pd
+import pytest
 
 
 @pytest.mark.integration
@@ -85,9 +84,7 @@ class TestDataQualityChecks:
 
     def test_duplicate_detection(self, batch_processor):
         """Test duplicate record detection"""
-        df = pd.DataFrame(
-            {"record_id": ["REC001", "REC002", "REC001"], "value": [100, 200, 100]}
-        )
+        df = pd.DataFrame({"record_id": ["REC001", "REC002", "REC001"], "value": [100, 200, 100]})
 
         quality_report = batch_processor.check_quality(df, entity="test")
 
@@ -117,9 +114,7 @@ class TestDataQualityChecks:
 class TestEndToEndPipeline:
     """End-to-end pipeline tests"""
 
-    def test_students_pipeline(
-        self, batch_processor, sample_students_df, pseudonymizer
-    ):
+    def test_students_pipeline(self, batch_processor, sample_students_df, pseudonymizer):
         """Test complete student data pipeline"""
         df = sample_students_df.copy()
 
@@ -132,9 +127,7 @@ class TestEndToEndPipeline:
             assert (anonymized["student_id"] != df["student_id"]).all()
             assert anonymized["grade_level"].equals(df["grade_level"])
 
-    def test_enrollment_pipeline(
-        self, batch_processor, sample_enrollment_df, pseudonymizer
-    ):
+    def test_enrollment_pipeline(self, batch_processor, sample_enrollment_df, pseudonymizer):
         """Test complete enrollment pipeline"""
         df = sample_enrollment_df.copy()
 
@@ -151,9 +144,7 @@ class TestEndToEndPipeline:
     ):
         """Test joining multiple entities"""
         students = sample_students_df[["student_id", "grade_level"]]
-        enrollment = sample_enrollment_df[
-            ["student_id", "course_id", "final_grade_numeric"]
-        ]
+        enrollment = sample_enrollment_df[["student_id", "course_id", "final_grade_numeric"]]
         academics = sample_academic_records_df[
             ["student_id", "assignment_type", "assignment_grade_percent"]
         ]

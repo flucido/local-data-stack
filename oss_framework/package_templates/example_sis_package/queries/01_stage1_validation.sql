@@ -16,7 +16,7 @@ WHERE table_schema = 'public'
 ORDER BY table_name;
 
 -- Verify all required columns exist
-SELECT 
+SELECT
   t.table_name,
   c.column_name,
   c.data_type,
@@ -34,38 +34,38 @@ ORDER BY t.table_name, c.ordinal_position;
 -- ========================================
 
 -- Summary of all table sizes
-SELECT 
+SELECT
   'students' as table_name,
   COUNT(*) as total_records,
   COUNT(DISTINCT student_id) as unique_students
 FROM students
 UNION ALL
-SELECT 
+SELECT
   'courses',
   COUNT(*),
   COUNT(DISTINCT course_id)
 FROM courses
 UNION ALL
-SELECT 
+SELECT
   'enrollment',
   COUNT(*),
   COUNT(DISTINCT student_id)
 FROM enrollment
 UNION ALL
-SELECT 
+SELECT
   'attendance',
   COUNT(*),
   COUNT(DISTINCT student_id)
 FROM attendance
 UNION ALL
-SELECT 
+SELECT
   'academic_records',
   COUNT(*),
   COUNT(DISTINCT student_id)
 FROM academic_records;
 
 -- Distribution by enrollment status
-SELECT 
+SELECT
   enrollment_status,
   COUNT(*) as count,
   ROUND(100.0 * COUNT(*) / (SELECT COUNT(*) FROM students), 2) as percent
@@ -74,7 +74,7 @@ GROUP BY enrollment_status
 ORDER BY count DESC;
 
 -- Distribution by grade level
-SELECT 
+SELECT
   grade_level,
   COUNT(*) as student_count,
   COUNT(DISTINCT student_id) as unique_count
@@ -89,7 +89,7 @@ ORDER BY grade_level;
 -- ========================================
 
 -- Find NULL values in critical fields
-SELECT 
+SELECT
   'students' as table_name,
   COUNT(*) as total_rows,
   COUNT(CASE WHEN student_id IS NULL THEN 1 END) as student_id_nulls,
@@ -99,7 +99,7 @@ SELECT
   COUNT(CASE WHEN enrollment_status IS NULL THEN 1 END) as status_nulls
 FROM students
 UNION ALL
-SELECT 
+SELECT
   'courses',
   COUNT(*),
   COUNT(CASE WHEN course_id IS NULL THEN 1 END),
@@ -107,7 +107,7 @@ SELECT
   0, 0, 0
 FROM courses
 UNION ALL
-SELECT 
+SELECT
   'enrollment',
   COUNT(*),
   COUNT(CASE WHEN enrollment_id IS NULL THEN 1 END),
@@ -116,7 +116,7 @@ SELECT
   0, 0
 FROM enrollment
 UNION ALL
-SELECT 
+SELECT
   'attendance',
   COUNT(*),
   COUNT(CASE WHEN attendance_id IS NULL THEN 1 END),
@@ -125,7 +125,7 @@ SELECT
   0, 0
 FROM attendance
 UNION ALL
-SELECT 
+SELECT
   'academic_records',
   COUNT(*),
   COUNT(CASE WHEN record_id IS NULL THEN 1 END),
@@ -141,7 +141,7 @@ FROM academic_records;
 -- ========================================
 
 -- Check for duplicate student IDs
-SELECT 
+SELECT
   student_id,
   COUNT(*) as duplicate_count
 FROM students
@@ -150,7 +150,7 @@ HAVING COUNT(*) > 1
 ORDER BY duplicate_count DESC;
 
 -- Check for duplicate course IDs
-SELECT 
+SELECT
   course_id,
   COUNT(*) as duplicate_count
 FROM courses
@@ -159,7 +159,7 @@ HAVING COUNT(*) > 1
 ORDER BY duplicate_count DESC;
 
 -- Check for duplicate enrollments (same student + course + term)
-SELECT 
+SELECT
   student_id,
   course_id,
   term,
@@ -176,7 +176,7 @@ ORDER BY duplicate_count DESC;
 -- ========================================
 
 -- Find invalid dates
-SELECT 
+SELECT
   student_id,
   date_of_birth,
   EXTRACT(YEAR FROM date_of_birth) as birth_year
@@ -188,7 +188,7 @@ WHERE date_of_birth IS NOT NULL
 ORDER BY date_of_birth DESC;
 
 -- Find invalid enrollment dates (future dates)
-SELECT 
+SELECT
   enrollment_id,
   student_id,
   enrollment_date,
@@ -199,7 +199,7 @@ WHERE enrollment_date > CURRENT_DATE
 ORDER BY enrollment_date DESC;
 
 -- Find invalid GPA values
-SELECT 
+SELECT
   gpa,
   COUNT(*) as count
 FROM students
@@ -222,7 +222,7 @@ ORDER BY grade;
 -- ========================================
 
 -- Check for enrollment records with non-existent students
-SELECT 
+SELECT
   COUNT(*) as orphaned_enrollment_count
 FROM enrollment e
 WHERE NOT EXISTS (
@@ -230,7 +230,7 @@ WHERE NOT EXISTS (
 );
 
 -- Check for enrollment records with non-existent courses
-SELECT 
+SELECT
   COUNT(*) as orphaned_enrollment_count
 FROM enrollment e
 WHERE NOT EXISTS (
@@ -238,7 +238,7 @@ WHERE NOT EXISTS (
 );
 
 -- Check for attendance records with non-existent students
-SELECT 
+SELECT
   COUNT(*) as orphaned_attendance_count
 FROM attendance a
 WHERE NOT EXISTS (
@@ -246,7 +246,7 @@ WHERE NOT EXISTS (
 );
 
 -- Check for academic_records with non-existent students
-SELECT 
+SELECT
   COUNT(*) as orphaned_academic_records_count
 FROM academic_records ar
 WHERE NOT EXISTS (
@@ -260,7 +260,7 @@ WHERE NOT EXISTS (
 -- ========================================
 
 -- Students with grade_level inconsistencies
-SELECT 
+SELECT
   student_id,
   first_name,
   last_name,
@@ -272,7 +272,7 @@ WHERE grade_level NOT BETWEEN 0 AND 12
 ORDER BY student_id;
 
 -- Withdrawn students with future withdrawal dates
-SELECT 
+SELECT
   student_id,
   enrollment_status,
   withdrawal_date,
@@ -283,7 +283,7 @@ WHERE enrollment_status = 'Withdrawn'
 ORDER BY withdrawal_date DESC;
 
 -- Active students with very old enrollment dates (potential status error)
-SELECT 
+SELECT
   student_id,
   enrollment_date,
   EXTRACT(YEAR FROM AGE(CURRENT_DATE, enrollment_date)) as years_enrolled
@@ -299,7 +299,7 @@ ORDER BY enrollment_date;
 -- ========================================
 
 -- Attendance dates outside expected range
-SELECT 
+SELECT
   attendance_date,
   COUNT(*) as record_count
 FROM attendance
@@ -309,7 +309,7 @@ GROUP BY attendance_date
 ORDER BY attendance_date DESC;
 
 -- Academic record dates inconsistencies
-SELECT 
+SELECT
   ar.record_id,
   ar.assignment_date,
   ar.submission_date,
@@ -328,7 +328,7 @@ ORDER BY ar.record_id;
 -- ========================================
 
 -- Attendance rate outliers (should be 0.0-1.0)
-SELECT 
+SELECT
   student_id,
   attendance_rate,
   COUNT(*) as record_count
@@ -339,7 +339,7 @@ GROUP BY student_id, attendance_rate
 ORDER BY attendance_rate DESC;
 
 -- Grade percentage outliers
-SELECT 
+SELECT
   enrollment_id,
   student_id,
   course_id,
@@ -350,7 +350,7 @@ WHERE final_grade_percent IS NOT NULL
 ORDER BY final_grade_percent DESC;
 
 -- Credit hours validation
-SELECT 
+SELECT
   course_id,
   credit_hours,
   COUNT(DISTINCT enrollment_id) as enrollment_count
@@ -373,7 +373,7 @@ WITH attendance_dates AS (
   WHERE attendance_date >= CURRENT_DATE - INTERVAL '30 days'
   ORDER BY attendance_date
 )
-SELECT 
+SELECT
   a1.attendance_date,
   a2.attendance_date,
   (a2.attendance_date - a1.attendance_date) as gap_days
@@ -389,7 +389,7 @@ LIMIT 20;
 -- ========================================
 
 -- Check for empty/missing sensitive fields
-SELECT 
+SELECT
   COUNT(*) as total,
   COUNT(CASE WHEN email IS NULL THEN 1 END) as email_nulls,
   COUNT(CASE WHEN phone IS NULL THEN 1 END) as phone_nulls,
@@ -398,7 +398,7 @@ SELECT
 FROM students;
 
 -- Check for PII patterns that might need masking
-SELECT 
+SELECT
   COUNT(*) as total,
   COUNT(CASE WHEN email LIKE '%@%.%' THEN 1 END) as valid_emails,
   COUNT(CASE WHEN phone LIKE '+1-%' OR phone LIKE '(%' THEN 1 END) as valid_phones,
@@ -413,38 +413,38 @@ WHERE email IS NOT NULL OR phone IS NOT NULL OR ssn IS NOT NULL;
 -- ========================================
 
 -- Overall data quality scorecard
-SELECT 
+SELECT
   'Students' as entity,
   (SELECT COUNT(*) FROM students) as total_records,
   (SELECT COUNT(*) FROM students WHERE student_id IS NULL) as critical_errors,
   (SELECT COUNT(*) FROM students WHERE first_name IS NULL OR last_name IS NULL) as data_gaps,
   (SELECT COUNT(DISTINCT student_id) FROM students) as unique_ids,
-  CASE 
+  CASE
     WHEN (SELECT COUNT(*) FROM students) = 0 THEN 'NO DATA'
     WHEN (SELECT COUNT(*) FROM students WHERE student_id IS NULL) > 0 THEN 'CRITICAL'
     WHEN (SELECT COUNT(*) FROM students WHERE first_name IS NULL OR last_name IS NULL) > (SELECT COUNT(*) FROM students) * 0.05 THEN 'WARNING'
     ELSE 'PASS'
   END as overall_status
 UNION ALL
-SELECT 
+SELECT
   'Enrollment',
   (SELECT COUNT(*) FROM enrollment),
   (SELECT COUNT(*) FROM enrollment WHERE enrollment_id IS NULL),
   (SELECT COUNT(*) FROM enrollment WHERE student_id IS NULL OR course_id IS NULL),
   (SELECT COUNT(DISTINCT student_id) FROM enrollment),
-  CASE 
+  CASE
     WHEN (SELECT COUNT(*) FROM enrollment) = 0 THEN 'NO DATA'
     WHEN (SELECT COUNT(*) FROM enrollment WHERE enrollment_id IS NULL OR student_id IS NULL) > 0 THEN 'CRITICAL'
     ELSE 'PASS'
   END
 UNION ALL
-SELECT 
+SELECT
   'Attendance',
   (SELECT COUNT(*) FROM attendance),
   (SELECT COUNT(*) FROM attendance WHERE student_id IS NULL),
   (SELECT COUNT(*) FROM attendance WHERE attendance_date IS NULL),
   (SELECT COUNT(DISTINCT student_id) FROM attendance),
-  CASE 
+  CASE
     WHEN (SELECT COUNT(*) FROM attendance) = 0 THEN 'NO DATA'
     WHEN (SELECT COUNT(*) FROM attendance WHERE student_id IS NULL) > 0 THEN 'CRITICAL'
     ELSE 'PASS'

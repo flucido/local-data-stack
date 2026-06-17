@@ -5,13 +5,11 @@ Stage 1 canonical landing is Parquet under STAGE1_PATH.
 
 from __future__ import annotations
 
+import logging
 from datetime import date
 from pathlib import Path
 
-import logging
-
 import pandas as pd
-
 from config import STAGE1_PATH
 
 logger = logging.getLogger(__name__)

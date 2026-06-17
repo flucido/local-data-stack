@@ -23,38 +23,35 @@ import gradio as gr
 # spaces.GPU is only available on HF Spaces — use a no-op locally
 try:
     import spaces
+
     _gpu_decorator = spaces.GPU(duration=30)
 except ImportError:
     _gpu_decorator = lambda fn: fn  # no-op for local dev
 
-from model_inference import load_model, generate_sql_streaming
-from data_engine import create_session, get_schema_info, execute_safe, QueryTimeoutError
+from data_engine import QueryTimeoutError, create_session, execute_safe, get_schema_info
+from model_inference import generate_sql_streaming, load_model
 from ui_strings import (
-    APP_TITLE,
-    APP_TAGLINE,
-    FIRST_VISIT_NUDGE,
-    PRIVACY_EXPLAINER,
-    HOW_IT_WORKS,
-    WHAT_THIS_IS,
-    WHAT_THIS_IS_NOT,
-    WHAT_THIS_IS_ONE_LINER,
-    WHAT_THIS_IS_NOT_ONE_LINER,
-    DOMAIN_SECTIONS,
-    INPUT_HELPER,
-    INPUT_PROMPT_EMPTY,
-    SUMMARY_TEMPLATES,
-    ERROR_REPHRASINGS,
-    SQL_DISCLOSURE_LABEL,
-    PREVIOUS_RIBBON_TEMPLATE,
-    ABOUT_MODAL_TITLE,
-    ABOUT_MODAL_INTRO,
+    ABOUT_MODAL_FAQ,
+    ABOUT_MODAL_HINT,
     ABOUT_MODAL_HOW_IT_WORKS,
+    ABOUT_MODAL_INTRO,
     ABOUT_MODAL_PRIVACY,
+    ABOUT_MODAL_TITLE,
     ABOUT_MODAL_WHAT_IT_IS_BULLETS,
     ABOUT_MODAL_WHAT_IT_ISNT_BULLETS,
-    ABOUT_MODAL_FAQ,
-    ABOUT_MODAL_CLOSE,
-    ABOUT_MODAL_HINT,
+    APP_TAGLINE,
+    APP_TITLE,
+    DOMAIN_SECTIONS,
+    ERROR_REPHRASINGS,
+    FIRST_VISIT_NUDGE,
+    HOW_IT_WORKS,
+    INPUT_PROMPT_EMPTY,
+    PREVIOUS_RIBBON_TEMPLATE,
+    PRIVACY_EXPLAINER,
+    SQL_DISCLOSURE_LABEL,
+    SUMMARY_TEMPLATES,
+    WHAT_THIS_IS_NOT_ONE_LINER,
+    WHAT_THIS_IS_ONE_LINER,
 )
 
 # ── Startup ───────────────────────────────────────────────────────────
@@ -88,10 +85,12 @@ def get_warehouse_schema() -> dict:
 
 # ── Result + session state ────────────────────────────────────────────
 
+
 @dataclass
 class PriorAnswer:
     """One-step memory: the most recent successful answer, kept so the next
     question can refer to it without the user having to remember."""
+
     question: str
     summary: str
     sql: str
@@ -118,6 +117,7 @@ def format_result_df(df):
     if df is None:
         return None
     import pandas as pd
+
     df = df.copy()
     for col in df.columns:
         col_lower = str(col).lower()
@@ -131,6 +131,7 @@ def format_result_df(df):
         if not pd.api.types.is_numeric_dtype(df[col]):
             continue
         if is_pct:
+
             def _fmt(v):
                 if pd.isna(v):
                     return v
@@ -139,13 +140,12 @@ def format_result_df(df):
                 if 0 <= val <= 1:
                     val *= 100
                 return f"{round(val, 2):.2f}%"
+
             df[col] = df[col].apply(_fmt)
         elif pd.api.types.is_integer_dtype(df[col]):
             pass  # keep integers as integers
         elif pd.api.types.is_float_dtype(df[col]):
-            df[col] = df[col].apply(
-                lambda v: round(float(v), 2) if pd.notna(v) else v
-            )
+            df[col] = df[col].apply(lambda v: round(float(v), 2) if pd.notna(v) else v)
     return df
 
 
@@ -183,6 +183,7 @@ def rephrase_error(raw_error: str, raw_sql: str) -> str:
 
 
 # ── Query handler ─────────────────────────────────────────────────────
+
 
 @_gpu_decorator
 def handle_query(user_question: str, prior_state: dict | None):
@@ -270,15 +271,16 @@ def bring_back_prior(prior_state: dict | None) -> tuple:
     prior = _state_to_prior(prior_state)
     if prior is None:
         return (
-            "",         # ribbon text (empty)
-            None,       # sql
-            None,       # df
-            "",         # summary html
+            "",  # ribbon text (empty)
+            None,  # sql
+            None,  # df
+            "",  # summary html
             prior_state,
             gr.update(visible=False),  # bring-back button
         )
     # prior.rows are stored as list[list]; rebuild the formatted display
     import pandas as pd
+
     df = pd.DataFrame(prior.rows, columns=prior.columns) if prior.columns else None
     df = format_result_df(df)
     return (
@@ -485,14 +487,15 @@ document.addEventListener('keydown', function (e) {
 
 # ── Component builders ────────────────────────────────────────────────
 
+
 def build_explainer_html() -> str:
     return (
         f'<div class="explainer">'
-        f'<h3>How this works</h3>'
-        f'<p>{HOW_IT_WORKS}</p>'
+        f"<h3>How this works</h3>"
+        f"<p>{HOW_IT_WORKS}</p>"
         f'<h3 style="margin-top:1.5rem;">Your privacy</h3>'
-        f'<p>{PRIVACY_EXPLAINER}</p>'
-        f'</div>'
+        f"<p>{PRIVACY_EXPLAINER}</p>"
+        f"</div>"
     )
 
 
@@ -500,12 +503,12 @@ def build_footer_html() -> str:
     return (
         f'<div class="app-footer">'
         f'<div class="footer-cols">'
-        f'<div><h4>What this is</h4>'
-        f'<p>{WHAT_THIS_IS_ONE_LINER}</p></div>'
-        f'<div><h4>What this isn’t</h4>'
-        f'<p>{WHAT_THIS_IS_NOT_ONE_LINER}</p></div>'
-        f'</div>'
-        f'</div>'
+        f"<div><h4>What this is</h4>"
+        f"<p>{WHAT_THIS_IS_ONE_LINER}</p></div>"
+        f"<div><h4>What this isn’t</h4>"
+        f"<p>{WHAT_THIS_IS_NOT_ONE_LINER}</p></div>"
+        f"</div>"
+        f"</div>"
     )
 
 
@@ -522,21 +525,21 @@ def build_about_modal_html() -> str:
         f'<div class="about-modal-header">'
         f'<h2 id="about-modal-title">{ABOUT_MODAL_TITLE}</h2>'
         f'<button class="about-modal-close" onclick="closeAboutModal()" aria-label="Close">×</button>'
-        f'</div>'
-        f'<p>{ABOUT_MODAL_INTRO}</p>'
-        f'<h3>How it works</h3>'
-        f'<p>{ABOUT_MODAL_HOW_IT_WORKS}</p>'
-        f'<h3>What you can do</h3>'
-        f'<ul>{what_is_items}</ul>'
-        f'<h3>What it isn’t</h3>'
-        f'<ul>{what_isnt_items}</ul>'
-        f'<h3>FAQ</h3>'
-        f'{faq_items}'
-        f'<h3>Privacy</h3>'
-        f'<p>{ABOUT_MODAL_PRIVACY}</p>'
+        f"</div>"
+        f"<p>{ABOUT_MODAL_INTRO}</p>"
+        f"<h3>How it works</h3>"
+        f"<p>{ABOUT_MODAL_HOW_IT_WORKS}</p>"
+        f"<h3>What you can do</h3>"
+        f"<ul>{what_is_items}</ul>"
+        f"<h3>What it isn’t</h3>"
+        f"<ul>{what_isnt_items}</ul>"
+        f"<h3>FAQ</h3>"
+        f"{faq_items}"
+        f"<h3>Privacy</h3>"
+        f"<p>{ABOUT_MODAL_PRIVACY}</p>"
         f'<div class="about-modal-hint">{ABOUT_MODAL_HINT}</div>'
-        f'</div>'
-        f'</div>'
+        f"</div>"
+        f"</div>"
     )
 
 
@@ -659,14 +662,17 @@ def build_demo() -> gr.Blocks:
             ):
                 ribbon_text = (
                     PREVIOUS_RIBBON_TEMPLATE.format(summary=prior_obj.summary)
-                    if prior_obj is not None else ""
+                    if prior_obj is not None
+                    else ""
                 )
                 summary_visible = bool(status_text and emoji in ("✅",))
                 has_data = df is not None
 
                 csv_path = None
                 if has_data:
-                    import tempfile, datetime as _dt
+                    import datetime as _dt
+                    import tempfile
+
                     csv_path = os.path.join(
                         tempfile.gettempdir(),
                         f"lfed_result_{_dt.datetime.now(_dt.timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv",
@@ -678,7 +684,8 @@ def build_demo() -> gr.Blocks:
                     gr.update(
                         value=(
                             f'<p class="result-summary">{status_text}</p>'
-                            if summary_visible else ""
+                            if summary_visible
+                            else ""
                         ),
                         visible=summary_visible,
                     ),
@@ -710,15 +717,27 @@ def build_demo() -> gr.Blocks:
             fn=bring_back_prior,
             inputs=[prior_state],
             outputs=[
-                previous_ribbon, sql_output, data_output,
-                result_summary, prior_state, bring_back_btn,
+                previous_ribbon,
+                sql_output,
+                data_output,
+                result_summary,
+                prior_state,
+                bring_back_btn,
             ],
         )
 
         submit_outputs = [
-            previous_ribbon, result_summary, data_output, download_output,
-            sql_output, status, first_visit, prior_state, has_asked,
-            bring_back_btn, *[dd for dd, _ in starter_buttons],
+            previous_ribbon,
+            result_summary,
+            data_output,
+            download_output,
+            sql_output,
+            status,
+            first_visit,
+            prior_state,
+            has_asked,
+            bring_back_btn,
+            *[dd for dd, _ in starter_buttons],
         ]
         submit_btn.click(
             fn=on_submit,

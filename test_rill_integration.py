@@ -13,13 +13,11 @@ Dashboard Coverage:
   5. wellbeing_risk_profiles - Identifies students at risk across attendance, discipline, and academic domains
 """
 
-import json
-import time
+from datetime import datetime
+from typing import Any, Dict, List, Tuple
+
 import pytest
 import requests
-from typing import Dict, List, Any, Tuple
-from datetime import datetime
-
 
 # ============================================================================
 # FIXTURES
@@ -248,12 +246,12 @@ class TestChronicAbsenteeismDashboard:
 
             # Validate total_students (should be positive integer)
             if "total_students" in row and row["total_students"] is not None:
-                assert isinstance(row["total_students"], (int, float)), (
-                    f"total_students should be numeric, got {type(row['total_students'])}"
-                )
-                assert row["total_students"] >= 0, (
-                    f"total_students should be non-negative, got {row['total_students']}"
-                )
+                assert isinstance(
+                    row["total_students"], (int, float)
+                ), f"total_students should be numeric, got {type(row['total_students'])}"
+                assert (
+                    row["total_students"] >= 0
+                ), f"total_students should be non-negative, got {row['total_students']}"
 
 
 # ============================================================================
@@ -342,12 +340,12 @@ class TestEquityOutcomesDashboard:
         for row in data:
             # Validate cohort_size
             if "cohort_size" in row and row["cohort_size"] is not None:
-                assert isinstance(row["cohort_size"], (int, float)), (
-                    f"cohort_size should be numeric, got {type(row['cohort_size'])}"
-                )
-                assert row["cohort_size"] >= 0, (
-                    f"cohort_size should be non-negative, got {row['cohort_size']}"
-                )
+                assert isinstance(
+                    row["cohort_size"], (int, float)
+                ), f"cohort_size should be numeric, got {type(row['cohort_size'])}"
+                assert (
+                    row["cohort_size"] >= 0
+                ), f"cohort_size should be non-negative, got {row['cohort_size']}"
 
 
 # ============================================================================
@@ -594,10 +592,10 @@ class TestWellbeingRiskDashboard:
 
             # Validate student counts are non-negative
             if "total_students" in row and row["total_students"] is not None:
-                assert isinstance(row["total_students"], (int, float)), (
-                    f"total_students should be numeric"
-                )
-                assert row["total_students"] >= 0, f"total_students should be non-negative"
+                assert isinstance(
+                    row["total_students"], (int, float)
+                ), "total_students should be numeric"
+                assert row["total_students"] >= 0, "total_students should be non-negative"
 
 
 # ============================================================================

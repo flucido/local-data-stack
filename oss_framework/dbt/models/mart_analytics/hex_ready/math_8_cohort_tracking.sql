@@ -8,7 +8,7 @@
     tags=['analytics', 'hex', 'cohort', 'pathways']
 ) }}
 
-WITH 
+WITH
 -- Step 1: Identify 7th graders in Math 8 (course 325) by year
 math_8_7th_graders AS (
     SELECT DISTINCT
@@ -62,11 +62,11 @@ algebra_1_8th_graders AS (
 -- Step 5: Match 7th grade students to their 8th grade Algebra 1 outcomes
 -- A student in 7th grade in 2022-2023 should be in 8th grade in 2023-2024
 cohort_tracking AS (
-    SELECT 
+    SELECT
         s7.student_id_hash,
         s7.school_year as year_7th_grade,
         -- Calculate expected 8th grade year (current year + 1)
-        CASE 
+        CASE
             WHEN s7.school_year = '2020-2021' THEN '2021-2022'
             WHEN s7.school_year = '2021-2022' THEN '2022-2023'
             WHEN s7.school_year = '2022-2023' THEN '2023-2024'
@@ -85,9 +85,9 @@ cohort_tracking AS (
         a8.algebra_1_term,
         CASE WHEN a8.student_id_hash IS NOT NULL THEN true ELSE false END as took_algebra_1_in_8th
     FROM all_7th_math_students s7
-    LEFT JOIN algebra_1_8th_graders a8 
+    LEFT JOIN algebra_1_8th_graders a8
         ON s7.student_id_hash = a8.student_id_hash
-        AND a8.school_year = CASE 
+        AND a8.school_year = CASE
             WHEN s7.school_year = '2020-2021' THEN '2021-2022'
             WHEN s7.school_year = '2021-2022' THEN '2022-2023'
             WHEN s7.school_year = '2022-2023' THEN '2023-2024'
@@ -97,7 +97,7 @@ cohort_tracking AS (
         END
 )
 
-SELECT 
+SELECT
     year_7th_grade,
     pathway_7th_grade,
     primary_race,
@@ -111,7 +111,7 @@ SELECT
     COUNT(*) as student_count,
     CURRENT_TIMESTAMP as _loaded_at
 FROM cohort_tracking
-GROUP BY 
+GROUP BY
     year_7th_grade, pathway_7th_grade, primary_race, gender, is_multi_racial,
     took_algebra_1_in_8th, algebra_1_grade, algebra_1_gpa, algebra_1_passing, algebra_1_term
 ORDER BY year_7th_grade, pathway_7th_grade, primary_race, gender
