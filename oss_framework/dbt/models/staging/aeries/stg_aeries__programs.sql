@@ -1,5 +1,5 @@
 -- models/staging/stg_aeries__programs.sql
--- Staging: Standardize raw_aeries_programs with schema normalization
+-- Staging: Standardize raw_programs with schema normalization
 -- Provides program participation data for student demographics
 
 {{ config(
@@ -24,4 +24,4 @@ SELECT
     CAST(ProgramDescription AS VARCHAR) as program_category,
     CURRENT_TIMESTAMP as dbt_load_timestamp,
     '{{ run_started_at }}' as dbt_run_timestamp
-FROM {{ source('raw', 'raw_aeries_programs') }}
+FROM {{ source('raw', 'raw_programs') }}
