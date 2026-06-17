@@ -7,7 +7,7 @@ import sys
 import duckdb
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DB = ROOT / "oss_framework" / "data" / "oea.duckdb"
+DEFAULT_DB = ROOT / "oss_framework" / "data" / "analytics.duckdb"
 DB_PATH = Path(os.getenv("DUCKDB_DATABASE_PATH", str(DEFAULT_DB)))
 MANIFEST_PATH = Path(__file__).resolve().with_name("contract_query_manifest.json")
 

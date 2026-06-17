@@ -67,7 +67,7 @@ SELECT
     
     -- Risk indicators
     psh.special_education_flag OR psh.section_504_flag as high_need_flag,
-    psh.ell_status != '' as language_support_needed,
+    CAST(psh.ell_status AS BOOLEAN) as language_support_needed,
     psh.free_reduced_lunch_flag as socioeconomic_risk,
     psh.homeless_flag as housing_risk,
     

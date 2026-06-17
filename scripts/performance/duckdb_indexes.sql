@@ -10,7 +10,7 @@
 -- 3. Join columns in analytics queries
 --
 -- Usage:
---   duckdb oss_framework/data/oea.duckdb < scripts/performance/duckdb_indexes.sql
+--   duckdb oss_framework/data/analytics.duckdb < scripts/performance/duckdb_indexes.sql
 --
 
 -- ================================================================================

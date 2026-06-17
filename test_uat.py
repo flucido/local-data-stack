@@ -63,7 +63,7 @@ class Phase1FunctionalTesting:
             import duckdb
 
             conn = duckdb.connect(
-                os.getenv("DUCKDB_DATABASE_PATH", "./oss_framework/data/oea.duckdb"),
+                os.getenv("DUCKDB_DATABASE_PATH", "./oss_framework/data/analytics.duckdb"),
                 read_only=True,
             )
 

@@ -16,7 +16,7 @@ SELECT
     -- Demographics
     ROUND(100.0 * SUM(CASE WHEN special_education_flag THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) as pct_special_ed,
     ROUND(100.0 * SUM(CASE WHEN free_reduced_lunch_flag THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) as pct_frl,
-    ROUND(100.0 * SUM(CASE WHEN ell_status IS NOT NULL AND ell_status != '' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) as pct_ell,
+    ROUND(100.0 * SUM(CASE WHEN ell_status THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) as pct_ell,
     
     -- Race breakdown
     ROUND(100.0 * SUM(CASE WHEN primary_race = 'White' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) as pct_white,

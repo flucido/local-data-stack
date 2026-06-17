@@ -12,7 +12,7 @@ def get_connection(database_path: Optional[str] = None) -> duckdb.DuckDBPyConnec
     Args:
         database_path: Path to DuckDB database file. If None, uses environment
                       variable DUCKDB_DATABASE_PATH or defaults to
-                      './oss_framework/data/oea.duckdb'
+                      './oss_framework/data/analytics.duckdb'
     
     Returns:
         duckdb.DuckDBPyConnection: Active DuckDB connection with Delta extension
@@ -26,7 +26,7 @@ def get_connection(database_path: Optional[str] = None) -> duckdb.DuckDBPyConnec
     """
     db_path = database_path or os.getenv(
         'DUCKDB_DATABASE_PATH',
-        './oss_framework/data/oea.duckdb'
+        './oss_framework/data/analytics.duckdb'
     )
     
     print(f"Connecting to local DuckDB at {db_path}...")

@@ -18,7 +18,7 @@
     SELECT {{ hash_pii('email', 'custom_salt') }} FROM contacts
 #}
 
-{%- macro hash_pii(column_name, salt=var('salt_pii', 'oea_2026')) -%}
+{%- macro hash_pii(column_name, salt=var('salt_pii')) -%}
     MD5(CONCAT(COALESCE({{ column_name }}::VARCHAR, ''), '{{ salt }}'))
 {%- endmacro -%}
 

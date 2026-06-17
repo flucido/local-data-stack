@@ -10,6 +10,11 @@ on:
       - 'rill_project/**'
       - 'scripts/contracts/**'
       - '.github/workflows/test.yml'
+      - '.gitleaks.toml'
+      - '.pre-commit-config.yaml'
+      - 'k8s_deploy.py'
+      - 'pyproject.toml'
+      - '.env.example'
   pull_request:
     branches: [ main, develop ]
     paths:
@@ -18,9 +23,28 @@ on:
       - 'dashboards/**'
       - 'rill_project/**'
       - 'scripts/contracts/**'
+      - '.github/workflows/test.yml'
+      - '.gitleaks.toml'
+      - '.pre-commit-config.yaml'
+      - 'k8s_deploy.py'
+      - 'pyproject.toml'
+      - '.env.example'
 
 jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_CONFIG: .gitleaks.toml
+
   contract-tests:
+    needs: secrets-scan
     runs-on: ubuntu-latest
 
     steps:
@@ -38,7 +62,7 @@ jobs:
 
     - name: Run dashboard contract tests
       env:
-        DUCKDB_DATABASE_PATH: oss_framework/data/oea.duckdb
+        DUCKDB_DATABASE_PATH: oss_framework/data/analytics.duckdb
       run: |
         python scripts/contracts/contract_tests.py
 

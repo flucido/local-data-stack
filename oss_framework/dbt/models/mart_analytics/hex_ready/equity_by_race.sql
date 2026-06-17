@@ -19,7 +19,7 @@ SELECT
     -- Demographics breakdown
     SUM(CASE WHEN special_education_flag THEN 1 ELSE 0 END) as special_ed_count,
     SUM(CASE WHEN free_reduced_lunch_flag THEN 1 ELSE 0 END) as frl_count,
-    SUM(CASE WHEN ell_status IS NOT NULL AND ell_status != '' THEN 1 ELSE 0 END) as ell_count,
+    SUM(CASE WHEN ell_status THEN 1 ELSE 0 END) as ell_count,
     SUM(CASE WHEN homeless_flag THEN 1 ELSE 0 END) as homeless_count,
     
     -- Attendance outcomes

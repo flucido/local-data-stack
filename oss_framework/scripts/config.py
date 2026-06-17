@@ -3,7 +3,10 @@
 import os
 from pathlib import Path
 
-# Aeries Configuration
+# SIS connector — which Student Information System to pull from
+SIS_CONNECTOR = os.getenv("SIS_CONNECTOR", "csv")
+
+# Aeries Configuration (used when SIS_CONNECTOR=aeries)
 AERIES_API_URL = os.getenv("AERIES_API_URL", "https://api.aeries.com/v5")
 AERIES_API_KEY = os.getenv("AERIES_API_KEY")
 AERIES_CLIENT_ID = os.getenv("AERIES_CLIENT_ID")
@@ -19,7 +22,7 @@ AERIES_DB_PASSWORD = os.getenv("AERIES_DB_PASSWORD")
 
 # DuckDB Configuration
 DUCKDB_DATABASE_PATH = os.getenv(
-    "DUCKDB_DATABASE_PATH", "./oss_framework/data/oea.duckdb"
+    "DUCKDB_DATABASE_PATH", "./oss_framework/data/analytics.duckdb"
 )
 DUCKDB_MEMORY_LIMIT = os.getenv("DUCKDB_MEMORY_LIMIT", "8GB")
 

@@ -28,7 +28,7 @@ import duckdb
 
 # Paths
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-DUCKDB_PATH = PROJECT_ROOT / "oss_framework" / "data" / "oea.duckdb"
+DUCKDB_PATH = PROJECT_ROOT / "oss_framework" / "data" / "analytics.duckdb"
 BENCHMARK_RESULTS_DIR = PROJECT_ROOT / "reports" / "performance"
 RILL_PORT = 9009
 

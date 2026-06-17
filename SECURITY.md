@@ -102,10 +102,11 @@ DELETE FROM raw_attendance WHERE student_id = 'hashed_student_id';
 
 **Automated Retention**:
 
-```python
-# Delete records older than 7 years (FERPA requirement)
+```sql
+-- Example operator-managed retention job.
+-- Adjust timing and legal basis to your district policy.
 DELETE FROM raw_students
-WHERE withdrawal_date < CURRENT_DATE - INTERVAL 7 YEARS;
+WHERE withdrawal_date < CURRENT_DATE - INTERVAL '7' YEAR;
 ```
 
 ---
@@ -222,8 +223,8 @@ WHERE school_id IN (SELECT school_id FROM user_access WHERE user_id = current_us
 
 ```bash
 # Restrict DuckDB file access
-chmod 600 data/oea.duckdb
-chown analytics-user:analytics-group data/oea.duckdb
+chmod 600 data/analytics.duckdb
+chown analytics-user:analytics-group data/analytics.duckdb
 ```
 
 #### Read-Only Access
@@ -231,7 +232,7 @@ chown analytics-user:analytics-group data/oea.duckdb
 ```python
 # For analytics users (read-only)
 import duckdb
-con = duckdb.connect('data/oea.duckdb', read_only=True)
+con = duckdb.connect('data/analytics.duckdb', read_only=True)
 ```
 
 #### Query Injection Prevention
@@ -251,7 +252,7 @@ con.execute(query, [user_input])
 
 ```python
 # Limit concurrent connections
-con = duckdb.connect('data/oea.duckdb', config={
+con = duckdb.connect('data/analytics.duckdb', config={
     'threads': 4,
     'max_memory': '2GB'
 })
@@ -297,7 +298,7 @@ local_data_stack:
   outputs:
     dev:
       type: duckdb
-      path: ./oss_framework/data/oea.duckdb
+      path: ./oss_framework/data/analytics.duckdb
       threads: 4
 ```
 
@@ -392,7 +393,7 @@ openssl enc -d -aes-256-cbc -in backup.tar.gz.enc | tar xzf -
 
 ```bash
 # Backup DuckDB file
-cp data/oea.duckdb backups/oea_$(date +%Y%m%d).duckdb
+cp data/analytics.duckdb backups/oea_$(date +%Y%m%d).duckdb
 
 # Backup Parquet files (Stage 1 source of truth)
 rsync -av data/stage1/ backups/stage1_$(date +%Y%m%d)/
@@ -512,7 +513,7 @@ pytest oss_framework/tests/
 
 ```bash
 # Check DuckDB file size
-du -sh data/oea.duckdb
+du -sh data/analytics.duckdb
 
 # Check disk space
 df -h
@@ -524,14 +525,13 @@ grep ERROR oss_framework/logs/oea.log | tail -20
 **Performance Monitoring:**
 
 ```sql
--- Check table sizes
+-- DuckDB-compatible row count check for active tables
 SELECT
-    table_name,
-    COUNT(*) as row_count,
-    pg_size_pretty(pg_total_relation_size(table_name)) as total_size
+    table_schema,
+    table_name
 FROM information_schema.tables
 WHERE table_schema = 'main'
-GROUP BY table_name;
+ORDER BY table_name;
 ```
 
 ---

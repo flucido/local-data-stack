@@ -318,7 +318,7 @@ python oss_framework/scripts/import_demographic_data.py
 pytest oss_framework/tests/test_stage1_data_quality.py -v
 
 # Step 6: Check DuckDB directly
-duckdb oss_framework/data/oea.duckdb
+duckdb oss_framework/data/analytics.duckdb
 → SELECT COUNT(*) FROM raw_students;
 → SELECT COUNT(*) FROM raw_attendance;
 ```
@@ -380,7 +380,7 @@ AERIES_DB_DATABASE=aeries_database
 **Optional variables**:
 
 ```bash
-DUCKDB_DATABASE_PATH=./oss_framework/data/oea.duckdb
+DUCKDB_DATABASE_PATH=./oss_framework/data/analytics.duckdb
 EXCEL_DF_REPORT_PATH=./path/to/d_and_f_report.xlsx
 EXCEL_DEMOGRAPHIC_PATH=./path/to/demographic_data.xlsx
 EXCEL_RFEP_PATH=./path/to/rfep_data.png
@@ -426,7 +426,7 @@ python oss_framework/scripts/validate_preimplementation.py
 
 **Solution**: Check DuckDB directly
 ```bash
-duckdb oss_framework/data/oea.duckdb
+duckdb oss_framework/data/analytics.duckdb
 → .tables          # List all tables
 → SELECT COUNT(*) FROM raw_students;
 → SELECT * FROM raw_students LIMIT 5;
@@ -539,7 +539,7 @@ pytest oss_framework/tests/test_stage1_data_quality.py::test_raw_students_not_em
 
 ### Check DuckDB schema
 ```bash
-duckdb oss_framework/data/oea.duckdb
+duckdb oss_framework/data/analytics.duckdb
 → DESCRIBE raw_students;
 → SELECT COUNT(*), COUNT(DISTINCT student_id) FROM raw_attendance;
 ```

@@ -4,7 +4,8 @@
 
 {{ config(
     schema='staging',
-    tags=['staging', 'programs']
+    tags=['staging', 'programs'],
+    enabled=false
 ) }}
 
 SELECT

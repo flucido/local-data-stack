@@ -95,7 +95,7 @@ spec:
         - |
           python3 -c "
           import duckdb
-          conn = duckdb.connect('/data/oea.duckdb')
+          conn = duckdb.connect('/data/analytics.duckdb')
           print('✓ DuckDB database initialized')
           conn.close()
           "
@@ -137,7 +137,7 @@ spec:
         - containerPort: 8050
         env:
         - name: DUCKDB_PATH
-          value: "/data/oea.duckdb"
+          value: "/data/analytics.duckdb"
         - name: FLASK_ENV
           value: "production"
         command:

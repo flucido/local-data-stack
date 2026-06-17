@@ -22,8 +22,8 @@ docker-compose ps rill
 docker-compose logs -f rill --tail=100
 
 # Check DuckDB file accessibility
-ls -lh oss_framework/data/oea.duckdb
-du -sh oss_framework/data/oea.duckdb
+ls -lh oss_framework/data/analytics.duckdb
+du -sh oss_framework/data/analytics.duckdb
 
 # Check Rill service health
 curl -f http://localhost:9009/health || echo "Rill not responding"
@@ -75,7 +75,7 @@ docker-compose exec jupyter dbt test --profiles-dir /home/jovyan/work/oss_framew
 # Check data freshness in DuckDB
 docker-compose exec jupyter python3 -c "
 import duckdb
-conn = duckdb.connect('/home/jovyan/data/oea.duckdb')
+conn = duckdb.connect('/home/jovyan/data/analytics.duckdb')
 print('Latest attendance:', conn.execute('SELECT MAX(date) FROM mart_core.fact_attendance').fetchone())
 print('Student count:', conn.execute('SELECT COUNT(DISTINCT student_key) FROM mart_core.dim_students').fetchone())
 conn.close()
@@ -84,7 +84,7 @@ conn.close()
 # Check for duplicate records
 docker-compose exec jupyter python3 -c "
 import duckdb
-conn = duckdb.connect('/home/jovyan/data/oea.duckdb')
+conn = duckdb.connect('/home/jovyan/data/analytics.duckdb')
 result = conn.execute('SELECT student_key, COUNT(*) as cnt FROM mart_core.dim_students GROUP BY student_key HAVING cnt > 1').fetchall()
 print('Duplicates:', result if result else 'None')
 conn.close()
@@ -123,7 +123,7 @@ conn.close()
 # Check DuckDB query performance
 docker-compose exec jupyter python3 -c "
 import duckdb
-conn = duckdb.connect('/home/jovyan/data/oea.duckdb')
+conn = duckdb.connect('/home/jovyan/data/analytics.duckdb')
 conn.execute('PRAGMA enable_profiling;')
 result = conn.execute('SELECT * FROM mart_core.fact_attendance WHERE school_year = 2024 LIMIT 100').fetchall()
 print(conn.execute('PRAGMA last_profiling_output').fetchone())
@@ -131,7 +131,7 @@ conn.close()
 "
 
 # Check DuckDB file size and fragmentation
-docker-compose exec jupyter ls -lh /home/jovyan/data/oea.duckdb
+docker-compose exec jupyter ls -lh /home/jovyan/data/analytics.duckdb
 
 # Check container resource usage
 docker stats --no-stream rill jupyter
@@ -186,7 +186,7 @@ docker-compose exec jupyter bash -c "cd /home/jovyan/work/oss_framework/dbt && d
 
 ```
 ERROR: Database connection failed
-  → Check DuckDB file permissions: ls -l oss_framework/data/oea.duckdb
+  → Check DuckDB file permissions: ls -l oss_framework/data/analytics.duckdb
   → Verify DUCKDB_DATABASE_PATH in .env matches volume mount
   → Check if file is locked by another process
 
@@ -287,7 +287,7 @@ df -h . | grep -E "Filesystem|/$"
 # DuckDB file size
 echo ""
 echo "DUCKDB SIZE:"
-du -sh oss_framework/data/oea.duckdb
+du -sh oss_framework/data/analytics.duckdb
 
 # Container memory usage
 echo ""
@@ -331,7 +331,7 @@ echo "📋 Starting monthly maintenance at $MAINTENANCE_START"
 echo "1️⃣ Running database optimization..."
 docker-compose exec jupyter python3 -c "
 import duckdb
-conn = duckdb.connect('/home/jovyan/data/oea.duckdb')
+conn = duckdb.connect('/home/jovyan/data/analytics.duckdb')
 conn.execute('CHECKPOINT')
 conn.execute('PRAGMA optimize_database')
 print('✅ Database optimized')
@@ -341,7 +341,7 @@ conn.close()
 # 2. Create pre-update backup
 echo "2️⃣ Creating pre-update backup..."
 BACKUP_FILE="data/backups/oea_backup_$(date +%Y%m%d_%H%M%S)_pre_update.duckdb"
-cp oss_framework/data/oea.duckdb "$BACKUP_FILE"
+cp oss_framework/data/analytics.duckdb "$BACKUP_FILE"
 echo "✅ Backup created: $BACKUP_FILE"
 
 # 3. Update container images
@@ -391,7 +391,7 @@ docker-compose logs rill | grep -E "query|duration" | tail -50
 # 2. Analyze query plan in DuckDB
 docker-compose exec jupyter python3 -c "
 import duckdb
-conn = duckdb.connect('/home/jovyan/data/oea.duckdb')
+conn = duckdb.connect('/home/jovyan/data/analytics.duckdb')
 result = conn.execute('EXPLAIN ANALYZE SELECT * FROM mart_core.fact_attendance WHERE school_year = 2024 LIMIT 100').fetchall()
 for row in result:
     print(row[0])
@@ -408,7 +408,7 @@ conn.close()
 # 5. Run CHECKPOINT to compact database
 docker-compose exec jupyter python3 -c "
 import duckdb
-conn = duckdb.connect('/home/jovyan/data/oea.duckdb')
+conn = duckdb.connect('/home/jovyan/data/analytics.duckdb')
 conn.execute('CHECKPOINT')
 print('✅ Database compacted')
 conn.close()
@@ -462,7 +462,7 @@ echo "=== Data Quality Report ==="
 # 1. Check record counts
 docker-compose exec jupyter python3 -c "
 import duckdb
-conn = duckdb.connect('/home/jovyan/data/oea.duckdb')
+conn = duckdb.connect('/home/jovyan/data/analytics.duckdb')
 
 tables = ['mart_core.dim_students', 'mart_core.fact_attendance', 'main_main_analytics.v_chronic_absenteeism_risk']
 for table in tables:
@@ -475,7 +475,7 @@ conn.close()
 # 2. Check for nulls in key columns
 docker-compose exec jupyter python3 -c "
 import duckdb
-conn = duckdb.connect('/home/jovyan/data/oea.duckdb')
+conn = duckdb.connect('/home/jovyan/data/analytics.duckdb')
 result = conn.execute('''
     SELECT COUNT(*) as null_key_columns
   FROM main_main_analytics.v_chronic_absenteeism_risk
@@ -488,7 +488,7 @@ conn.close()
 # 3. Check risk score distribution
 docker-compose exec jupyter python3 -c "
 import duckdb
-conn = duckdb.connect('/home/jovyan/data/oea.duckdb')
+conn = duckdb.connect('/home/jovyan/data/analytics.duckdb')
 result = conn.execute('''
     SELECT
         FLOOR(chronic_absenteeism_risk_score / 10) * 10 as score_range,
@@ -507,7 +507,7 @@ conn.close()
 HOURS_OLD=$(docker-compose exec jupyter python3 -c "
 import duckdb
 from datetime import datetime
-conn = duckdb.connect('/home/jovyan/data/oea.duckdb')
+conn = duckdb.connect('/home/jovyan/data/analytics.duckdb')
 max_date = conn.execute('SELECT MAX(created_at) FROM mart_core.fact_attendance').fetchone()[0]
 hours = (datetime.now() - max_date).total_seconds() / 3600 if max_date else 999
 print(int(hours))
@@ -612,20 +612,20 @@ docker-compose down
 
 # 2. Backup current database (in case recovery fails)
 echo "2️⃣ Creating safety backup of current database..."
-if [ -f "oss_framework/data/oea.duckdb" ]; then
-  cp oss_framework/data/oea.duckdb "oss_framework/data/oea.duckdb.before_recovery.$(date +%Y%m%d_%H%M%S)"
+if [ -f "oss_framework/data/analytics.duckdb" ]; then
+  cp oss_framework/data/analytics.duckdb "oss_framework/data/analytics.duckdb.before_recovery.$(date +%Y%m%d_%H%M%S)"
 fi
 
 # 3. Restore from backup
 echo "3️⃣ Restoring database..."
-cp "$BACKUP_FILE" oss_framework/data/oea.duckdb
+cp "$BACKUP_FILE" oss_framework/data/analytics.duckdb
 
 # 4. Verify integrity
 echo "4️⃣ Verifying database integrity..."
 docker-compose run --rm jupyter python3 -c "
 import duckdb
 try:
-    conn = duckdb.connect('/home/jovyan/data/oea.duckdb')
+    conn = duckdb.connect('/home/jovyan/data/analytics.duckdb')
     count = conn.execute('SELECT COUNT(*) FROM mart_core.dim_students').fetchone()[0]
     print(f'✅ Database is valid ({count} students)')
     conn.close()
@@ -692,7 +692,7 @@ docker stats
 docker-compose ps
 
 # DuckDB CLI access
-docker-compose exec jupyter python3 -c "import duckdb; conn = duckdb.connect('/home/jovyan/data/oea.duckdb'); conn.execute('.help').fetchall()"
+docker-compose exec jupyter python3 -c "import duckdb; conn = duckdb.connect('/home/jovyan/data/analytics.duckdb'); conn.execute('.help').fetchall()"
 
 # Run dbt commands
 docker-compose exec jupyter bash -c "cd /home/jovyan/work/oss_framework/dbt && dbt run"

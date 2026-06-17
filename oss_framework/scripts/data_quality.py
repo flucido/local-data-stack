@@ -57,7 +57,7 @@ class DataQualityValidator:
         self.con.close()
 
 if __name__ == "__main__":
-    validator = DataQualityValidator("./oss_framework/data/oea.duckdb")
+    validator = DataQualityValidator("./oss_framework/data/analytics.duckdb")
     results = validator.run_all_validations()
     passed = sum(1 for v in results.values() if v)
     print(f"\n✅ Validation complete: {passed}/{len(results)} tables passed")

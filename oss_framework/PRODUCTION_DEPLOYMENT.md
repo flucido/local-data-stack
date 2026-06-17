@@ -207,7 +207,7 @@ cd /opt/local-data-stack
 # Create production environment file
 cat > .env << EOF
 # Core paths (using shared storage)
-DUCKDB_DATABASE_PATH=/opt/local-data-stack/shared-data/oea.duckdb
+DUCKDB_DATABASE_PATH=/opt/local-data-stack/shared-data/analytics.duckdb
 STAGE1_PATH=/opt/local-data-stack/shared-data/stage1
 STAGE2_PATH=/opt/local-data-stack/shared-data/stage2
 STAGE3_PATH=/opt/local-data-stack/shared-data/stage3
@@ -262,7 +262,7 @@ services:
       - /opt/local-data-stack/shared-data:/data
     environment:
       - RILL_RUNTIME_LOG_LEVEL=info
-      - DUCKDB_DATABASE_PATH=/data/oea.duckdb
+      - DUCKDB_DATABASE_PATH=/data/analytics.duckdb
     command: rill start --project /app
     restart: always
     deploy:
@@ -297,7 +297,7 @@ services:
       - /opt/local-data-stack/shared-data:/home/jovyan/data
     environment:
       - JUPYTER_ENABLE_LAB=yes
-      - DUCKDB_DATABASE_PATH=/home/jovyan/data/oea.duckdb
+      - DUCKDB_DATABASE_PATH=/home/jovyan/data/analytics.duckdb
       - STAGE1_PATH=/home/jovyan/data/stage1
       - STAGE2_PATH=/home/jovyan/data/stage2
       - STAGE3_PATH=/home/jovyan/data/stage3
@@ -549,7 +549,7 @@ sudo tee /opt/local-data-stack/scripts/backup-duckdb.sh > /dev/null << 'EOF'
 set -e
 
 BACKUP_DIR="/opt/local-data-stack/shared-data/backups"
-DUCKDB_FILE="/opt/local-data-stack/shared-data/oea.duckdb"
+DUCKDB_FILE="/opt/local-data-stack/shared-data/analytics.duckdb"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="${BACKUP_DIR}/oea_backup_${TIMESTAMP}.duckdb"
 ENCRYPTION_KEY="${BACKUP_ENCRYPTION_KEY}"
@@ -563,7 +563,7 @@ mkdir -p "$BACKUP_DIR"
 # Step 1: Run CHECKPOINT to ensure data is written to disk
 docker-compose -f /opt/local-data-stack/docker-compose.prod.yml exec -T jupyter python3 -c "
 import duckdb
-conn = duckdb.connect('/home/jovyan/data/oea.duckdb')
+conn = duckdb.connect('/home/jovyan/data/analytics.duckdb')
 conn.execute('CHECKPOINT')
 print('✅ CHECKPOINT completed')
 conn.close()
@@ -648,8 +648,8 @@ docker-compose -f /opt/local-data-stack/docker-compose.prod.yml down
 
 # Backup current database
 echo "Creating safety backup..."
-cp /opt/local-data-stack/shared-data/oea.duckdb \
-   /opt/local-data-stack/shared-data/oea.duckdb.before_restore.$(date +%Y%m%d_%H%M%S)
+cp /opt/local-data-stack/shared-data/analytics.duckdb \
+   /opt/local-data-stack/shared-data/analytics.duckdb.before_restore.$(date +%Y%m%d_%H%M%S)
 
 # Decrypt if encrypted
 if [[ "$BACKUP_FILE" == *.enc ]]; then
@@ -662,7 +662,7 @@ fi
 
 # Restore database
 echo "Restoring database..."
-cp "$BACKUP_FILE" /opt/local-data-stack/shared-data/oea.duckdb
+cp "$BACKUP_FILE" /opt/local-data-stack/shared-data/analytics.duckdb
 
 # Restart services
 echo "Restarting services..."
@@ -768,7 +768,7 @@ check_service() {
 check_service "$RILL_URL" "Rill"
 
 # Check DuckDB file
-if [ -f "/opt/local-data-stack/shared-data/oea.duckdb" ]; then
+if [ -f "/opt/local-data-stack/shared-data/analytics.duckdb" ]; then
     echo "✅ DuckDB file exists"
 else
     echo "❌ DuckDB file missing"
@@ -806,14 +806,14 @@ curl -f http://localhost:9009/health && echo "✅ Rill healthy" || echo "❌ Ril
 
 # 3. Check DuckDB file
 echo "3️⃣ Checking DuckDB file..."
-ls -lh /opt/local-data-stack/shared-data/oea.duckdb
+ls -lh /opt/local-data-stack/shared-data/analytics.duckdb
 
 # 4. Check data freshness
 echo "4️⃣ Checking data freshness..."
 docker-compose -f /opt/local-data-stack/docker-compose.prod.yml exec -T jupyter python3 -c "
 import duckdb
 from datetime import datetime
-conn = duckdb.connect('/home/jovyan/data/oea.duckdb')
+conn = duckdb.connect('/home/jovyan/data/analytics.duckdb')
 max_date = conn.execute('SELECT MAX(date) FROM mart_core.fact_attendance').fetchone()[0]
 hours_old = (datetime.now() - max_date).total_seconds() / 3600 if max_date else 999
 print(f'Data is {hours_old:.1f} hours old')
@@ -857,7 +857,7 @@ git checkout <previous-stable-tag>  # e.g., v1.2.0
 
 # Restore previous DuckDB backup
 LATEST_BACKUP=$(ls -t /opt/local-data-stack/shared-data/backups/oea_backup_*.duckdb | head -1)
-cp "$LATEST_BACKUP" /opt/local-data-stack/shared-data/oea.duckdb
+cp "$LATEST_BACKUP" /opt/local-data-stack/shared-data/analytics.duckdb
 
 # Start services
 docker-compose -f /opt/local-data-stack/docker-compose.prod.yml up -d

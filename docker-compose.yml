@@ -15,7 +15,7 @@ services:
       - ./oss_framework/data:/data
     environment:
       - RILL_RUNTIME_LOG_LEVEL=info
-      - DUCKDB_DATABASE_PATH=/data/oea.duckdb
+      - DUCKDB_DATABASE_PATH=/data/analytics.duckdb
     command: rill start --project /app
     restart: unless-stopped
     networks:
@@ -32,7 +32,7 @@ services:
       - ./oss_framework/data:/home/jovyan/data
     environment:
       - JUPYTER_ENABLE_LAB=yes
-      - DUCKDB_DATABASE_PATH=/home/jovyan/data/oea.duckdb
+      - DUCKDB_DATABASE_PATH=/home/jovyan/data/analytics.duckdb
       - STAGE1_PATH=/home/jovyan/work/data/stage1
       - STAGE2_PATH=/home/jovyan/work/data/stage2
       - STAGE3_PATH=/home/jovyan/work/data/stage3

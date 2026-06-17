@@ -1,4 +1,3 @@
-
 -- models/staging/stg_enrollment.sql
 -- Staging: Standardize raw_enrollment with schema normalization
 
@@ -8,24 +7,13 @@
 ) }}
 
 SELECT
-    CAST(StudentID AS VARCHAR) as student_id_raw,
-    CAST(SchoolCode AS VARCHAR) as school_id,
-    CAST(StudentNumber AS VARCHAR) as student_number,
-    CAST(AcademicYear AS VARCHAR) as school_year,
-    CAST(Grade AS INTEGER) as grade_level,
-    CAST(Track AS VARCHAR) as track,
-    CAST(EnterDate AS DATE) as enrollment_date,
-    CAST(LeaveDate AS DATE) as withdrawal_date,
-    CAST(ExitReasonCode AS VARCHAR) as exit_reason_code,
-
-    CASE
-        WHEN LeaveDate IS NULL THEN 'ACTIVE'
-        ELSE 'WITHDRAWN'
-    END as enrollment_status,
-
-    CAST(AttendanceProgramCode AS VARCHAR) as attendance_program_code,
-    CAST(AttendanceProgramCodeAdditional1 AS VARCHAR) as attendance_program_code_add1,
-
+    CAST(e.student_id AS VARCHAR) as student_id_raw,
+    CAST(e.school_id AS VARCHAR) as school_id,
+    CAST(e.school_year AS VARCHAR) as school_year,
+    CAST(NULLIF(e.enrollment_date, '') AS DATE) as enrollment_date,
+    CAST(NULL AS DATE) as withdrawal_date,
+    CAST(e.grade_level AS INTEGER) as grade_level,
+    CAST(e.enrollment_status AS VARCHAR) as enrollment_status,
     CURRENT_TIMESTAMP as dbt_load_timestamp,
     '{{ run_started_at }}' as dbt_run_timestamp
-FROM {{ source('raw', 'raw_enrollment') }}
+FROM {{ source('raw', 'raw_enrollment') }} e

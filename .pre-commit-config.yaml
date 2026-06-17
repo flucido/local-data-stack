@@ -1,0 +1,54 @@
+# Pre-commit hooks for local-data-stack
+# Install: pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # Secrets detection — runs first, blocks commits containing credentials/PII
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+        args: ["protect", "--staged", "--verbose"]
+
+  # Built-in pre-commit checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=1000"]
+        stages: [pre-commit]
+      - id: detect-private-key
+        stages: [pre-commit]
+      - id: check-yaml
+        args: ["--allow-multiple-documents"]
+        stages: [pre-commit]
+        exclude: ^k8s-deployment\.yaml$
+      - id: check-json
+        stages: [pre-commit]
+      - id: check-toml
+        stages: [pre-commit]
+      - id: check-merge-conflict
+        stages: [pre-commit]
+      - id: end-of-file-fixer
+        stages: [pre-commit]
+        exclude: \.parquet$
+      - id: trailing-whitespace
+        stages: [pre-commit]
+
+  # Ruff — fast Python linter (replaces flake8, isort, pyflakes)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: ["check", "--fix"]
+        stages: [pre-commit]
+      - id: ruff-format
+        stages: [pre-commit]
+
+  # Black — opinionated code formatter (runs after ruff for consistency)
+  - repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 24.8.0
+    hooks:
+      - id: black
+        language_version: python3.11
+        stages: [pre-commit]

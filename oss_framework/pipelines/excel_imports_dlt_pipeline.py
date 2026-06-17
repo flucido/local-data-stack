@@ -137,7 +137,7 @@ def run_excel_imports_pipeline(
             dataset_name=dataset_name,
         )
     else:
-        db_path = os.getenv("DUCKDB_DATABASE_PATH", "./oss_framework/data/oea.duckdb")
+        db_path = os.getenv("DUCKDB_DATABASE_PATH", "./oss_framework/data/analytics.duckdb")
 
         pipeline = dlt.pipeline(
             pipeline_name="excel_to_duckdb",

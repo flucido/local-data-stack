@@ -22,10 +22,14 @@ Follow these rules strictly:
 2. Use the exact, fully-qualified table names from the schema below (e.g. main_core.dim_students).
 3. Use proper DuckDB syntax: VARCHAR comparisons use single quotes, BOOLEAN checks use TRUE/FALSE.
 4. When aggregating, use clear column aliases (e.g., AS total_students).
-5. Join on the columns that logically connect the tables — student-grain tables join on student_id_hash; school-grain tables join on school_id.
+5. Join on the columns that logically connect the tables — student-grain tables join on student_id_hash; school-grain tables join on cds_code or school_id.
 6. Student identity is pseudonymized: there is no name column, only student_id_hash.
-7. If the question is ambiguous, make a reasonable assumption and generate the query.
-8. Do NOT include any explanation outside the ```sql ``` block."""
+7. There are two query paths for CDE aggregate data:
+   - For multi-metric school comparisons, use main_analytics.mart_cde_school_accountability (pre-joined OBT).
+   - For detailed single-domain queries, use the staging tables directly (e.g. main_staging.stg_cde__suspension).
+8. CDE reporting_category codes: TA=All Students, RA=Asian, RB=Black, RH=Hispanic, GM=Male, GF=Female, SE=Socioeconomically Disadvantaged, EL=English Learners, SWD=Students with Disabilities, HOM=Homeless, FOS=Foster Youth.
+9. If the question is ambiguous, make a reasonable assumption and generate the query.
+10. Do NOT include any explanation outside the ```sql ``` block."""
 
 
 # ── Schema documentation builder ───────────────────────────────────────
@@ -60,6 +64,7 @@ def build_schema_context(tables: dict[str, list[tuple[str, str, str]]]) -> str:
 # real schema is normally injected from data_engine.get_schema_info().
 
 DEFAULT_SCHEMA = {
+    # ── Aeries student-level (core) ──────────────────────────────────
     "main_core.dim_students": [
         ("student_id_hash", "VARCHAR", "Pseudonymized student key (joins to fact_* tables)"),
         ("academic_year", "VARCHAR", "School year (format 'YYYY-YYYY')"),
@@ -88,6 +93,110 @@ DEFAULT_SCHEMA = {
         ("severity", "VARCHAR", "Incident severity"),
         ("suspension_days", "INTEGER", "Days suspended"),
     ],
+    "main_core.fact_academic_records": [
+        ("student_id_hash", "VARCHAR", "Pseudonymized student key"),
+        ("school_id", "VARCHAR", "School identifier"),
+        ("school_year", "VARCHAR", "School year"),
+        ("course_id", "VARCHAR", "Course identifier"),
+        ("term", "VARCHAR", "Term (Fall/Spring)"),
+        ("grade", "VARCHAR", "Letter grade"),
+        ("gpa_points", "DOUBLE", "GPA points for this grade"),
+        ("is_passing", "BOOLEAN", "TRUE if passing grade"),
+    ],
+
+    # ── CDE OBT (pre-joined school accountability metrics) ──────────
+    "main_analytics.mart_cde_school_accountability": [
+        ("cds_code", "VARCHAR", "14-char school identifier"),
+        ("academic_year", "VARCHAR", "School year (format 'YYYY-YY', e.g., '2023-24')"),
+        ("reporting_category", "VARCHAR", "Subgroup code: TA=all, RA=Asian, RB=Black, RH=Hispanic, SE=Socioeconomically Disadvantaged, EL=English Learners, SWD=Students with Disabilities"),
+        ("reporting_category_label", "VARCHAR", "Human-readable subgroup name"),
+        ("school_name", "VARCHAR", "School name (from dim_schools)"),
+        ("district_name", "VARCHAR", "District name"),
+        ("county_name", "VARCHAR", "County name"),
+        ("ca_eligible_enrollment", "INTEGER", "Chronic absenteeism: students enrolled >= 31 days"),
+        ("ca_chronic_absent_count", "INTEGER", "Chronic absenteeism: students missing >= 10% of days"),
+        ("ca_chronic_absent_rate_pct", "DOUBLE", "Chronic absenteeism rate (%)"),
+        ("en_cumulative_enrollment", "INTEGER", "Cumulative enrollment for the year"),
+        ("su_total_suspensions", "INTEGER", "Total suspension incidents"),
+        ("su_suspension_rate_pct", "DOUBLE", "Suspension rate (%)"),
+        ("su_violent_injury", "INTEGER", "Suspensions for violent incident (injury)"),
+        ("su_weapons", "INTEGER", "Suspensions for weapons possession"),
+        ("su_drug_related", "INTEGER", "Suspensions for illicit drug-related"),
+        ("ex_total_expulsions", "INTEGER", "Total expulsion incidents"),
+        ("ex_expulsion_rate_pct", "DOUBLE", "Expulsion rate (%)"),
+        ("hs_homeless_count", "INTEGER", "Homeless student enrollment count"),
+        ("frpm_free_pct_k12", "DOUBLE", "Percent eligible for free meals (K-12)"),
+        ("frpm_reduced_pct_k12", "DOUBLE", "Percent eligible for reduced price meals (K-12)"),
+        ("ela_currstatus", "DOUBLE", "ELA assessment current status metric"),
+        ("ela_status", "VARCHAR", "ELA dashboard status level"),
+        ("sbac_mean_scale_score", "DOUBLE", "SBAC/CAASPP mean scale score"),
+        ("sbac_pct_standard_met_above", "DOUBLE", "SBAC % met or above standard"),
+        ("sbac_students_tested", "INTEGER", "Students tested on SBAC"),
+        ("elpac_progressed_pct", "DOUBLE", "ELPAC % progressed"),
+        ("rs_mechanical_restraints", "INTEGER", "Count of mechanical restraints"),
+        ("rs_physical_restraints", "INTEGER", "Count of physical restraints"),
+        ("rs_seclusions", "INTEGER", "Count of seclusions"),
+        ("is_suppressed", "BOOLEAN", "TRUE if CDE suppressed data (n < 11)"),
+        ("has_cde_data", "BOOLEAN", "TRUE if any CDE domain has data"),
+        ("data_domains_present", "INTEGER", "Count of CDE domains with data (0-11)"),
+    ],
+
+    # ── CDE staging tables (for detailed single-domain queries) ─────
+    "main_staging.stg_cde__chronic_absenteeism": [
+        ("cds_code", "VARCHAR", "14-char school identifier"),
+        ("academic_year", "VARCHAR", "School year"),
+        ("aggregate_level", "VARCHAR", "T=State, C=County, D=District, S=School"),
+        ("reporting_category", "VARCHAR", "Subgroup code"),
+        ("eligible_enrollment", "INTEGER", "Students enrolled >= 31 days"),
+        ("chronic_absent_count", "INTEGER", "Students missing >= 10% of days"),
+        ("chronic_absent_rate_pct", "DOUBLE", "Chronic absenteeism rate (%)"),
+    ],
+    "main_staging.stg_cde__suspension": [
+        ("cds_code", "VARCHAR", "14-char school identifier"),
+        ("academic_year", "VARCHAR", "School year"),
+        ("aggregate_level", "VARCHAR", "T/C/D/S"),
+        ("reporting_category", "VARCHAR", "Subgroup code"),
+        ("total_suspensions", "INTEGER", "Total suspension incidents"),
+        ("suspension_rate_total", "DOUBLE", "Suspension rate (%)"),
+        ("suspension_count_violent_incident_injury", "INTEGER", "Violent incident (injury)"),
+        ("suspension_count_weapons_possession", "INTEGER", "Weapons possession"),
+        ("suspension_count_illicit_drug_related", "INTEGER", "Illicit drug-related"),
+        ("suspension_count_defiance_only", "INTEGER", "Defiance-only"),
+    ],
+    "main_staging.stg_cde__enrollment": [
+        ("cds_code", "VARCHAR", "14-char school identifier"),
+        ("academic_year", "VARCHAR", "School year"),
+        ("aggregate_level", "VARCHAR", "T/C/D/S"),
+        ("reporting_category", "VARCHAR", "Subgroup code"),
+        ("cumulative_enrollment", "INTEGER", "Cumulative enrollment"),
+    ],
+    "main_staging.stg_cde__homeless_enrollment": [
+        ("cds_code", "VARCHAR", "14-char school identifier"),
+        ("academic_year", "VARCHAR", "School year"),
+        ("reporting_category", "VARCHAR", "Subgroup code"),
+        ("cumulative_enrollment", "INTEGER", "Total enrollment"),
+        ("homeless_student_enrollment", "INTEGER", "Homeless student count"),
+        ("temporarily_doubled_up_percent", "DOUBLE", "% temporarily doubled up"),
+    ],
+    "main_staging.stg_cde__frpm": [
+        ("cds_code", "VARCHAR", "14-char school identifier"),
+        ("academic_year", "VARCHAR", "School year"),
+        ("enrollment_k12", "INTEGER", "K-12 enrollment"),
+        ("free_meal_count_k12", "INTEGER", "Free meal count (K-12)"),
+        ("percent_eligible_free_k12", "DOUBLE", "% eligible free (K-12)"),
+        ("frpm_count_k12", "INTEGER", "FRPM count (K-12)"),
+        ("percent_eligible_frpm_k12", "DOUBLE", "% eligible FRPM (K-12)"),
+    ],
+    "main_staging.stg_cde__assessment_caspp": [
+        ("cds_code", "VARCHAR", "14-char school identifier"),
+        ("academic_year", "VARCHAR", "School year"),
+        ("reporting_category", "VARCHAR", "Subgroup code (student_group_id)"),
+        ("mean_scale_score", "DOUBLE", "Mean scale score"),
+        ("percentage_standard_met_and_above", "DOUBLE", "% met or above standard"),
+        ("students_tested", "INTEGER", "Students tested"),
+    ],
+
+    # ── Existing analytics marts ────────────────────────────────────
     "main_analytics.school_summary": [
         ("school_id", "VARCHAR", "School identifier"),
         ("student_count", "BIGINT", "Number of students"),
@@ -108,6 +217,7 @@ DEFAULT_SCHEMA = {
 # ── Few-shot examples (warehouse schema) ───────────────────────────────
 
 FEW_SHOT_EXAMPLES = [
+    # ── Aeries student-level queries ────────────────────────────────
     {
         "question": "How many students were enrolled in 2023-2024?",
         "sql": "SELECT COUNT(DISTINCT student_id_hash) AS student_count\nFROM main_core.dim_students\nWHERE academic_year = '2023-2024';",
@@ -127,6 +237,28 @@ FEW_SHOT_EXAMPLES = [
     {
         "question": "What is the average attendance rate for English Learners in 2023-2024?",
         "sql": "SELECT ROUND(AVG(a.attendance_rate), 4) AS avg_attendance_rate\nFROM main_core.fact_attendance a\nJOIN main_core.dim_students s\n  ON a.student_id_hash = s.student_id_hash\n  AND a.academic_year = s.academic_year\nWHERE a.academic_year = '2023-2024'\n  AND s.ell_status = TRUE;",
+    },
+    # ── CDE aggregate queries (OBT path) ──────────────────────────
+    {
+        "question": "What is the chronic absenteeism rate for Hispanic students across all schools in 2023-24?",
+        "sql": "SELECT cds_code, school_name, ca_chronic_absent_rate_pct\nFROM main_analytics.mart_cde_school_accountability\nWHERE academic_year = '2023-24'\n  AND reporting_category = 'RH'\n  AND ca_chronic_absent_rate_pct IS NOT NULL\nORDER BY ca_chronic_absent_rate_pct DESC;",
+    },
+    {
+        "question": "Compare suspension rates and chronic absenteeism rates by race group for 2023-24.",
+        "sql": "SELECT reporting_category_label,\n       ROUND(AVG(su_suspension_rate_pct), 2) AS avg_suspension_rate,\n       ROUND(AVG(ca_chronic_absent_rate_pct), 2) AS avg_chronic_absent_rate\nFROM main_analytics.mart_cde_school_accountability\nWHERE academic_year = '2023-24'\n  AND is_race_ethnicity_subgroup = TRUE\nGROUP BY reporting_category_label\nORDER BY avg_suspension_rate DESC;",
+    },
+    {
+        "question": "Which schools have the highest free meal eligibility in 2023-24?",
+        "sql": "SELECT school_name, district_name, frpm_free_pct_k12\nFROM main_analytics.mart_cde_school_accountability\nWHERE academic_year = '2023-24'\n  AND reporting_category = 'TA'\n  AND frpm_free_pct_k12 IS NOT NULL\nORDER BY frpm_free_pct_k12 DESC\nLIMIT 20;",
+    },
+    # ── CDE staging table queries (direct path) ───────────────────
+    {
+        "question": "What are the SBAC math scores by grade level for a specific school?",
+        "sql": "SELECT reporting_category, ROUND(AVG(mean_scale_score), 1) AS avg_score,\n       ROUND(AVG(percentage_standard_met_and_above), 1) AS pct_met_above\nFROM main_staging.stg_cde__assessment_caspp\nWHERE cds_code = '01610040119999'\nGROUP BY reporting_category\nORDER BY avg_score DESC;",
+    },
+    {
+        "question": "How many homeless students are in each district in 2023-24?",
+        "sql": "SELECT district_name, SUM(homeless_student_enrollment) AS total_homeless\nFROM main_staging.stg_cde__homeless_enrollment\nWHERE academic_year = '2023-24'\n  AND aggregate_level = 'D'\n  AND reporting_category = 'TA'\n  AND homeless_student_enrollment IS NOT NULL\nGROUP BY district_name\nORDER BY total_homeless DESC;",
     },
 ]
 

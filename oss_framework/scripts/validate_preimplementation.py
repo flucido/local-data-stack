@@ -120,7 +120,7 @@ class PreImplementationValidator:
             import duckdb
 
             db_path = os.getenv(
-                "DUCKDB_DATABASE_PATH", "./oss_framework/data/oea.duckdb"
+                "DUCKDB_DATABASE_PATH", "./oss_framework/data/analytics.duckdb"
             )
             con = duckdb.connect(db_path)
             result = con.execute("SELECT 1").fetchall()

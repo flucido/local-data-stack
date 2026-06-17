@@ -97,7 +97,7 @@ check_environment() {
     fi
     
     # Check DuckDB database
-    if [[ ! -f "${PROJECT_ROOT}/oss_framework/data/oea.duckdb" ]]; then
+    if [[ ! -f "${PROJECT_ROOT}/oss_framework/data/analytics.duckdb" ]]; then
         log "WARN" "DuckDB database not found - will be created on first run"
     fi
     
@@ -152,9 +152,9 @@ post_execution() {
     find "$LOG_DIR" -name "*.log" -size +10M ! -name "*.gz" -exec gzip {} \; 2>/dev/null || true
     
     # Check database size
-    if [[ -f "${PROJECT_ROOT}/oss_framework/data/oea.duckdb" ]]; then
+    if [[ -f "${PROJECT_ROOT}/oss_framework/data/analytics.duckdb" ]]; then
         local db_size
-        db_size=$(du -h "${PROJECT_ROOT}/oss_framework/data/oea.duckdb" | cut -f1)
+        db_size=$(du -h "${PROJECT_ROOT}/oss_framework/data/analytics.duckdb" | cut -f1)
         log "INFO" "Database size: ${db_size}"
     fi
     

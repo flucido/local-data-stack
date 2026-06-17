@@ -1,0 +1,73 @@
+# gitleaks configuration for local-data-stack
+# Detects secrets, credentials, and PII patterns before they're committed.
+
+title = "local-data-stack gitleaks config"
+
+# Extend default ruleset
+[extend]
+useDefault = true
+
+# Allowlist — known-safe patterns that shouldn't trigger
+[allowlist]
+description = "Allowlist for synthetic test data, placeholder configs, and documentation"
+
+# Known-safe files
+paths = [
+    # Placeholder env template — deliberately contains dummy values
+    ".env.example",
+    # Security doc references gitleaks as a recommended tool
+    "SECURITY.md",
+    # Synthetic test fixtures — no real PII
+    "oss_framework/tests/conftest.py",
+    "oss_framework/tests/test_education_validation.py",
+    # Synthetic sample data for schema exploration
+    "oss_framework/data/sample_data/",
+    # Macro README documents usage examples with placeholder values
+    "oss_framework/dbt/macros/README.md",
+    # STAGE2B design doc references old salt in examples — historical
+    "oss_framework/dbt/STAGE2B_PRIVACY_DESIGN.md",
+    # Package templates — documentation with placeholder connection strings
+    "oss_framework/package_templates/",
+    # K8s archived manifests — placeholder credential examples
+    "oss_framework/k8s-archived/",
+    # Metadata catalog — synthetic schema descriptions
+    "oss_framework/metadata/",
+    # Performance scripts — synthetic benchmark data
+    "scripts/performance/",
+]
+
+# Allow known-safe identifiers in these specific files
+[[allowlist.rules]]
+id = "generic-api-key"
+description = "Placeholder Aeries API key in .env.example"
+paths = [".env.example"]
+
+[[allowlist.rules]]
+id = "generic-api-key"
+description = "dbt salt_pii env var reference in project config"
+paths = ["oss_framework/dbt/dbt_project.yml"]
+
+[[allowlist.rules]]
+id = "email"
+description = "Author email in pyproject.toml"
+paths = ["pyproject.toml"]
+
+
+# Custom rules for education-specific PII and credential patterns
+[[rules]]
+id = "student-ssn-pattern"
+description = "Social Security Number-like patterns (###-##-####)"
+regex = '''\b\d{3}[ -]?\d{2}[ -]?\d{4}\b'''
+tags = ["PII", "SSN", "FERPA"]
+
+[[rules]]
+id = "postgres-connection-string"
+description = "PostgreSQL connection strings with embedded credentials"
+regex = '''(?i)postgres(?:ql)?://[^/\s]+:[^/\s]+@'''
+tags = ["database", "credentials"]
+
+[[rules]]
+id = "hardcoded-jwt-or-token"
+description = "Hardcoded JWT tokens or long base64 strings (potential API keys)"
+regex = '''(?i)(eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,})'''
+tags = ["credentials", "token"]

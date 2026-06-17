@@ -49,6 +49,15 @@ htmlcov/
 *.swp
 *.swo
 
+# Internal tool artifacts
+.reasonix/
+
+# Security scan outputs
+gitleaks_output*
+
+# Archived legacy code (pre-local-first architecture)
+archive/
+
 # Logs
 logs/
 *.log

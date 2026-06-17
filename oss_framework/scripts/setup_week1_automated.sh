@@ -104,7 +104,7 @@ AERIES_AUTH_METHOD=api_key
 # AERIES_AUTH_METHOD=database
 
 # DuckDB Configuration
-DUCKDB_DATABASE_PATH=./oss_framework/data/oea.duckdb
+DUCKDB_DATABASE_PATH=./oss_framework/data/analytics.duckdb
 DUCKDB_MEMORY_LIMIT=8GB
 
 # Data Lake Paths
@@ -151,7 +151,7 @@ echo -e "${YELLOW}[6/10]${NC} Testing DuckDB connection..."
 python3 << 'PYTHON_TEST'
 import duckdb
 import os
-db_path = os.getenv("DUCKDB_DATABASE_PATH", "./oss_framework/data/oea.duckdb")
+db_path = os.getenv("DUCKDB_DATABASE_PATH", "./oss_framework/data/analytics.duckdb")
 try:
     con = duckdb.connect(db_path)
     result = con.execute("SELECT 1").fetchall()
@@ -214,7 +214,7 @@ AERIES_DB_USERNAME = os.getenv("AERIES_DB_USERNAME")
 AERIES_DB_PASSWORD = os.getenv("AERIES_DB_PASSWORD")
 
 # DuckDB Configuration
-DUCKDB_DATABASE_PATH = os.getenv("DUCKDB_DATABASE_PATH", "./oss_framework/data/oea.duckdb")
+DUCKDB_DATABASE_PATH = os.getenv("DUCKDB_DATABASE_PATH", "./oss_framework/data/analytics.duckdb")
 DUCKDB_MEMORY_LIMIT = os.getenv("DUCKDB_MEMORY_LIMIT", "8GB")
 
 # Data Lake Paths
@@ -449,7 +449,7 @@ def test_duckdb_connection():
     import duckdb
     import os
     
-    db_path = os.getenv("DUCKDB_DATABASE_PATH", "./oss_framework/data/oea.duckdb")
+    db_path = os.getenv("DUCKDB_DATABASE_PATH", "./oss_framework/data/analytics.duckdb")
     con = duckdb.connect(db_path)
     result = con.execute("SELECT 1").fetchall()
     assert result[0][0] == 1

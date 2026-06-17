@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 # Paths
 PROJECT_ROOT = Path(__file__).parent.parent
-DUCKDB_PATH = PROJECT_ROOT / "oss_framework" / "data" / "oea.duckdb"
+DUCKDB_PATH = PROJECT_ROOT / "oss_framework" / "data" / "analytics.duckdb"
 RILL_DATA_DIR = PROJECT_ROOT / "rill_project" / "data"
 
 # Analytics views to export

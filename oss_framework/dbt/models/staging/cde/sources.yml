@@ -111,3 +111,481 @@ sources:
 
           - name: _dlt_id
             description: dlt-generated unique row identifier
+
+      # ── OBT-grain domains (join into mart_cde_school_accountability) ──
+
+      - name: cde_absenteeism_reason
+        description: |
+          Absenteeism broken down by reason (excused, unexcused, OSS, independent study).
+          School × year × reporting_category grain. 1.87M rows across 5 years.
+        columns:
+          - name: academic_year
+          - name: aggregate_level
+          - name: county_code
+          - name: district_code
+          - name: school_code
+          - name: county_name
+          - name: district_name
+          - name: school_name
+          - name: charter_school
+          - name: dass
+          - name: reporting_category
+          - name: eligible_cumulative_enrollment
+          - name: count_of_students_with_one_or_more_absences
+          - name: average_days_absent
+          - name: total_days_absent
+          - name: excused_absences_percent
+          - name: unexcused_absences_percent
+          - name: out_of_school_suspension_absences_percent
+          - name: incomplete_independent_study_absences_percent
+          - name: excused_absences_count
+          - name: unexcused_absences_count
+          - name: out_of_school_suspension_absences_count
+          - name: incomplete_independent_study_absences_count
+          - name: _loaded_at
+          - name: _source_file
+
+      - name: cde_cumulative_enrollment
+        description: |
+          Cumulative enrollment by school and demographic subgroup.
+          School × year × reporting_category grain. 903K rows across 4 years.
+        columns:
+          - name: academicyear
+          - name: aggregatelevel
+          - name: countycode
+          - name: districtcode
+          - name: schoolcode
+          - name: countyname
+          - name: districtname
+          - name: schoolname
+          - name: charter
+          - name: reportingcategory
+          - name: cumulativeenrollment
+          - name: _loaded_at
+          - name: _source_file
+
+      - name: cde_suspension
+        description: |
+          Suspension counts and rates by incident type, school, and subgroup.
+          School × year × reporting_category grain. 1.13M rows across 5 years.
+        columns:
+          - name: academicyear
+          - name: aggregatelevel
+          - name: countycode
+          - name: districtcode
+          - name: schoolcode
+          - name: countyname
+          - name: districtname
+          - name: schoolname
+          - name: chartyyn
+          - name: reportingcategory
+          - name: cumulativeenrollment
+          - name: total_suspensions
+          - name: unduplicated_count_of_students_suspended_total
+          - name: unduplicated_count_of_students_suspended_defiance_only
+          - name: suspension_rate_total
+          - name: suspension_count_violent_incident_injury
+          - name: suspension_count_violent_incident_no_injury
+          - name: suspension_count_weapons_possession
+          - name: suspension_count_illicit_drug_related
+          - name: suspension_count_defiance_only
+          - name: suspension_count_other_reasons
+          - name: _loaded_at
+          - name: _source_file
+
+      - name: cde_expulsion
+        description: |
+          Expulsion counts and rates by school and subgroup.
+          School × year × reporting_category grain. 902K rows across 4 years.
+        columns:
+          - name: academicyear
+          - name: aggregatelevel
+          - name: countycode
+          - name: districtcode
+          - name: schoolcode
+          - name: countyname
+          - name: districtname
+          - name: schoolname
+          - name: chartyyn
+          - name: reportingcategory
+          - name: cumulativeenrollment
+          - name: total_expulsions
+          - name: unduplicated_count_of_students_expelled_total
+          - name: unduplicated_count_of_students_expelled_defiance_only
+          - name: expulsion_rate_total
+          - name: expulsion_count_violent_incident_injury
+          - name: expulsion_count_violent_incident_no_injury
+          - name: expulsion_count_weapons_possession
+          - name: expulsion_count_illicit_drug_related
+          - name: expulsion_count_defiance_only
+          - name: expulsion_count_other_reasons
+          - name: _loaded_at
+          - name: _source_file
+
+      - name: cde_homeless_enrollment
+        description: |
+          Homeless student enrollment by school and subgroup.
+          School × year × reporting_category grain. 595K rows across 4 years.
+        columns:
+          - name: academic_year
+          - name: aggregate_level
+          - name: county_code
+          - name: district_code
+          - name: school_code
+          - name: county_name
+          - name: district_name
+          - name: school_name
+          - name: charter_school
+          - name: dass
+          - name: reporting_category
+          - name: cumulative_enrollment
+          - name: homeless_student_enrollment
+          - name: temporarily_doubled_up
+          - name: temporary_shelters
+          - name: hotels_motels
+          - name: temporarily_unsheltered
+          - name: missing_unknown
+          - name: temporarily_doubled_up_percent
+          - name: temporary_shelters_percent
+          - name: hotels_motels_percent
+          - name: temporarily_unsheltered_percent
+          - name: missing_unknown_percent
+          - name: _loaded_at
+          - name: _source_file
+
+      - name: cde_frpm
+        description: |
+          Free/Reduced Price Meals data by school. From Excel files, loaded via openpyxl.
+          School grain (no reporting_category). 52K rows across 5 years.
+        columns:
+          - name: academic_year
+          - name: county_code
+          - name: district_code
+          - name: school_code
+          - name: county_name
+          - name: district_name
+          - name: school_name
+          - name: district_type
+          - name: school_type
+          - name: educational_option_type
+          - name: nslp_provision_status
+          - name: charter_school
+          - name: charter_number
+          - name: charter_funding_type
+          - name: irc
+          - name: low_grade
+          - name: high_grade
+          - name: enrollment_k12
+          - name: free_meal_count_k12
+          - name: percent_eligible_free_k12
+          - name: frpm_count_k12
+          - name: percent_eligible_frpm_k12
+          - name: enrollment_ages_5_17
+          - name: free_meal_count_ages_5_17
+          - name: percent_eligible_free_ages_5_17
+          - name: frpm_count_ages_5_17
+          - name: percent_eligible_frpm_ages_5_17
+          - name: calpads_certification_status
+          - name: _loaded_at
+          - name: _source_file
+
+      - name: cde_upc
+        description: |
+          CALPADS Unduplicated Pupil Counts at school level. From Excel files.
+          School grain. 52K rows across 5 years.
+        columns:
+          - name: academic_year
+          - name: county_code
+          - name: district_code
+          - name: school_code
+          - name: county_name
+          - name: district_name
+          - name: school_name
+          - name: district_type
+          - name: school_type
+          - name: educational_option_type
+          - name: nslp_provision_status
+          - name: charter_school
+          - name: charter_number
+          - name: charter_funding_type
+          - name: irc
+          - name: low_grade
+          - name: high_grade
+          - name: enrollment_k12
+          - name: free_meal_count_k12
+          - name: percent_eligible_free_k12
+          - name: frpm_count_k12
+          - name: percent_eligible_frpm_k12
+          - name: _loaded_at
+          - name: _source_file
+
+      - name: cde_assessment_ela
+        description: |
+          ELA assessment dashboard data by school and student group.
+          Style B (lowercase columns, pre-concatenated CDS code). 691K rows across 4 years.
+        columns:
+          - name: cds
+          - name: rtype
+          - name: schoolname
+          - name: districtname
+          - name: countyname
+          - name: charter_flag
+          - name: coe_flag
+          - name: dass_flag
+          - name: studentgroup
+          - name: currdenom
+          - name: currstatus
+          - name: statuslevel
+          - name: reportingyear
+          - name: _loaded_at
+          - name: _source_file
+
+      - name: cde_assessment_elpac
+        description: |
+          ELPAC (English Learner proficiency) dashboard data by school and student group.
+          Style B. 57K rows across 4 years.
+        columns:
+          - name: cds
+          - name: rtype
+          - name: schoolname
+          - name: districtname
+          - name: countyname
+          - name: charter_flag
+          - name: coe_flag
+          - name: dass_flag
+          - name: currprogressed
+          - name: pctcurrprogressed
+          - name: currmaintainpl4
+          - name: pctcurrmaintainpl4
+          - name: currmaintainoth
+          - name: pctcurrmaintainoth
+          - name: currdeclined
+          - name: pctcurrdeclined
+          - name: currnumer
+          - name: currdenom
+          - name: currstatus
+          - name: statuslevel
+          - name: reportingyear
+          - name: _loaded_at
+          - name: _source_file
+
+      - name: cde_assessment_caspp
+        description: |
+          SBAC/CAASPP assessment scores from ZIP files (caret-delimited).
+          School × year × student_group × grade grain. 3.86M rows for 2022.
+        columns:
+          - name: county_code
+          - name: district_code
+          - name: school_code
+          - name: filler
+          - name: test_year
+          - name: student_group_id
+          - name: test_type
+          - name: total_tested_at_reporting_level
+          - name: total_tested_with_scores_at_reporting_level
+          - name: grade
+          - name: test_id
+          - name: students_enrolled
+          - name: students_tested
+          - name: mean_scale_score
+          - name: percentage_standard_exceeded
+          - name: percentage_standard_met
+          - name: percentage_standard_met_and_above
+          - name: percentage_standard_nearly_met
+          - name: percentage_standard_not_met
+          - name: students_with_scores
+          - name: area_1_percentage_above_standard
+          - name: area_1_percentage_near_standard
+          - name: area_1_percentage_below_standard
+          - name: area_2_percentage_above_standard
+          - name: area_2_percentage_near_standard
+          - name: area_2_percentage_below_standard
+          - name: area_3_percentage_above_standard
+          - name: area_3_percentage_near_standard
+          - name: area_3_percentage_below_standard
+          - name: area_4_percentage_above_standard
+          - name: area_4_percentage_near_standard
+          - name: area_4_percentage_below_standard
+          - name: type_id
+          - name: _loaded_at
+          - name: _source_file
+
+      # ── Standalone domains (different grain, not in OBT) ──
+
+      - name: cde_cbedsora
+        description: |
+          CBEDS ORA staff demographics by school. 554K rows, 10 files (a/b per year).
+        columns:
+          - name: cdscode
+          - name: countyname
+          - name: districtname
+          - name: schoolname
+          - name: description
+          - name: level
+          - name: section
+          - name: rownumber
+          - name: americanindian
+          - name: asian
+          - name: pacificislander
+          - name: filipino
+          - name: hispanic
+          - name: africanamerican
+          - name: white
+          - name: multornoresp
+          - name: total
+          - name: year
+          - name: _loaded_at
+          - name: _source_file
+
+      - name: cde_enrollment_by_grade
+        description: |
+          SARC enrollment counts by grade level. School × year grain. 10K rows.
+        columns:
+          - name: cdscode
+          - name: c
+          - name: d
+          - name: s
+          - name: sarcyear
+          - name: kdgn
+          - name: gr1
+          - name: gr2
+          - name: gr3
+          - name: gr4
+          - name: gr5
+          - name: gr6
+          - name: gr7
+          - name: gr8
+          - name: gr9
+          - name: gr10
+          - name: gr11
+          - name: gr12
+          - name: enrtotal
+          - name: _loaded_at
+          - name: _source_file
+
+      - name: cde_enrollment_by_subgroup
+        description: |
+          SARC enrollment percentages by demographic subgroup. School × year grain. 10K rows.
+        columns:
+          - name: cdscode
+          - name: c
+          - name: d
+          - name: s
+          - name: sarcyear
+          - name: pergf
+          - name: pergm
+          - name: pergx
+          - name: perai
+          - name: peras
+          - name: peraa
+          - name: perfi
+          - name: perhi
+          - name: perpi
+          - name: permulti
+          - name: perwh
+          - name: perel
+          - name: perfy
+          - name: perh
+          - name: permig
+          - name: persd
+          - name: perdi
+          - name: _loaded_at
+          - name: _source_file
+
+      - name: cde_teacher_misassignment
+        description: |
+          Teacher misassignment counts by school. School × year grain. 10.5K rows.
+        columns:
+          - name: cdscode
+          - name: c
+          - name: d
+          - name: s
+          - name: sarcyear
+          - name: naapw_y1
+          - name: naams_y1
+          - name: naavp_y1
+          - name: naatt_y1
+          - name: naapw_y2
+          - name: naams_y2
+          - name: naavp_y2
+          - name: naatt_y2
+          - name: naapw_y3
+          - name: naams_y3
+          - name: naavp_y3
+          - name: naatt_y3
+          - name: _loaded_at
+          - name: _source_file
+
+      - name: cde_teacher_out_of_field
+        description: |
+          Teacher out-of-field counts by school. School × year grain. 10.5K rows.
+        columns:
+          - name: cdscode
+          - name: c
+          - name: d
+          - name: s
+          - name: sarcyear
+          - name: nicta_y1
+          - name: nilao_y1
+          - name: nioof_y1
+          - name: nicta_y2
+          - name: nilao_y2
+          - name: nioof_y2
+          - name: nicta_y3
+          - name: nilao_y3
+          - name: nioof_y3
+          - name: _loaded_at
+          - name: _source_file
+
+      - name: cde_teacher_prep
+        description: |
+          Teacher preparation data by school. 113 columns. School × year grain. 10.5K rows.
+        columns:
+          - name: cdscode
+          - name: c
+          - name: d
+          - name: s
+          - name: sarcyear
+          - name: _loaded_at
+          - name: _source_file
+
+      - name: cde_class_assignment
+        description: |
+          Class assignment data by school. School × year grain. 10.5K rows.
+        columns:
+          - name: cdscode
+          - name: c
+          - name: d
+          - name: s
+          - name: sarcyear
+          - name: pimel_y1
+          - name: pinc_y1
+          - name: pimel_y2
+          - name: pinc_y2
+          - name: pimel_y3
+          - name: pinc_y3
+          - name: _loaded_at
+          - name: _source_file
+
+      - name: cde_restraint_seclusion
+        description: |
+          CALPADS disciplinary restraint and seclusion data by school and subgroup.
+          From Excel files (sheet4). School × year × reporting_category grain. 97K rows across 3 years.
+        columns:
+          - name: academic_year
+          - name: aggregate_level
+          - name: county_code
+          - name: district_code
+          - name: school_code
+          - name: county_name
+          - name: district_name
+          - name: school_name
+          - name: nps
+          - name: reporting_category
+          - name: count_of_mechanical_restraints
+          - name: unduplicated_count_of_students_mechanical
+          - name: count_of_physical_restraints
+          - name: unduplicated_count_of_students_physical
+          - name: count_of_seclusions
+          - name: _loaded_at
+          - name: _source_file

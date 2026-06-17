@@ -3,6 +3,7 @@
 Kubernetes Deployment Validation and Deployment Management
 """
 
+import os
 import subprocess
 import json
 import time
@@ -59,7 +60,12 @@ class K8sDeployment:
             return False
 
     def create_secrets(self) -> bool:
-        """Create database credentials secret"""
+        """Create database credentials secret from environment variable."""
+        pg_password = os.getenv("POSTGRES_PASSWORD")
+        if not pg_password:
+            print("✗ POSTGRES_PASSWORD environment variable is not set")
+            return False
+
         try:
             subprocess.run(
                 [
@@ -68,7 +74,7 @@ class K8sDeployment:
                     "secret",
                     "generic",
                     "db-credentials",
-                    f"--from-literal=postgres-password=vincent0408",
+                    f"--from-literal=postgres-password={pg_password}",
                     f"--namespace={self.namespace}",
                 ],
                 capture_output=True,

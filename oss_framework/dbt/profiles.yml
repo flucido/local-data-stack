@@ -7,7 +7,7 @@ duckdb_oss:
   outputs:
     dev:
       type: 'duckdb'
-      path: "{{ env_var('DUCKDB_DATABASE_PATH', '../data/oea.duckdb') }}"
+      path: "{{ env_var('DUCKDB_DATABASE_PATH', '../data/analytics.duckdb') }}"
       threads: 4
       timeout_seconds: 300
 
@@ -24,7 +24,7 @@ duckdb_oss:
 
     prod:
       type: 'duckdb'
-      path: "{{ env_var('DUCKDB_DATABASE_PATH', '../data/oea.duckdb') }}"
+      path: "{{ env_var('DUCKDB_DATABASE_PATH', '../data/analytics.duckdb') }}"
       threads: 8
       timeout_seconds: 300
 

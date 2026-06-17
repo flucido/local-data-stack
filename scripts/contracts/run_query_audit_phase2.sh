@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set +e
-DB="oss_framework/data/oea.duckdb"
+DB="oss_framework/data/analytics.duckdb"
 OUT="DataAnalysisExpert/query_audit_phase2"
 MANIFEST="scripts/contracts/contract_query_manifest.json"
 mkdir -p "$OUT"

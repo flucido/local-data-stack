@@ -36,7 +36,7 @@ Aeries API / CSV exports
          ↓
 Stage 1: Delta/Parquet landing zone (oss_framework/data/stage1)
          ↓
-Stage 2: DuckDB + dbt transformations (oss_framework/data/oea.duckdb)
+Stage 2: DuckDB + dbt transformations (oss_framework/data/analytics.duckdb)
          ↓
 Stage 3: Analytics marts / exported dashboard inputs
          ↓
@@ -80,7 +80,7 @@ cd rill_project
 rill start
 ```
 
-If you keep the default `.env.example` paths, Rill will open the DuckDB file at `../oss_framework/data/oea.duckdb`.
+If you keep the default `.env.example` paths, Rill will open the DuckDB file at `../oss_framework/data/analytics.duckdb`.
 
 ## Synthetic sample data
 

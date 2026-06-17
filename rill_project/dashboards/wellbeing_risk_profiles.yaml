@@ -103,3 +103,4 @@ measures:
     label: "Students - Primary Concern: Academic"
     expression: SUM(CASE WHEN primary_concern = 'Academic' THEN 1 ELSE 0 END)
     format_preset: humanize
+

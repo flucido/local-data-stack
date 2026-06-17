@@ -314,7 +314,7 @@ dbt docs serve  # Access at localhost:8000
 
 ```
 Database: DuckDB
-Connection String: oss_framework/data/oea.duckdb
+Connection String: oss_framework/data/analytics.duckdb
 Driver: org.duckdb.DuckDBDriver
 
 Query Settings:

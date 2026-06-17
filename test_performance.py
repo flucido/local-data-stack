@@ -17,7 +17,7 @@ class PerformanceTest:
     def __init__(
         self,
         duckdb_path: str = os.getenv(
-            "DUCKDB_DATABASE_PATH", "./oss_framework/data/oea.duckdb"
+            "DUCKDB_DATABASE_PATH", "./oss_framework/data/analytics.duckdb"
         ),
     ):
         self.db_path = duckdb_path

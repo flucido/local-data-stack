@@ -10,7 +10,7 @@ This folder contains the canonical query-contract checks used for local validati
 ## Prerequisites
 - Python 3.9+
 - DuckDB file available at:
-  - `oss_framework/data/oea.duckdb` (default)
+  - `oss_framework/data/analytics.duckdb` (default)
   - or set `DUCKDB_DATABASE_PATH`
 
 ## Local Usage
@@ -30,7 +30,7 @@ Outputs are written to:
 
 ### 3) Override DuckDB path
 ```bash
-DUCKDB_DATABASE_PATH=/absolute/path/to/oea.duckdb python3 scripts/contracts/contract_tests.py
+DUCKDB_DATABASE_PATH=/absolute/path/to/analytics.duckdb python3 scripts/contracts/contract_tests.py
 ```
 
 ## Updating Queries

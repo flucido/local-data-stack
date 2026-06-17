@@ -1,0 +1,110 @@
+version: 2
+
+models:
+  - name: mart_cde_school_accountability
+    description: >
+      CDE School Accountability One Big Table (OBT). Joins all CDE aggregate
+      metrics at the school × academic_year × reporting_category grain.
+
+      Per Option C design: raw CDE staging tables remain queryable directly
+      (Path A), while this OBT provides pre-joined metrics for dashboard and
+      multi-metric queries (Path B).
+
+      Grain: one row per cds_code × academic_year × reporting_category.
+      A school with 15 reporting categories in 4 years = 60 rows.
+
+      SIS-agnostic: depends only on CDE data, not on any SIS vendor schema.
+      Aeries data enrichment happens through separate views (v_cde_school_benchmarks).
+
+    columns:
+      - name: cds_code
+        description: "14-character California school identifier (CCDDDDDSSSSSSS)"
+        data_tests:
+          - not_null
+
+      - name: academic_year
+        description: "School year in format YYYY-YY (e.g., 2023-24)"
+        data_tests:
+          - not_null
+
+      - name: reporting_category
+        description: "CDE subgroup code: TA=all, RA=Asian, RB=Black, RH=Hispanic, SE=Socioeconomically Disadvantaged, EL=English Learners, SWD=Students with Disabilities, HOM=Homeless, FOS=Foster Youth, MIL=Military, GR*=grade ranges"
+        data_tests:
+          - not_null
+
+      - name: reporting_category_label
+        description: "Human-readable reporting category label"
+
+      - name: aggregate_level
+        description: "Always 'S' (School) in OBT"
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['S']
+
+      - name: school_id
+        description: "Aeries internal school ID (from dim_schools join, NULL if school not in Aeries)"
+
+      - name: school_name
+        description: "School name from dim_schools"
+
+      - name: district_name
+        description: "District name from dim_schools"
+
+      - name: county_name
+        description: "County name from dim_schools"
+
+      - name: ca_eligible_enrollment
+        description: "Chronic absenteeism: students enrolled >= 31 days"
+
+      - name: ca_chronic_absent_count
+        description: "Chronic absenteeism: students missing >= 10% of instructional days"
+
+      - name: ca_chronic_absent_rate_pct
+        description: "Chronic absenteeism rate (%)"
+
+      - name: su_suspension_rate_pct
+        description: "Suspension rate (%)"
+
+      - name: ex_expulsion_rate_pct
+        description: "Expulsion rate (%)"
+
+      - name: frpm_free_pct_k12
+        description: "Percent eligible for free meals (K-12)"
+
+      - name: frpm_reduced_pct_k12
+        description: "Percent eligible for reduced price meals (K-12)"
+
+      - name: ela_status
+        description: "ELA dashboard status level (color/performance level)"
+
+      - name: sbac_mean_scale_score
+        description: "SBAC/CAASPP mean scale score"
+
+      - name: sbac_pct_standard_met_above
+        description: "SBAC % met or above standard"
+
+      - name: is_suppressed
+        description: "TRUE if CDE suppressed data for this row (n < 11 students)"
+
+      - name: has_cde_data
+        description: "TRUE if at least one CDE domain has non-null data for this row"
+        data_tests:
+          - not_null
+
+      - name: data_domains_present
+        description: "Count of CDE domains with non-null data for this row (0-11)"
+        data_tests:
+          - not_null
+
+      - name: is_race_ethnicity_subgroup
+        description: "TRUE if reporting_category is a race/ethnicity code (R*)"
+
+      - name: is_gender_subgroup
+        description: "TRUE if reporting_category is a gender code (GF, GM, GX)"
+
+      - name: is_atrisk_subgroup
+        description: "TRUE if reporting_category is an at-risk subgroup (SE, EL, RFEP, IFEP, SWD, HOM, FOS, MIL)"
+
+      - name: is_grade_level_subgroup
+        description: "TRUE if reporting_category is a grade-level range (GR*)"

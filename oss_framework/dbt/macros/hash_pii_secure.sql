@@ -23,7 +23,7 @@
     SELECT {{ hash_pii_secure('email', 'custom_salt') }} FROM contacts
 #}
 
-{%- macro hash_pii_secure(column_name, salt=var('salt_pii', 'oea_2026')) -%}
+{%- macro hash_pii_secure(column_name, salt=var('salt_pii')) -%}
     sha256(CONCAT('{{ salt }}', COALESCE({{ column_name }}::VARCHAR, '')))
 {%- endmacro -%}
 
