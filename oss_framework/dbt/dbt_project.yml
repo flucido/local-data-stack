@@ -112,7 +112,7 @@ models:
 # Variable defaults
 vars:
   salt_pii: "{{ env_var('PII_SALT') }}"
-  hash_algorithm: 'md5'
+  hash_algorithm: 'sha256'
   attendance_risk_threshold: 85
   chronic_absence_threshold: 10
 
