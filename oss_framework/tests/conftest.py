@@ -213,11 +213,11 @@ def data_transformer(metadata_manager):
 
 
 @pytest.fixture
-def batch_processor(metadata_manager):
-    """BatchProcessor fixture with metadata"""
+def batch_processor():
+    """BatchProcessor fixture"""
     from oss_framework import BatchProcessor
 
-    return BatchProcessor(metadata_manager)
+    return BatchProcessor()
 
 
 @pytest.fixture

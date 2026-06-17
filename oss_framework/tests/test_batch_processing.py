@@ -105,6 +105,7 @@ class TestDataQualityChecks:
     def test_type_consistency_check(self, batch_processor, sample_students_df):
         """Test data type consistency"""
         df = sample_students_df.copy()
+        df["grade_level"] = df["grade_level"].astype(object)
         df.loc[0, "grade_level"] = "invalid"
 
         quality_report = batch_processor.check_quality(df, entity="students")
@@ -129,9 +130,7 @@ class TestEndToEndPipeline:
 
             assert len(anonymized) == len(df)
             assert (anonymized["student_id"] != df["student_id"]).all()
-            assert anonymized["grade_level"].equals(
-                df["grade_level"], check_dtype=False
-            )
+            assert anonymized["grade_level"].equals(df["grade_level"])
 
     def test_enrollment_pipeline(
         self, batch_processor, sample_enrollment_df, pseudonymizer

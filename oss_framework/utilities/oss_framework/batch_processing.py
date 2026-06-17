@@ -36,6 +36,7 @@ class BatchProcessor:
         new_data: pd.DataFrame,
         existing_data: Optional[pd.DataFrame] = None,
         key_columns: List[str] = None,
+        batch_mode: Optional[str] = None,
     ) -> pd.DataFrame:
         """
         Process batch according to configured mode
@@ -44,16 +45,34 @@ class BatchProcessor:
             new_data: New data to process
             existing_data: Existing data (required for delta and additive modes)
             key_columns: Columns to use for merge key (required for delta mode)
+            batch_mode: Override the instance's default mode for this call
 
         Returns:
             Processed data ready for database load
         """
-        if self.mode == "delta":
+        mode = batch_mode or self.mode
+        if mode == "delta":
             return self._delta_merge(new_data, existing_data, key_columns)
-        elif self.mode == "additive":
+        elif mode == "additive":
             return self._additive_append(new_data, existing_data)
         else:  # snapshot
             return self._snapshot_replace(new_data)
+
+    @staticmethod
+    def deduplicate(df: pd.DataFrame, subset: List[str]) -> pd.DataFrame:
+        """Remove duplicate rows based on subset columns."""
+        return df.drop_duplicates(subset=subset)
+
+    @staticmethod
+    def check_quality(df: pd.DataFrame, entity: str = "") -> Dict[str, Any]:
+        """Run data quality checks and return a report."""
+        report: Dict[str, Any] = {"entity": entity, "checks": {}, "valid": True,
+                                  "quality_issues": []}
+        null_pct = DataQualityChecker.check_null_percentage(df)
+        report["checks"]["null_percentage"] = null_pct
+        dupes = DataQualityChecker.check_duplicates(df, df.columns.tolist())
+        report["checks"]["duplicate_count"] = dupes
+        return report
 
     @staticmethod
     def _delta_merge(
