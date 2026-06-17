@@ -56,7 +56,7 @@ renamed AS (
         s as school_code,
 
         -- Time
-        sarcyear as academic_year,
+        sarc_year as academic_year,
 
         -- Grade-level enrollment counts
         TRY_CAST(kdgn AS INTEGER) as kdgn,

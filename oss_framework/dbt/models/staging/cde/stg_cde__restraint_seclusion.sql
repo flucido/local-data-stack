@@ -77,11 +77,11 @@ renamed AS (
         reporting_category,
         {{ cde_reporting_category_label('reporting_category') }} as reporting_category_label,
 
-        -- Counts (cast to INTEGER)
+        -- Counts (cast to INTEGER; CDE suffixes unduplicated mechanical count differently)
         TRY_CAST(count_of_mechanical_restraints AS INTEGER) as count_of_mechanical_restraints,
-        TRY_CAST(unduplicated_count_of_students_mechanical AS INTEGER) as unduplicated_count_of_students_mechanical,
+        TRY_CAST(unduplicated_count_of_students_mechanically_restrained AS INTEGER) as unduplicated_count_of_students_mechanical,
         TRY_CAST(count_of_physical_restraints AS INTEGER) as count_of_physical_restraints,
-        TRY_CAST(unduplicated_count_of_students_physical AS INTEGER) as unduplicated_count_of_students_physical,
+        TRY_CAST(unduplicated_count_of_students_physically_restrained AS INTEGER) as unduplicated_count_of_students_physical,
         TRY_CAST(count_of_seclusions AS INTEGER) as count_of_seclusions,
 
         -- Metadata

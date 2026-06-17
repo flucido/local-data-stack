@@ -61,7 +61,7 @@ renamed AS (
         s as school_code,
 
         -- Time
-        sarcyear as academic_year,
+        sarc_year as academic_year,
 
         -- Misassignment counts (all cast to INTEGER)
         TRY_CAST(naapw_y1 AS INTEGER) as naapw_y1,

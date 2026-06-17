@@ -57,7 +57,7 @@ renamed AS (
         s as school_code,
 
         -- Time
-        sarcyear as academic_year,
+        sarc_year as academic_year,
 
         -- Out-of-field counts (all cast to INTEGER)
         TRY_CAST(nicta_y1 AS INTEGER) as nicta_y1,

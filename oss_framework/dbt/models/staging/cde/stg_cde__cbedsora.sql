@@ -52,10 +52,10 @@ renamed AS (
         -- Identifier (cdscode is already the full 14-char CDS code)
         cdscode as cds_code,
 
-        -- Names
-        countyname as county_name,
-        districtname as district_name,
-        schoolname as school_name,
+        -- Names (dlt snake_case normalized from CDE joined names)
+        county_name,
+        district_name,
+        school_name,
 
         -- Analytical categoricals
         description,
@@ -63,17 +63,17 @@ renamed AS (
         section,
 
         -- Row identifier
-        TRY_CAST(rownumber AS INTEGER) as row_number,
+        TRY_CAST(row_number AS INTEGER) as row_number,
 
         -- Race/ethnicity counts (may be NULL for 'b' file rows — totals only)
-        TRY_CAST(americanindian AS INTEGER) as american_indian,
+        TRY_CAST(american_indian AS INTEGER) as american_indian,
         TRY_CAST(asian AS INTEGER) as asian,
-        TRY_CAST(pacificislander AS INTEGER) as pacific_islander,
+        TRY_CAST(pacific_islander AS INTEGER) as pacific_islander,
         TRY_CAST(filipino AS INTEGER) as filipino,
         TRY_CAST(hispanic AS INTEGER) as hispanic,
-        TRY_CAST(africanamerican AS INTEGER) as african_american,
+        TRY_CAST(african_american AS INTEGER) as african_american,
         TRY_CAST(white AS INTEGER) as white,
-        TRY_CAST(multornoresp AS INTEGER) as mult_or_no_resp,
+        TRY_CAST(multor_no_resp AS INTEGER) as mult_or_no_resp,
 
         -- Total staff count
         TRY_CAST(total AS INTEGER) as total,

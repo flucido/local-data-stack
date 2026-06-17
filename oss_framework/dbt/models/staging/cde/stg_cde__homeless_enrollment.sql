@@ -82,12 +82,12 @@ renamed AS (
         TRY_CAST(temporarily_unsheltered AS INTEGER) as temporarily_unsheltered,
         TRY_CAST(missing_unknown AS INTEGER) as missing_unknown,
 
-        -- Metrics: percents
-        TRY_CAST(temporarily_doubled_up_percent AS DOUBLE) as temporarily_doubled_up_percent,
-        TRY_CAST(temporary_shelters_percent AS DOUBLE) as temporary_shelters_percent,
-        TRY_CAST(hotels_motels_percent AS DOUBLE) as hotels_motels_percent,
-        TRY_CAST(temporarily_unsheltered_percent AS DOUBLE) as temporarily_unsheltered_percent,
-        TRY_CAST(missing_unknown_percent AS DOUBLE) as missing_unknown_percent,
+        -- Metrics: percents (CDE appends 'x' to percent column names)
+        TRY_CAST(temporarily_doubled_up_percentx AS DOUBLE) as temporarily_doubled_up_percent,
+        TRY_CAST(temporary_shelters_percentx AS DOUBLE) as temporary_shelters_percent,
+        TRY_CAST(hotels_motels_percentx AS DOUBLE) as hotels_motels_percent,
+        TRY_CAST(temporarily_unsheltered_percentx AS DOUBLE) as temporarily_unsheltered_percent,
+        TRY_CAST(missing_unknown_percentx AS DOUBLE) as missing_unknown_percent,
 
         -- Suppression flags (check enrollment column for '*' and < 11)
         {{ cde_suppression_flags(['cumulative_enrollment']) }},

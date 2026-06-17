@@ -53,7 +53,7 @@ renamed AS (
         s as school_code,
 
         -- Time
-        sarcyear as academic_year,
+        sarc_year as academic_year,
 
         -- Class assignment counts (all cast to INTEGER)
         TRY_CAST(pimel_y1 AS INTEGER) as pimel_y1,

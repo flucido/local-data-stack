@@ -59,7 +59,7 @@ renamed AS (
         s as school_code,
 
         -- Time
-        sarcyear as academic_year,
+        sarc_year as academic_year,
 
         -- Subgroup percentages (all cast to DOUBLE)
         TRY_CAST(pergf AS DOUBLE) as per_gf,

@@ -84,34 +84,34 @@ renamed AS (
         -- Time
         academic_year,
 
-        -- School characteristics
+        -- School characteristics (dlt normalized; CDE uses Y/N/x suffixes)
         district_type,
         school_type,
         educational_option_type,
         nslp_provision_status,
-        charter_school,
-        charter_number,
+        charter_school_y_nx as charter_school,
+        charter_school_number as charter_number,
         charter_funding_type,
         irc,
         low_grade,
         high_grade,
 
-        -- K-12 metrics (enrollment/meal counts → INTEGER, percentages → DOUBLE)
-        TRY_CAST(enrollment_k12 AS INTEGER) as enrollment_k12,
-        TRY_CAST(free_meal_count_k12 AS INTEGER) as free_meal_count_k12,
-        TRY_CAST(percent_eligible_free_k12 AS DOUBLE) as percent_eligible_free_k12,
-        TRY_CAST(frpm_count_k12 AS INTEGER) as frpm_count_k12,
-        TRY_CAST(percent_eligible_frpm_k12 AS DOUBLE) as percent_eligible_frpm_k12,
+        -- K-12 metrics (CDE appends 'x' to numeric column names; cast appropriately)
+        TRY_CAST(enrollment_k_12x AS INTEGER) as enrollment_k12,
+        TRY_CAST(free_meal_count_k_12x AS INTEGER) as free_meal_count_k12,
+        TRY_CAST(percent_eligible_free_k_12x AS DOUBLE) as percent_eligible_free_k12,
+        TRY_CAST(frpm_count_k_12x AS INTEGER) as frpm_count_k12,
+        TRY_CAST(percent_eligible_frpm_k_12x AS DOUBLE) as percent_eligible_frpm_k12,
 
         -- Ages 5-17 metrics
-        TRY_CAST(enrollment_ages_5_17 AS INTEGER) as enrollment_ages_5_17,
-        TRY_CAST(free_meal_count_ages_5_17 AS INTEGER) as free_meal_count_ages_5_17,
-        TRY_CAST(percent_eligible_free_ages_5_17 AS DOUBLE) as percent_eligible_free_ages_5_17,
-        TRY_CAST(frpm_count_ages_5_17 AS INTEGER) as frpm_count_ages_5_17,
-        TRY_CAST(percent_eligible_frpm_ages_5_17 AS DOUBLE) as percent_eligible_frpm_ages_5_17,
+        TRY_CAST(enrollment_ages_5_17x AS INTEGER) as enrollment_ages_5_17,
+        TRY_CAST(free_meal_count_ages_5_17x AS INTEGER) as free_meal_count_ages_5_17,
+        TRY_CAST(percent_eligible_free_ages_5_17x AS DOUBLE) as percent_eligible_free_ages_5_17,
+        TRY_CAST(frpm_count_ages_5_17x AS INTEGER) as frpm_count_ages_5_17,
+        TRY_CAST(percent_eligible_frpm_ages_5_17x AS DOUBLE) as percent_eligible_frpm_ages_5_17,
 
         -- Certification
-        calpads_certification_status,
+        calpads_fall_1_certification_status as calpads_certification_status,
 
         -- Metadata
         _loaded_at as dlt_loaded_at,

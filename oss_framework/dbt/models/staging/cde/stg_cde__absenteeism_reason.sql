@@ -73,19 +73,19 @@ renamed AS (
         -- Demographic/subgroup
         reporting_category,
 
-        -- Metrics (TRY_CAST handles '*' suppression → NULL)
+        -- Metrics (TRY_CAST handles '*' suppression → NULL; CDE appends 'x' to percent/count columns)
         TRY_CAST(eligible_cumulative_enrollment AS INTEGER) as eligible_cumulative_enrollment,
         TRY_CAST(count_of_students_with_one_or_more_absences AS INTEGER) as count_of_students_with_one_or_more_absences,
         TRY_CAST(average_days_absent AS DOUBLE) as average_days_absent,
         TRY_CAST(total_days_absent AS INTEGER) as total_days_absent,
-        TRY_CAST(excused_absences_percent AS DOUBLE) as excused_absences_percent,
-        TRY_CAST(unexcused_absences_percent AS DOUBLE) as unexcused_absences_percent,
-        TRY_CAST(out_of_school_suspension_absences_percent AS DOUBLE) as out_of_school_suspension_absences_percent,
-        TRY_CAST(incomplete_independent_study_absences_percent AS DOUBLE) as incomplete_independent_study_absences_percent,
-        TRY_CAST(excused_absences_count AS INTEGER) as excused_absences_count,
-        TRY_CAST(unexcused_absences_count AS INTEGER) as unexcused_absences_count,
-        TRY_CAST(out_of_school_suspension_absences_count AS INTEGER) as out_of_school_suspension_absences_count,
-        TRY_CAST(incomplete_independent_study_absences_count AS INTEGER) as incomplete_independent_study_absences_count,
+        TRY_CAST(excused_absences_percentx AS DOUBLE) as excused_absences_percent,
+        TRY_CAST(unexcused_absences_percentx AS DOUBLE) as unexcused_absences_percent,
+        TRY_CAST(out_of_school_suspension_absences_percentx AS DOUBLE) as out_of_school_suspension_absences_percent,
+        TRY_CAST(incomplete_independent_study_absences_percentx AS DOUBLE) as incomplete_independent_study_absences_percent,
+        TRY_CAST(excused_absences_countx AS INTEGER) as excused_absences_count,
+        TRY_CAST(unexcused_absences_countx AS INTEGER) as unexcused_absences_count,
+        TRY_CAST(out_of_school_suspension_absences_countx AS INTEGER) as out_of_school_suspension_absences_count,
+        TRY_CAST(incomplete_independent_study_absences_countx AS INTEGER) as incomplete_independent_study_absences_count,
 
         -- Suppression flags (check enrollment column for '*' and < 11)
         {{ cde_suppression_flags(['eligible_cumulative_enrollment']) }},

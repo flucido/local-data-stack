@@ -41,30 +41,30 @@ WITH source AS (
 
 renamed AS (
     SELECT
-        -- Identifiers (Style A: joined column names → normalized)
-        academicyear as academic_year,
-        aggregatelevel as aggregate_level,
-        {{ cde_build_cds_code('countycode', 'districtcode', 'schoolcode') }} as cds_code,
-        countycode as county_code,
-        districtcode as district_code,
-        schoolcode as school_code,
+        -- Identifiers (dlt snake_case normalized from CDE Style A joined names)
+        academic_year,
+        aggregate_level,
+        {{ cde_build_cds_code('county_code', 'district_code', 'school_code') }} as cds_code,
+        county_code,
+        district_code,
+        school_code,
 
         -- Names
-        countyname as county_name,
-        districtname as district_name,
-        schoolname as school_name,
+        county_name,
+        district_name,
+        school_name,
 
         -- School characteristics
         charter as charter_school,
 
         -- Demographic/subgroup
-        reportingcategory as reporting_category,
+        reporting_category,
 
         -- Metrics (TRY_CAST handles '*' suppression → NULL)
-        TRY_CAST(cumulativeenrollment AS INTEGER) as cumulative_enrollment,
+        TRY_CAST(cumulative_enrollment AS INTEGER) as cumulative_enrollment,
 
         -- Suppression flags (check enrollment column for '*' and < 11)
-        {{ cde_suppression_flags(['cumulativeenrollment']) }},
+        {{ cde_suppression_flags(['cumulative_enrollment']) }},
 
         -- Metadata
         _loaded_at,
