@@ -35,7 +35,7 @@ def get_sis_connector(
 
     Args:
         name: Connector name (e.g. 'aeries', 'csv').  Defaults to the
-              SIS_CONNECTOR environment variable, falling back to 'csv'.
+              SIS_CONNECTOR environment variable, falling back to 'aeries'.
         base_url: API base URL (connector-specific).
         api_key: API key or token (connector-specific).
         test_mode: Force synthetic-data mode.
