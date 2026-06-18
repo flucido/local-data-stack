@@ -54,7 +54,9 @@ WITH source AS (
 renamed AS (
     SELECT
         -- Identifiers
-        academic_year,
+        -- COALESCE handles BOM-aliased _academic_year from files loaded before
+        -- the _strip_bom fix (hse2324.txt had EF BB BF decoded as ï»¿ in latin1)
+        COALESCE(academic_year, _academic_year) as academic_year,
         aggregate_level,
         {{ cde_build_cds_code('county_code', 'district_code', 'school_code') }} as cds_code,
         county_code,

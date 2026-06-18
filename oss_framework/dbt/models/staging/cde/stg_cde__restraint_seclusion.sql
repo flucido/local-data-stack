@@ -66,8 +66,12 @@ renamed AS (
         district_name,
         school_name,
 
-        -- Time & level
-        academic_year,
+        -- Time & level (xlsx files use YYYY-YYYY; normalize to CDE standard YYYY-YY)
+        CASE
+            WHEN academic_year LIKE '____-____' AND LENGTH(academic_year) = 9
+                THEN LEFT(academic_year, 4) || '-' || RIGHT(academic_year, 2)
+            ELSE academic_year
+        END as academic_year,
         aggregate_level,
 
         -- Non-public school indicator

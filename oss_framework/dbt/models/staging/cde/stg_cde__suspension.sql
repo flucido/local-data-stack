@@ -52,7 +52,9 @@ WITH source AS (
 renamed AS (
     SELECT
         -- Identifiers (dlt snake_case normalized from CDE Style A joined names)
-        academic_year,
+        -- COALESCE handles BOM-aliased _academic_year from files loaded before
+        -- the _strip_bom fix (suspension24.txt had EF BB BF decoded as ï»¿ in latin1)
+        COALESCE(academic_year, _academic_year) as academic_year,
         aggregate_level,
         {{ cde_build_cds_code('county_code', 'district_code', 'school_code') }} as cds_code,
         county_code,

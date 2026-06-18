@@ -81,8 +81,12 @@ renamed AS (
         district_name,
         school_name,
 
-        -- Time
-        academic_year,
+        -- Time (FRPM uses YYYY-YYYY format; normalize to CDE standard YYYY-YY)
+        CASE
+            WHEN academic_year LIKE '____-____' AND LENGTH(academic_year) = 9
+                THEN LEFT(academic_year, 4) || '-' || RIGHT(academic_year, 2)
+            ELSE academic_year
+        END as academic_year,
 
         -- School characteristics (dlt normalized; CDE uses Y/N/x suffixes)
         district_type,

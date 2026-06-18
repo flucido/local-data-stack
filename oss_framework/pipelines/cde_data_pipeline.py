@@ -170,9 +170,19 @@ ALL_DOMAINS: List[str] = list(DOMAIN_CONFIG.keys())
 
 
 def _strip_bom(name: str) -> str:
-    """Strip a leading UTF-8 BOM (\ufeff) from a column name."""
-    if name and name.startswith("\ufeff"):
-        return name[1:]
+    """Strip a leading UTF-8 BOM from a column name.
+
+    Files are read with ``encoding='latin1'``, so the UTF-8 BOM bytes
+    (``EF BB BF``) decode to the literal string ``ï»¿`` rather than the
+    ``\\ufeff`` codepoint. Strip both forms so the union loader treats
+    the first column consistently across files regardless of which year
+    introduced a BOM.
+    """
+    if not name:
+        return name
+    for prefix in ("\ufeff", "ï»¿"):
+        if name.startswith(prefix):
+            return name[len(prefix):]
     return name
 
 

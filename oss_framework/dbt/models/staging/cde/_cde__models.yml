@@ -54,7 +54,12 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                values: ['TA', 'RA', 'RB', 'RD', 'RF', 'RH', 'RI', 'RP', 'RT', 'RW', 'GM', 'GF', 'GX', 'SE', 'SD', 'SF', 'SH', 'SM', 'SS', 'GR13', 'GR46', 'GR78', 'GR912', 'GRTK8', 'GRTKKN']
+                # 28 codes observed in real CDE data (2020-21 through 2024-25).
+                # Race/ethnicity: RA RB RD RF RH RI RP RT RW
+                # Gender: GM GF GX GZ (GZ added 2024-25)
+                # At-risk: SE SD SF SH SM SS
+                # Grade spans: GR13 GR46 GR78 GR912 GRK8 GRKN GRTK8 GRTKKN
+                values: ['TA', 'RA', 'RB', 'RD', 'RF', 'RH', 'RI', 'RP', 'RT', 'RW', 'GM', 'GF', 'GX', 'GZ', 'SE', 'SD', 'SF', 'SH', 'SM', 'SS', 'GR13', 'GR46', 'GR78', 'GR912', 'GRK8', 'GRKN', 'GRTK8', 'GRTKKN']
 
       - name: reporting_category_label
         description: "Human-readable reporting category label"

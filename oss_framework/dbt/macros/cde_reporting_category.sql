@@ -35,6 +35,7 @@
         WHEN 'GM' THEN 'Male'
         WHEN 'GF' THEN 'Female'
         WHEN 'GX' THEN 'Non-binary'
+        WHEN 'GZ' THEN 'Prefer not to state'
         WHEN 'SE' THEN 'Socioeconomically Disadvantaged'
         WHEN 'SD' THEN 'Socioeconomically Disadvantaged (alt)'
         WHEN 'EL' THEN 'English Learners'
@@ -45,6 +46,8 @@
         WHEN 'FOS' THEN 'Foster Youth'
         WHEN 'MIL' THEN 'Military Connected'
         WHEN 'GRTKKN' THEN 'TK/Kindergarten'
+        WHEN 'GRK8' THEN 'Kindergarten-8'
+        WHEN 'GRKN' THEN 'Kindergarten'
         WHEN 'GR13' THEN 'Grades 1-3'
         WHEN 'GR46' THEN 'Grades 4-6'
         WHEN 'GR78' THEN 'Grades 7-8'
@@ -74,7 +77,7 @@
 
 {% macro cde_reporting_category_flags(column_name='reporting_category') %}
         CASE WHEN {{ column_name }} LIKE 'R%' THEN TRUE ELSE FALSE END as is_race_ethnicity_subgroup,
-        CASE WHEN {{ column_name }} IN ('GF', 'GM', 'GX') THEN TRUE ELSE FALSE END as is_gender_subgroup,
+        CASE WHEN {{ column_name }} IN ('GF', 'GM', 'GX', 'GZ') THEN TRUE ELSE FALSE END as is_gender_subgroup,
         CASE WHEN {{ column_name }} IN ('SE', 'EL', 'RFEP', 'IFEP', 'SWD', 'HOM', 'FOS', 'MIL') THEN TRUE ELSE FALSE END as is_atrisk_subgroup,
         CASE WHEN {{ column_name }} LIKE 'GR%' THEN TRUE ELSE FALSE END as is_grade_level_subgroup
 {% endmacro %}
