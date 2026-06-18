@@ -3,12 +3,55 @@
   Maps CDE reporting category codes to human-readable labels.
   Shared across all CDE staging models and the OBT mart.
 
-  These codes are standard across CDE downloadable data files:
-  - TA: Total (All Students)
-  - R*: Race/ethnicity categories
-  - G*: Gender categories
-  - SE/EL/SWD/HOM/FOS/MIL: At-risk subgroups
-  - GR*: Grade-level ranges
+  Authoritative source: CDE File Structure for Chronic Absenteeism Data
+  (https://www.cde.ca.gov/ds/ad/fsabd.asp) and 2024 Dashboard record layout
+  (https://www.cde.ca.gov/ta/ac/cm/chronic24.asp).
+
+  Style A codes (used in chronic absenteeism, suspension, expulsion,
+  homeless enrollment, absenteeism reason, cumulative enrollment files):
+
+  Race/ethnicity:
+    RB = African American
+    RI = American Indian or Alaska Native
+    RA = Asian
+    RF = Filipino
+    RH = Hispanic or Latino
+    RD = Did not Report
+    RP = Pacific Islander
+    RT = Two or More Races
+    RW = White
+
+  Gender:
+    GM = Male
+    GF = Female
+    GX = Non-Binary Gender (Beginning 2019–20)
+    GZ = Missing Gender
+
+  Program subgroups (at-risk):
+    SE = English Learners
+    SD = Students with Disabilities
+    SS = Socioeconomically Disadvantaged
+    SM = Migrant
+    SF = Foster
+    SH = Homeless
+
+  Grade spans:
+    GRKN = Kindergarten (GRK prior to 2020–21)
+    GR13 = Grades 1–3
+    GR46 = Grades 4–6
+    GR78 = Grades 7–8
+    GRK8 = Grades K–8
+    GR912 = Grades 9–12
+    GRTK8 = TK-8 (Dashboard accountability variant)
+    GRTKKN = TK/Kindergarten (Dashboard accountability variant)
+
+  Total:
+    TA = Total (All Students)
+
+  Note: Style B Dashboard files (chronicdownload, suspdownload, eladownload)
+  use a DIFFERENT code set (ALL, AA, AI, AS, FI, HI, PI, WH, MR, EL, SED,
+  SWD, FOS, HOM, LTEL). Those are NOT handled by this macro — Style B
+  files have their own staging models (stg_cde__*_dashboard).
 
   Args:
     column_name: The column containing the code (default: 'reporting_category')
@@ -24,35 +67,32 @@
     CASE {{ column_name }}
         WHEN 'TA' THEN 'Total (All Students)'
         WHEN 'RA' THEN 'Asian'
-        WHEN 'RB' THEN 'Black/African American'
-        WHEN 'RD' THEN 'Filipino (legacy)'
+        WHEN 'RB' THEN 'African American'
+        WHEN 'RD' THEN 'Did not Report'
         WHEN 'RF' THEN 'Filipino'
-        WHEN 'RH' THEN 'Hispanic/Latino'
-        WHEN 'RI' THEN 'American Indian/Alaska Native'
-        WHEN 'RP' THEN 'Native Hawaiian/Pacific Islander'
+        WHEN 'RH' THEN 'Hispanic or Latino'
+        WHEN 'RI' THEN 'American Indian or Alaska Native'
+        WHEN 'RP' THEN 'Pacific Islander'
         WHEN 'RT' THEN 'Two or More Races'
         WHEN 'RW' THEN 'White'
         WHEN 'GM' THEN 'Male'
         WHEN 'GF' THEN 'Female'
-        WHEN 'GX' THEN 'Non-binary'
-        WHEN 'GZ' THEN 'Prefer not to state'
-        WHEN 'SE' THEN 'Socioeconomically Disadvantaged'
-        WHEN 'SD' THEN 'Socioeconomically Disadvantaged (alt)'
-        WHEN 'EL' THEN 'English Learners'
-        WHEN 'RFEP' THEN 'Reclassified Fluent English Proficient'
-        WHEN 'IFEP' THEN 'Initial Fluent English Proficient'
-        WHEN 'SWD' THEN 'Students with Disabilities'
-        WHEN 'HOM' THEN 'Homeless'
-        WHEN 'FOS' THEN 'Foster Youth'
-        WHEN 'MIL' THEN 'Military Connected'
-        WHEN 'GRTKKN' THEN 'TK/Kindergarten'
-        WHEN 'GRK8' THEN 'Kindergarten-8'
+        WHEN 'GX' THEN 'Non-Binary Gender'
+        WHEN 'GZ' THEN 'Missing Gender'
+        WHEN 'SE' THEN 'English Learners'
+        WHEN 'SD' THEN 'Students with Disabilities'
+        WHEN 'SS' THEN 'Socioeconomically Disadvantaged'
+        WHEN 'SM' THEN 'Migrant'
+        WHEN 'SF' THEN 'Foster'
+        WHEN 'SH' THEN 'Homeless'
         WHEN 'GRKN' THEN 'Kindergarten'
         WHEN 'GR13' THEN 'Grades 1-3'
         WHEN 'GR46' THEN 'Grades 4-6'
         WHEN 'GR78' THEN 'Grades 7-8'
+        WHEN 'GRK8' THEN 'Grades K-8'
         WHEN 'GR912' THEN 'Grades 9-12'
         WHEN 'GRTK8' THEN 'TK-8'
+        WHEN 'GRTKKN' THEN 'TK/Kindergarten'
         ELSE {{ column_name }}
     END
 {% endmacro %}
@@ -62,23 +102,31 @@
   Macro: cde_reporting_category_flags
   Produces boolean flag columns for subgroup classification.
 
+  Classification is based on CDE Style A codes (the codes that appear in the
+  reporting_category column of chronic absenteeism, suspension, expulsion,
+  homeless enrollment, and absenteeism reason files). Style B Dashboard
+  codes (ALL, AA, SED, SWD, etc.) are NOT classified here — they live in
+  separate staging models.
+
   Args:
     column_name: The column containing the code (default: 'reporting_category')
 
-  Returns three boolean expressions (race, gender, at-risk) as a comma-separated list.
-  Use in SELECT to generate three columns:
+  Returns four boolean expressions as a comma-separated list:
+    is_race_ethnicity_subgroup  — R* codes (RA, RB, RD, RF, RH, RI, RP, RT, RW)
+    is_gender_subgroup          — G* codes (GM, GF, GX, GZ)
+    is_atrisk_subgroup           — program subgroups (SE, SD, SS, SM, SF, SH)
+    is_grade_level_subgroup      — GR* codes (GRKN, GR13, GR46, GR78, GRK8, GR912, GRTK8, GRTKKN)
 
   Example:
     SELECT
       {{ cde_reporting_category_flags('reporting_category') }}
     FROM source
-  (produces: is_race_ethnicity_subgroup, is_gender_subgroup, is_atrisk_subgroup)
 #}
 
 {% macro cde_reporting_category_flags(column_name='reporting_category') %}
         CASE WHEN {{ column_name }} LIKE 'R%' THEN TRUE ELSE FALSE END as is_race_ethnicity_subgroup,
-        CASE WHEN {{ column_name }} IN ('GF', 'GM', 'GX', 'GZ') THEN TRUE ELSE FALSE END as is_gender_subgroup,
-        CASE WHEN {{ column_name }} IN ('SE', 'EL', 'RFEP', 'IFEP', 'SWD', 'HOM', 'FOS', 'MIL') THEN TRUE ELSE FALSE END as is_atrisk_subgroup,
+        CASE WHEN {{ column_name }} IN ('GM', 'GF', 'GX', 'GZ') THEN TRUE ELSE FALSE END as is_gender_subgroup,
+        CASE WHEN {{ column_name }} IN ('SE', 'SD', 'SS', 'SM', 'SF', 'SH') THEN TRUE ELSE FALSE END as is_atrisk_subgroup,
         CASE WHEN {{ column_name }} LIKE 'GR%' THEN TRUE ELSE FALSE END as is_grade_level_subgroup
 {% endmacro %}
 

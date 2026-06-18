@@ -66,30 +66,9 @@ renamed AS (
         charter_school,
         dass as dashboard_alternative_school_status,
 
-        -- Demographic/Subgroup
+        -- Demographic/Subgroup (use shared macro for label)
         reporting_category,
-        CASE reporting_category
-            WHEN 'TA' THEN 'Total (All Students)'
-            WHEN 'RA' THEN 'Asian'
-            WHEN 'RB' THEN 'Black/African American'
-            WHEN 'RF' THEN 'Filipino'
-            WHEN 'RH' THEN 'Hispanic/Latino'
-            WHEN 'RI' THEN 'American Indian/Alaska Native'
-            WHEN 'RP' THEN 'Native Hawaiian/Pacific Islander'
-            WHEN 'RT' THEN 'Two or More Races'
-            WHEN 'RW' THEN 'White'
-            WHEN 'GF' THEN 'Female'
-            WHEN 'GM' THEN 'Male'
-            WHEN 'GX' THEN 'Non-binary'
-            WHEN 'SE' THEN 'Socioeconomically Disadvantaged'
-            WHEN 'EL' THEN 'English Learners'
-            WHEN 'RFEP' THEN 'Reclassified Fluent English Proficient'
-            WHEN 'SWD' THEN 'Students with Disabilities'
-            WHEN 'HOM' THEN 'Homeless'
-            WHEN 'FOS' THEN 'Foster Youth'
-            WHEN 'MIL' THEN 'Military Connected'
-            ELSE reporting_category
-        END as reporting_category_label,
+        {{ cde_reporting_category_label('reporting_category') }} as reporting_category_label,
 
         -- Metrics (cast to appropriate types, handling suppressed values)
         TRY_CAST(chronic_absenteeism_eligible_cumulative_enrollment AS INTEGER) as eligible_enrollment,
@@ -121,42 +100,18 @@ renamed AS (
 final AS (
     SELECT
         *,
-        -- Calculated fields
+        {{ cde_aggregate_level_label('aggregate_level') }} as aggregate_level_label,
+        {{ cde_reporting_category_flags('reporting_category') }},
+        -- Grade level group label (derived from reporting_category GR* codes)
         CASE
-            WHEN aggregate_level = 'T' THEN 'State'
-            WHEN aggregate_level = 'C' THEN 'County'
-            WHEN aggregate_level = 'D' THEN 'District'
-            WHEN aggregate_level = 'S' THEN 'School'
-        END as aggregate_level_label,
-
-        -- Grade level groupings
-        CASE
-            WHEN reporting_category IN ('GRTKKN') THEN 'TK/Kindergarten'
-            WHEN reporting_category IN ('GR13') THEN 'Grades 1-3'
-            WHEN reporting_category IN ('GR46') THEN 'Grades 4-6'
-            WHEN reporting_category IN ('GR78') THEN 'Grades 7-8'
-            WHEN reporting_category IN ('GR912') THEN 'Grades 9-12'
-            WHEN reporting_category IN ('GRTK8') THEN 'TK-8'
-        END as grade_level_group,
-
-        -- Race/ethnicity flag
-        CASE
-            WHEN reporting_category LIKE 'R%' THEN TRUE
-            ELSE FALSE
-        END as is_race_ethnicity_subgroup,
-
-        -- Gender flag
-        CASE
-            WHEN reporting_category IN ('GF', 'GM', 'GX') THEN TRUE
-            ELSE FALSE
-        END as is_gender_subgroup,
-
-        -- At-risk subgroup flag
-        CASE
-            WHEN reporting_category IN ('SE', 'EL', 'RFEP', 'SWD', 'HOM', 'FOS', 'MIL') THEN TRUE
-            ELSE FALSE
-        END as is_atrisk_subgroup
-
+            WHEN reporting_category IN ('GRTKKN', 'GRKN') THEN 'TK/Kindergarten'
+            WHEN reporting_category = 'GR13' THEN 'Grades 1-3'
+            WHEN reporting_category = 'GR46' THEN 'Grades 4-6'
+            WHEN reporting_category = 'GR78' THEN 'Grades 7-8'
+            WHEN reporting_category = 'GR912' THEN 'Grades 9-12'
+            WHEN reporting_category IN ('GRTK8', 'GRK8') THEN 'TK-8'
+            ELSE NULL
+        END as grade_level_group
     FROM renamed
 )
 
