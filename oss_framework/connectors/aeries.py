@@ -131,23 +131,39 @@ class AeriesConnector(SISConnector):
     @staticmethod
     def _generate_test_attendance() -> List[Dict[str, Any]]:
         attendance = []
+        num_students = 1700
+        school_days = 26  # ~180 school days / ~7 day_offset cycles
         for i in range(1, 45001):
-            day_offset = (i - 1) // 1700
+            student_num = (i % num_students) + 1
+            day_offset = (i - 1) // num_students
+
+            # Each student gets a deterministic but varied absence rate.
+            # Use student_num as a seed: some students are chronic absenters,
+            # most are in the 90-100% range, a few are perfect.
+            # This creates a realistic distribution across students.
+            student_seed = (student_num * 7 + 13) % 100
+            # ~85% of students have 0-5% absence rate
+            # ~10% have 5-10% (at risk)
+            # ~5% have 10%+ (chronic absenters)
+            is_absent = (student_seed + day_offset * 3) % 20 < (
+                1 if student_seed < 85 else (3 if student_seed < 95 else 5)
+            )
+
             attendance.append(
                 {
                     "attendance_id": f"ATT{i:08d}",
-                    "student_id": f"STU{((i % 1700) + 1):04d}",
-                    "school_id": f"SCH{((i % 1700) % 3) + 1}",
+                    "student_id": f"STU{student_num:04d}",
+                    "school_id": f"SCH{(student_num % 3) + 1}",
                     "attendance_date": (
                         date(2025, 1, 1) + timedelta(days=day_offset % 180)
                     ).isoformat(),
-                    "attendance_status": "Absent" if i % 20 == 0 else "Present",
-                    "absence_reason": "SICK" if i % 20 == 0 else None,
-                    "present_flag": i % 20 != 0,
-                    "absent_flag": i % 20 == 0,
-                    "tardy_flag": i % 33 == 0,
-                    "excused_flag": i % 40 == 0,
-                    "unexcused_flag": i % 45 == 0,
+                    "attendance_status": "Absent" if is_absent else "Present",
+                    "absence_reason": "SICK" if is_absent else None,
+                    "present_flag": not is_absent,
+                    "absent_flag": is_absent,
+                    "tardy_flag": (student_seed + day_offset) % 33 == 0,
+                    "excused_flag": is_absent and (student_seed % 3 == 0),
+                    "unexcused_flag": is_absent and (student_seed % 3 != 0),
                 }
             )
         return attendance

@@ -30,7 +30,14 @@ class PipelineOrchestrator:
     def __init__(self, dbt_project_dir: Optional[str] = None):
         self.project_root = project_root
         self.dbt_project_dir = dbt_project_dir or self.project_root / "oss_framework" / "dbt"
-        self.dbt_executable = os.getenv("DBT_COMMAND") or shutil.which("dbt") or "dbt"
+        # Resolve dbt: prefer DBT_COMMAND env var, then venv dbt, then system dbt
+        venv_dbt = str(self.project_root / ".venv" / "bin" / "dbt")
+        self.dbt_executable = (
+            os.getenv("DBT_COMMAND")
+            or shutil.which("dbt")
+            or (venv_dbt if Path(venv_dbt).exists() else "dbt")
+        )
+        self.python_executable = sys.executable
         self.start_time = datetime.now()
 
     def log(self, message: str, level: str = "INFO"):
@@ -55,11 +62,21 @@ class PipelineOrchestrator:
 
         cwd = workdir or self.project_root
 
+        # Ensure subprocesses can import oss_framework and scripts
+        env = os.environ.copy()
+        existing_path = env.get("PYTHONPATH", "")
+        project_root_str = str(self.project_root)
+        if project_root_str not in existing_path:
+            env["PYTHONPATH"] = (
+                f"{project_root_str}:{existing_path}" if existing_path else project_root_str
+            )
+
         try:
             result = subprocess.run(
                 cmd,
                 shell=True,
                 cwd=str(cwd),
+                env=env,
                 capture_output=True,
                 text=True,
                 timeout=3600,  # 1 hour timeout
@@ -115,21 +132,21 @@ class PipelineOrchestrator:
 
         if aeries_pipeline.exists():
             success = success and self.run_command(
-                f"python3 {aeries_pipeline}", "Aeries API ingestion (dlt)"
+                f"{self.python_executable} {aeries_pipeline}", "Aeries API ingestion (dlt)"
             )
         else:
             self.log(f"Skipping: {aeries_pipeline} not found", "WARNING")
 
         if excel_pipeline.exists():
             success = success and self.run_command(
-                f"python3 {excel_pipeline}", "Excel imports ingestion (dlt)"
+                f"{self.python_executable} {excel_pipeline}", "Excel imports ingestion (dlt)"
             )
         else:
             self.log(f"Skipping: {excel_pipeline} not found", "WARNING")
 
         if cde_pipeline.exists():
             success = success and self.run_command(
-                f"python3 {cde_pipeline}",
+                f"{self.python_executable} {cde_pipeline}",
                 "CDE public data ingestion (dlt)",
             )
         else:
@@ -216,7 +233,7 @@ class PipelineOrchestrator:
             return False
 
         return self.run_command(
-            f"python3 {export_script}",
+            f"{self.python_executable} {export_script}",
             "Export analytics views to Parquet for Rill dashboards",
         )
 
