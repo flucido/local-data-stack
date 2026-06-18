@@ -8,11 +8,17 @@
 -- Views recompute risk scores on every query; tables pre-compute once.
 -- See: docs/tasks/backend/2026-01-27/database-index-optimization/
 
-WITH risk_base AS (
+WITH snapshot AS (
+    SELECT MAX(CAST(attendance_date AS DATE)) AS snapshot_date
+    FROM {{ source('raw', 'raw_attendance') }}
+),
+
+risk_base AS (
     SELECT
         d.student_id_hash AS student_key,
         d.grade_level,
         d.school_id,
+        d.academic_year,
         COALESCE(d.gender, 'Unknown') AS gender,
         COALESCE(d.ethnicity, 'Unknown') AS race_ethnicity,
         COALESCE(d.ell_program_flag, false) AS english_learner,
@@ -36,7 +42,6 @@ WITH risk_base AS (
         END AS chronic_absence_flag,
 
         -- Composite risk score (0-100)
-        -- Components: attendance (40%), unexcused absences (20%), discipline (20%), trend (10%), correlation (10%)
         ROUND(
             LEAST(
                 GREATEST(
@@ -50,7 +55,9 @@ WITH risk_base AS (
                 100
             ),
             1
-        ) AS chronic_absenteeism_risk_score
+        ) AS chronic_absenteeism_risk_score,
+
+        (SELECT snapshot_date FROM snapshot) AS snapshot_date
 
     FROM {{ ref('dim_students') }} d
     LEFT JOIN {{ ref('agg_attendance_windows') }} a30

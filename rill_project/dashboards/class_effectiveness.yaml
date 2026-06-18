@@ -51,27 +51,27 @@ measures:
 
   - name: avg_pass_rate
     label: "Average Pass Rate"
-    expression: AVG(pct_passed) / 100.0
+    expression: ROUND(AVG(pct_passed) / 100.0, 3)
     format_preset: percentage
 
   - name: avg_ab_grades
     label: "Average % A/B Grades"
-    expression: AVG(pct_a_b_grades) / 100.0
+    expression: ROUND(AVG(pct_a_b_grades) / 100.0, 3)
     format_preset: percentage
 
   - name: avg_ell_pass_rate
     label: "Average ELL Pass Rate"
-    expression: AVG(pct_passed_ell) / 100.0
+    expression: ROUND(AVG(pct_passed_ell) / 100.0, 3)
     format_preset: percentage
 
   - name: avg_sped_pass_rate
     label: "Average SpEd Pass Rate"
-    expression: AVG(pct_passed_sped) / 100.0
+    expression: ROUND(AVG(pct_passed_sped) / 100.0, 3)
     format_preset: percentage
 
   - name: avg_frl_pass_rate
     label: "Average FRL Pass Rate"
-    expression: AVG(pct_passed_frl) / 100.0
+    expression: ROUND(AVG(pct_passed_frl) / 100.0, 3)
     format_preset: percentage
 
   - name: effective_sections

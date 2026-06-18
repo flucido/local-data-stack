@@ -1,6 +1,6 @@
 
 -- models/mart_features/features/fct_chronic_absence_features.sql
--- Feature: Chronic absence risk indicators
+-- Feature: Chronic absence risk indicators computed from daily attendance data.
 
 {{ config(
     materialized='table',
@@ -9,52 +9,89 @@
     tags=['features', 'attendance', 'chronic_absence']
 ) }}
 
--- NOTE: fact_attendance provides annual-grain summaries (not daily records).
--- Absence counts and rates below use the annual totals as proxy.
--- days_absent_30d/90d are estimated proportionally from annual data.
+WITH latest AS (
+    SELECT MAX(CAST(attendance_date AS DATE)) AS latest_date
+    FROM {{ source('raw', 'raw_attendance') }}
+),
+
+attendance_30d AS (
+    SELECT
+        sha256(CONCAT(
+            COALESCE(ra.student_id::VARCHAR, ''),
+            'oea_2026'
+        ))                         AS student_id_hash,
+        COUNT(*)                   AS days_enrolled,
+        SUM(CASE WHEN CAST(ra.absent_flag AS BOOLEAN)    THEN 1 ELSE 0 END) AS days_absent,
+        SUM(CASE WHEN CAST(ra.unexcused_flag AS BOOLEAN) THEN 1 ELSE 0 END) AS days_unexcused,
+        SUM(CASE WHEN CAST(ra.tardy_flag AS BOOLEAN)     THEN 1 ELSE 0 END) AS days_tardy,
+        ROUND(
+            100.0 * SUM(CASE WHEN CAST(ra.present_flag AS BOOLEAN) THEN 1 ELSE 0 END)
+            / NULLIF(COUNT(*), 0),
+            2
+        )                          AS attendance_rate_pct
+    FROM {{ source('raw', 'raw_attendance') }} ra
+    JOIN latest l
+        ON CAST(ra.attendance_date AS DATE) >= l.latest_date - 30
+    WHERE DAYOFWEEK(CAST(ra.attendance_date AS DATE)) NOT IN (0, 6)
+    GROUP BY student_id_hash
+),
+
+attendance_90d AS (
+    SELECT
+        sha256(CONCAT(
+            COALESCE(ra.student_id::VARCHAR, ''),
+            'oea_2026'
+        ))                         AS student_id_hash,
+        COUNT(*)                   AS days_enrolled,
+        SUM(CASE WHEN CAST(ra.absent_flag AS BOOLEAN)    THEN 1 ELSE 0 END) AS days_absent
+    FROM {{ source('raw', 'raw_attendance') }} ra
+    JOIN latest l
+        ON CAST(ra.attendance_date AS DATE) >= l.latest_date - 90
+    WHERE DAYOFWEEK(CAST(ra.attendance_date AS DATE)) NOT IN (0, 6)
+    GROUP BY student_id_hash
+),
+
+attendance_annual AS (
+    SELECT
+        sha256(CONCAT(
+            COALESCE(ra.student_id::VARCHAR, ''),
+            'oea_2026'
+        ))                         AS student_id_hash,
+        COUNT(*)                   AS days_enrolled,
+        SUM(CASE WHEN CAST(ra.absent_flag AS BOOLEAN) THEN 1 ELSE 0 END) AS days_absent,
+        SUM(CASE WHEN CAST(ra.unexcused_flag AS BOOLEAN) THEN 1 ELSE 0 END) AS days_unexcused,
+        SUM(CASE WHEN CAST(ra.tardy_flag AS BOOLEAN) THEN 1 ELSE 0 END) AS days_tardy
+    FROM {{ source('raw', 'raw_attendance') }} ra
+    WHERE DAYOFWEEK(CAST(ra.attendance_date AS DATE)) NOT IN (0, 6)
+    GROUP BY student_id_hash
+)
 
 SELECT
     ds.student_id_hash,
     ds.school_id,
     ds.grade_level,
 
-    -- Estimated recent absence count (30-day proxy from annual data)
-    COALESCE(ROUND(fa.days_absent * 30.0 / NULLIF(fa.days_enrolled, 0)), 0) as days_absent_30d,
+    COALESCE(a30.days_absent, 0)    AS days_absent_30d,
+    COALESCE(a90.days_absent, 0)    AS days_absent_90d,
+    COALESCE(aa.days_unexcused, 0)  AS unexcused_absences_total,
+    COALESCE(aa.days_tardy, 0)      AS tardies_total,
+    COALESCE(a30.attendance_rate_pct, 100.0) AS attendance_rate_30d,
 
-    -- Estimated historical absence (90-day proxy from annual data)
-    COALESCE(ROUND(fa.days_absent * 90.0 / NULLIF(fa.days_enrolled, 0)), 0) as days_absent_90d,
-
-    -- Unexcused absences (annual total)
-    COALESCE(fa.days_unexcused, 0) as unexcused_absences_total,
-
-    -- Tardies (annual total)
-    COALESCE(fa.days_tardy, 0) as tardies_total,
-
-    -- Attendance rate (annual; attendance_rate from staging is a 0-1 ratio)
-    CASE
-        WHEN fa.days_enrolled > 0
-        THEN ROUND(COALESCE(fa.attendance_rate, 0) * 100.0, 2)
-        ELSE 100.0
-    END as attendance_rate_30d,
-
-    -- Risk characteristics
     ds.special_education_flag,
     ds.ell_status,
     ds.free_reduced_lunch_flag,
     ds.homeless_flag,
 
-    -- Chronic absence flag (standard: absent >= 10% of enrolled days)
     CASE
-        WHEN fa.days_enrolled > 0
-             AND (fa.days_absent * 1.0 / fa.days_enrolled) >= 0.10 THEN TRUE
+        WHEN aa.days_enrolled > 0
+         AND (aa.days_absent * 1.0 / aa.days_enrolled) >= 0.10
+        THEN TRUE
         ELSE FALSE
-    END as chronic_absence_flag,
+    END AS chronic_absence_flag,
 
-    -- Audit
-    CURRENT_TIMESTAMP as dbt_processed_date
+    CURRENT_TIMESTAMP AS dbt_processed_date
 
 FROM {{ ref('dim_students') }} ds
-LEFT JOIN {{ ref('fact_attendance') }} fa ON ds.student_id_hash = fa.student_id_hash
-GROUP BY ds.student_id_hash, ds.school_id, ds.grade_level, ds.special_education_flag,
-         ds.ell_status, ds.free_reduced_lunch_flag, ds.homeless_flag,
-         fa.days_absent, fa.days_enrolled, fa.days_unexcused, fa.days_tardy, fa.attendance_rate
+LEFT JOIN attendance_30d    a30 ON ds.student_id_hash = a30.student_id_hash
+LEFT JOIN attendance_90d    a90 ON ds.student_id_hash = a90.student_id_hash
+LEFT JOIN attendance_annual aa  ON ds.student_id_hash = aa.student_id_hash

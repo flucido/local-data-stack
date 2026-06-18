@@ -6,7 +6,7 @@ Supports both real API access (AERIES-CERT header auth) and synthetic test data.
 
 import os
 from datetime import date, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import requests
 
@@ -42,11 +42,11 @@ class AeriesConnector(SISConnector):
     # ------------------------------------------------------------------
 
     @property
-    def column_mapping(self) -> Dict[str, Dict[str, str]]:
+    def column_mapping(self) -> dict[str, dict[str, str]]:
         """Return Aeries → canonical column mappings per domain."""
         return AERIES_COLUMN_MAPPING
 
-    def get_students(self, school_code: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_students(self, school_code: Optional[str] = None) -> list[dict[str, Any]]:
         if self.test_mode:
             return self._generate_test_students()
         endpoint = f"/schools/{school_code}/students" if school_code else "/students"
@@ -56,27 +56,27 @@ class AeriesConnector(SISConnector):
         self,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         if self.test_mode:
             return self._generate_test_attendance()
-        params: Dict[str, str] = {}
+        params: dict[str, str] = {}
         if start_date:
             params["StartDate"] = start_date.isoformat()
         if end_date:
             params["EndDate"] = end_date.isoformat()
         return self._make_request("/attendance", params=params)
 
-    def get_grades(self) -> List[Dict[str, Any]]:
+    def get_grades(self) -> list[dict[str, Any]]:
         if self.test_mode:
             return self._generate_test_grades()
         return self._make_request("/grades")
 
-    def get_discipline(self) -> List[Dict[str, Any]]:
+    def get_discipline(self) -> list[dict[str, Any]]:
         if self.test_mode:
             return self._generate_test_discipline()
         return self._make_request("/discipline")
 
-    def get_enrollment(self) -> List[Dict[str, Any]]:
+    def get_enrollment(self) -> list[dict[str, Any]]:
         if self.test_mode:
             return self._generate_test_enrollment()
         return self._make_request("/enrollment")
@@ -85,7 +85,7 @@ class AeriesConnector(SISConnector):
     # Internal: API helpers
     # ------------------------------------------------------------------
 
-    def _make_request(self, endpoint: str, params: Optional[Dict] = None) -> List[Dict]:
+    def _make_request(self, endpoint: str, params: Optional[dict] = None) -> list[dict]:
         if self.test_mode:
             return []
         url = f"{self.base_url}{endpoint}"
@@ -102,7 +102,7 @@ class AeriesConnector(SISConnector):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _generate_test_students() -> List[Dict[str, Any]]:
+    def _generate_test_students() -> list[dict[str, Any]]:
         students = []
         for i in range(1, 1701):
             students.append(
@@ -129,47 +129,69 @@ class AeriesConnector(SISConnector):
         return students
 
     @staticmethod
-    def _generate_test_attendance() -> List[Dict[str, Any]]:
+    def _generate_test_attendance() -> list[dict[str, Any]]:
         attendance = []
         num_students = 1700
-        school_days = 26  # ~180 school days / ~7 day_offset cycles
-        for i in range(1, 45001):
-            student_num = (i % num_students) + 1
-            day_offset = (i - 1) // num_students
 
-            # Each student gets a deterministic but varied absence rate.
-            # Use student_num as a seed: some students are chronic absenters,
-            # most are in the 90-100% range, a few are perfect.
-            # This creates a realistic distribution across students.
+        # Build a list of weekday dates across a full school year (~180 weekdays).
+        # DuckDB DAYOFWEEK: 0=Sunday, 1=Monday, ..., 6=Saturday.
+        # The staging model excludes 0 (Sun) and 6 (Sat).
+        school_dates: list[date] = []
+        current = date(2024, 8, 19)  # Start of school year (Monday)
+        end = date(2025, 5, 30)  # End of school year
+        while current <= end:
+            # Monday=1 through Friday=5
+            if current.isoweekday() <= 5:
+                school_dates.append(current)
+            current += timedelta(days=1)
+
+        num_school_days = len(school_dates)  # ~200 weekdays
+
+        # Each student gets one record per school day.
+        # Some students are chronic absenters (~5% absent ≥10%+ of days),
+        # ~10% are at-risk (5-10% absence), ~85% are regular attenders (<5%).
+        # Absence decisions are deterministic per (student, day) so the same
+        # seed always produces the same absence pattern.
+        for _i, student_num in enumerate(range(1, num_students + 1)):
             student_seed = (student_num * 7 + 13) % 100
-            # ~85% of students have 0-5% absence rate
-            # ~10% have 5-10% (at risk)
-            # ~5% have 10%+ (chronic absenters)
-            is_absent = (student_seed + day_offset * 3) % 20 < (
-                1 if student_seed < 85 else (3 if student_seed < 95 else 5)
-            )
+            # Absence threshold: higher → more likely absent
+            if student_seed < 85:
+                threshold = 1  # ~5% absence rate
+            elif student_seed < 95:
+                threshold = 3  # ~15% absence rate
+            else:
+                threshold = 5  # ~25% absence rate
 
-            attendance.append(
-                {
-                    "attendance_id": f"ATT{i:08d}",
-                    "student_id": f"STU{student_num:04d}",
-                    "school_id": f"SCH{(student_num % 3) + 1}",
-                    "attendance_date": (
-                        date(2025, 1, 1) + timedelta(days=day_offset % 180)
-                    ).isoformat(),
-                    "attendance_status": "Absent" if is_absent else "Present",
-                    "absence_reason": "SICK" if is_absent else None,
-                    "present_flag": not is_absent,
-                    "absent_flag": is_absent,
-                    "tardy_flag": (student_seed + day_offset) % 33 == 0,
-                    "excused_flag": is_absent and (student_seed % 3 == 0),
-                    "unexcused_flag": is_absent and (student_seed % 3 != 0),
-                }
-            )
+            school_id = f"SCH{(student_num % 3) + 1}"
+
+            for day_idx, school_date in enumerate(school_dates):
+                # Deterministic per-student-per-day absence check
+                absent_roll = (student_seed + day_idx * 3) % 20
+                is_absent = absent_roll < threshold
+
+                is_excused = is_absent and (student_seed % 3 == 0)
+                is_tardy = not is_absent and (student_seed + day_idx) % 33 == 0
+
+                record_id = (student_num - 1) * num_school_days + day_idx + 1
+                attendance.append(
+                    {
+                        "attendance_id": f"ATT{record_id:08d}",
+                        "student_id": f"STU{student_num:04d}",
+                        "school_id": school_id,
+                        "attendance_date": school_date.isoformat(),
+                        "attendance_status": "Absent" if is_absent else "Present",
+                        "absence_reason": "SICK" if is_absent else None,
+                        "present_flag": not is_absent,
+                        "absent_flag": is_absent,
+                        "tardy_flag": is_tardy,
+                        "excused_flag": is_excused,
+                        "unexcused_flag": is_absent and not is_excused,
+                    }
+                )
         return attendance
 
     @staticmethod
-    def _generate_test_grades() -> List[Dict[str, Any]]:
+    def _generate_test_grades() -> list[dict[str, Any]]:
         grades = []
         for i in range(1, 200001):
             score = 50 + (i % 50)
@@ -190,7 +212,7 @@ class AeriesConnector(SISConnector):
         return grades
 
     @staticmethod
-    def _generate_test_discipline() -> List[Dict[str, Any]]:
+    def _generate_test_discipline() -> list[dict[str, Any]]:
         discipline = []
         for i in range(1, 2001):
             discipline.append(
@@ -214,7 +236,7 @@ class AeriesConnector(SISConnector):
         return discipline
 
     @staticmethod
-    def _generate_test_enrollment() -> List[Dict[str, Any]]:
+    def _generate_test_enrollment() -> list[dict[str, Any]]:
         enrollment = []
         for i in range(1, 1701):
             enrollment.append(

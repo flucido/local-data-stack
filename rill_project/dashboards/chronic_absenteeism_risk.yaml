@@ -5,9 +5,15 @@
 type: metrics_view
 title: "Chronic Absenteeism Risk"
 model: chronic_absenteeism_risk
-timeseries: _loaded_at
+timeseries: snapshot_date
+smallest_time_grain: month
 
 dimensions:
+  - name: academic_year
+    label: "Academic Year"
+    column: academic_year
+    description: "School year (e.g. 2024-2025)"
+
   - name: student_key
     label: "Student ID"
     column: student_key
@@ -71,12 +77,13 @@ measures:
 
   - name: chronic_absence_rate
     label: "Chronic Absence Rate"
-    expression: SUM(chronic_absence_flag) * 1.0 / NULLIF(COUNT(DISTINCT student_key), 0)
+    expression: ROUND(SUM(chronic_absence_flag) * 1.0 / NULLIF(COUNT(DISTINCT
+      student_key), 0), 3)
     format_preset: percentage
 
   - name: avg_attendance_rate_30d
     label: "Avg 30-Day Attendance Rate"
-    expression: AVG(attendance_rate_30d) / 100.0
+    expression: ROUND(AVG(attendance_rate_30d) / 100.0, 3)
     format_preset: percentage
 
   - name: avg_risk_score
@@ -86,5 +93,5 @@ measures:
 
   - name: high_risk_students
     label: "High Risk Students"
-    expression: SUM(CASE WHEN risk_level = 'High' THEN 1 ELSE 0 END)
+    expression: SUM(CASE WHEN risk_level IN ('High', 'Medium') THEN 1 ELSE 0 END)
     format_preset: humanize

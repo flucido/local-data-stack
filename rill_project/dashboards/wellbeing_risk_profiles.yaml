@@ -5,9 +5,15 @@
 type: metrics_view
 title: "Student Wellbeing Risk Profiles"
 model: wellbeing_risk_profiles
-timeseries: _loaded_at
+timeseries: snapshot_date
+smallest_time_grain: month
 
 dimensions:
+  - name: academic_year
+    label: "Academic Year"
+    column: academic_year
+    description: "School year (e.g. 2024-2025)"
+
   - name: student_key
     label: "Student ID"
     column: student_key

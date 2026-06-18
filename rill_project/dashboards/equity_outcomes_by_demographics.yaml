@@ -32,12 +32,12 @@ measures:
 
   - name: avg_attendance
     label: "% Good Attendance (>90%)"
-    expression: AVG(pct_good_attendance) / 100.0
+    expression: ROUND(AVG(pct_good_attendance) / 100.0, 3)
     format_preset: percentage
 
   - name: avg_no_discipline
     label: "% No Discipline Incidents"
-    expression: AVG(pct_no_discipline) / 100.0
+    expression: ROUND(AVG(pct_no_discipline) / 100.0, 3)
     format_preset: percentage
 
   - name: avg_gpa
@@ -47,10 +47,10 @@ measures:
 
   - name: avg_gpa_above_2_5
     label: "% GPA 2.5+"
-    expression: AVG(pct_gpa_2_5_plus) / 100.0
+    expression: ROUND(AVG(pct_gpa_2_5_plus) / 100.0, 3)
     format_preset: percentage
 
   - name: avg_below_c
     label: "% Below C Average"
-    expression: AVG(pct_below_c) / 100.0
+    expression: ROUND(AVG(pct_below_c) / 100.0, 3)
     format_preset: percentage

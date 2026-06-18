@@ -7,11 +7,17 @@
 -- DuckDB Optimization: Materialized as table for faster dashboard queries.
 -- See: docs/tasks/backend/2026-01-27/database-index-optimization/
 
-WITH risk_domains AS (
+WITH snapshot AS (
+    SELECT MAX(CAST(attendance_date AS DATE)) AS snapshot_date
+    FROM {{ source('raw', 'raw_attendance') }}
+),
+
+risk_domains AS (
     SELECT
         d.student_id_hash AS student_key,
         d.grade_level,
         d.school_id,
+        d.academic_year,
 
         -- Attendance risk (0-100)
         ROUND(
@@ -60,6 +66,7 @@ SELECT
     student_key,
     grade_level,
     school_id,
+    academic_year,
     attendance_risk_score,
     discipline_risk_score,
     academic_risk_score,
@@ -100,6 +107,7 @@ SELECT
         ELSE 'Academic'
     END AS primary_concern,
 
+    (SELECT snapshot_date FROM snapshot) AS snapshot_date,
     CURRENT_TIMESTAMP AS _loaded_at
 
 FROM risk_domains
