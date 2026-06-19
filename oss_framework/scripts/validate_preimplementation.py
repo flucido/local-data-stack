@@ -44,13 +44,13 @@ class PreImplementationValidator:
         return condition
 
     def check_python_version(self):
-        """Verify Python 3.9+"""
+        """Verify Python 3.12+"""
         version = sys.version_info
-        is_valid = version.major == 3 and version.minor >= 9
+        is_valid = version.major == 3 and version.minor >= 12
         self.test(
             "Python Version",
             is_valid,
-            f"Found {version.major}.{version.minor}, need 3.9+" if not is_valid else "",
+            f"Found {version.major}.{version.minor}, need 3.12+" if not is_valid else "",
         )
 
     def check_required_packages(self):

@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "100% local education analytics stack with DuckDB, dbt, and Rill - no cloud dependencies"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 authors = [
     {name = "Frank Lucido", email = "frank@flucido.com"}
 ]
@@ -18,9 +18,8 @@ classifiers = [
     "Intended Audience :: Education",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Education",
     "Topic :: Scientific/Engineering :: Information Analysis",
 ]
@@ -155,7 +154,7 @@ skip_covered = true
 # black configuration
 [tool.black]
 line-length = 100
-target-version = ["py39", "py310", "py311"]
+target-version = ["py312", "py313"]
 include = '\.pyi?$'
 exclude = '''
 /(
@@ -175,7 +174,7 @@ exclude = '''
 # ruff configuration (replaces flake8, isort, and more)
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = [
@@ -197,7 +196,7 @@ known-first-party = ["oss_framework"]
 
 # mypy configuration
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
