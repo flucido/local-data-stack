@@ -1,0 +1,24 @@
+# English Learner Progress Indicator (CDE Dashboard)
+# Source: metrics view cde_elpac
+# CA School Dashboard: ELPI Status Rate / Change / Performance Color by student group
+
+type: explore
+title: "English Learner Progress (CDE Dashboard)"
+metrics_view: cde_elpac
+
+dimensions: "*"
+measures: "*"
+
+defaults:
+  comparison_mode: dimension
+  comparison_dimension: academic_year
+  measures:
+    - status_value
+    - change_value
+    - curr_progressed
+    - curr_maintain_pl4
+    - curr_denominator
+  dimensions:
+    - student_group
+    - performance_color
+    - school_name

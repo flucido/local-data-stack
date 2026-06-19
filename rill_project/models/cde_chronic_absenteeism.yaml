@@ -1,0 +1,11 @@
+# Model YAML
+# Reference documentation: https://docs.rilldata.com/build/models
+
+type: model
+materialize: true
+
+sql: |
+  -- CDE Chronic Absenteeism Indicator (Dashboard)
+  -- Pre-computed Status / Change / Performance Color from CDE downloadable file
+  -- Grain: cds_code × academic_year × student_group × aggregate_level
+  SELECT * FROM read_parquet('data/cde_chronic_absenteeism.parquet')

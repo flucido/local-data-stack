@@ -1,0 +1,23 @@
+# Academic Indicator — English Language Arts (CDE Dashboard)
+# Source: metrics view cde_ela
+# CA School Dashboard: Distance from Standard / Change / Performance Color by student group
+
+type: explore
+title: "Academic — ELA (CDE Dashboard)"
+metrics_view: cde_ela
+
+dimensions: "*"
+measures: "*"
+
+defaults:
+  comparison_mode: dimension
+  comparison_dimension: academic_year
+  measures:
+    - status_value
+    - change_value
+    - curr_denominator
+    - curr_participation_rate
+  dimensions:
+    - student_group
+    - performance_color
+    - school_name

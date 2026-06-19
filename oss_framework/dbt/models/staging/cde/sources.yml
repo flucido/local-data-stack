@@ -589,3 +589,211 @@ sources:
           - name: count_of_seclusions
           - name: _loaded_at
           - name: _source_file
+
+      # ── CDE Dashboard downloadable files (pre-computed Status/Change/Color) ──
+      # Style B format: lowercase columns, pre-concatenated 14-char CDS code,
+      # studentgroup codes (ALL, AA, AI, AS, FI, HI, MR, PI, WH, EL, LTEL, SED,
+      # SWD, HOM, FOS, EO, ELO, RFP, SBA, CAA), rtype (S/D/X), reportingyear (YYYY).
+      # These are the authoritative source for the California School Dashboard
+      # Performance Levels (color) and the 5×5 box placement — they contain
+      # everything the public Dashboard displays, already computed by CDE.
+
+      - name: cde_chronic_absenteeism_dashboard
+        description: |
+          CDE Chronic Absenteeism Indicator Dashboard download file (chronicdownloadYYYY.txt).
+          School × reportingyear × studentgroup × rtype grain. 114K rows for 2025.
+          Contains pre-computed Status (chronic absenteeism rate %), Change (YoY ppts),
+          statuslevel (1-5), change_level (1-5), color (1-5, Red→Blue), box (5×5 cell),
+          currnsizemet/priornsizemet flags, data quality flags.
+          TK-8 indicator only (high schools excluded by CDE).
+        columns:
+          - name: cds
+          - name: rtype
+          - name: schoolname
+          - name: districtname
+          - name: studentgroup
+          - name: currnumer
+          - name: currdenom
+          - name: currstatus
+          - name: priornumer
+          - name: priordenom
+          - name: priorstatus
+          - name: change
+          - name: statuslevel
+          - name: change_level
+          - name: color
+          - name: box
+          - name: currnsizemet
+          - name: priornsizemet
+          - name: accountabilitymet
+          - name: indicator
+          - name: reportingyear
+          - name: _loaded_at
+          - name: _source_file
+          - name: countyname
+          - name: smalldenom
+          - name: charter_flag
+          - name: dass_flag
+          - name: coe_flag
+          - name: dataerrorflag
+
+      - name: cde_suspension_dashboard
+        description: |
+          CDE Suspension Rate Indicator Dashboard download file (suspdownloadYYYY.txt).
+          School × reportingyear × studentgroup × rtype grain. 555K rows across 2022-2025.
+          Contains pre-computed Status (suspension rate %), Change (YoY ppts),
+          statuslevel, changelevel, color, box, n-size flags, certify flags.
+          Reverse-goal indicator: lower rate = better.
+        columns:
+          - name: cds
+          - name: rtype
+          - name: schoolname
+          - name: districtname
+          - name: type
+          - name: studentgroup
+          - name: currnumer
+          - name: currdenom
+          - name: currstatus
+          - name: statuslevel
+          - name: reportingyear
+          - name: _loaded_at
+          - name: _source_file
+          - name: countyname
+          - name: charter_flag
+          - name: dass_flag
+          - name: coe_flag
+          - name: certifyflag
+          - name: dataerrorflag
+          - name: priornumer
+          - name: priordenom
+          - name: priorstatus
+          - name: change
+          - name: changelevel
+          - name: color
+          - name: box
+          - name: currnsizemet
+          - name: priornsizemet
+          - name: accountabilitymet
+          - name: indicator
+          - name: smalldenom
+          - name: priorcertifyflag
+          - name: change_level
+
+      - name: cde_ela_dashboard
+        description: |
+          CDE Academic Indicator — English Language Arts Dashboard download file
+          (eladownloadYYYY.txt). School × reportingyear × studentgroup × rtype grain.
+          691K rows across 2022-2025.
+          Contains pre-computed Status (avg Distance from Standard, negative=below),
+          Change (YoY DFS points), statuslevel, changelevel, color, box, n-size flags,
+          participation rate fields (with/without PR loss adjustment), HS cutpoint info.
+          Additional ELA-specific student groups: CAA, EO, ELO, RFP, SBA (informational only).
+        columns:
+          - name: cds
+          - name: rtype
+          - name: schoolname
+          - name: districtname
+          - name: studentgroup
+          - name: currdenom
+          - name: currstatus
+          - name: statuslevel
+          - name: prate_enrolled
+          - name: prate_tested
+          - name: prate
+          - name: currdenom_without_prloss
+          - name: currstatus_without_prloss
+          - name: reportingyear
+          - name: _loaded_at
+          - name: _source_file
+          - name: num_prloss
+          - name: countyname
+          - name: coe_flag
+          - name: charter_flag
+          - name: dass_flag
+          - name: hscutpoints
+          - name: pairshare_method
+          - name: priordenom
+          - name: priorstatus
+          - name: change
+          - name: changelevel
+          - name: color
+          - name: box
+          - name: currnsizemet
+          - name: priornsizemet
+          - name: accountabilitymet
+          - name: currprate_enrolled
+          - name: currprate_tested
+          - name: currprate
+          - name: priorprate_enrolled
+          - name: priorprate_tested
+          - name: priorprate
+          - name: priordenom_without_prloss
+          - name: priorstatus_without_prloss
+          - name: indicator
+          - name: priornum_prloss
+          - name: currnum_prloss
+
+      - name: cde_elpac_dashboard
+        description: |
+          CDE English Learner Progress Indicator (ELPI) Dashboard download file
+          (elpidownloadYYYY.txt). School × reportingyear × studentgroup × rtype grain.
+          57K rows across 2022-2025. Only EL and LTEL student groups reported.
+          Contains pre-computed Status (ELPI status rate %, higher=better),
+          Change (YoY ppts), statuslevel, changelevel, color, box, n-size flags,
+          progress components (progressed, maintain_pl4, declined) for current and prior year,
+          alternate ELPAC components, 95% participation adjustment, flag95pct.
+        columns:
+          - name: cds
+          - name: rtype
+          - name: schoolname
+          - name: districtname
+          - name: currprogressed
+          - name: pctcurrprogressed
+          - name: currmaintainpl4
+          - name: pctcurrmaintainpl4
+          - name: currmaintainoth
+          - name: pctcurrmaintainoth
+          - name: currdeclined
+          - name: pctcurrdeclined
+          - name: currnumer
+          - name: currdenom
+          - name: currstatus
+          - name: statuslevel
+          - name: nsizemet
+          - name: nsizegroup
+          - name: reportingyear
+          - name: _loaded_at
+          - name: _source_file
+          - name: countyname
+          - name: coe_flag
+          - name: flag95pct
+          - name: charter_flag
+          - name: dass_flag
+          - name: currmaintain_pl4
+          - name: currmaintain_oth
+          - name: currprogressed_alternate
+          - name: currmaintain_pl3_alternate
+          - name: currnotprognotmain_alternate
+          - name: curr95
+          - name: priorprogressed
+          - name: priormaintain_pl4
+          - name: priormaintain_oth
+          - name: priordeclined
+          - name: prior95
+          - name: priornumer
+          - name: priordenom
+          - name: priorstatus
+          - name: change
+          - name: changelevel
+          - name: color
+          - name: box
+          - name: currnsizemet
+          - name: currnsizegroup
+          - name: priornsizemet
+          - name: priornsizegroup
+          - name: accountabilitymet
+          - name: indicator
+          - name: studentgroup
+          - name: priorprogressed_alternate
+          - name: priormaintain_pl3_alternate
+          - name: priornotprognotmain_alternate

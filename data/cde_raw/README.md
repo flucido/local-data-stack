@@ -24,6 +24,27 @@ Prioritized domains (all ~16 are in scope; these are the highest-signal first):
 - Staff
 - Accountability (Dashboard)
 
+### Dashboard downloadable files
+
+In addition to the raw data files above, the CDE publishes **pre-computed
+Dashboard data files** that contain Status, Change, Performance Color (Red→Blue),
+and 5×5 box placement for each state indicator. These are the authoritative
+source for the California School Dashboard and are what the Rill dashboards
+consume:
+
+- `chronicdownloadYYYY.txt` — Chronic Absenteeism Indicator
+- `suspdownloadYYYY.txt` — Suspension Rate Indicator
+- `eladownloadYYYY.txt` — Academic Indicator (ELA)
+- `elpidownloadYYYY.txt` — English Learner Progress Indicator (ELPI)
+
+Source: https://www.cde.ca.gov/ta/ac/cm/he30rpt.asp
+
+These files use **Style B** column naming (lowercase, pre-concatenated 14-char
+CDS code, student-group codes like ALL/AA/HI/EL/SWD) and are loaded into the
+`cde_raw` schema as `cde_chronic_absenteeism_dashboard`, `cde_suspension_dashboard`,
+`cde_ela_dashboard`, and `cde_elpac_dashboard`. The dbt export views
+(`rill_cde_*.sql`) clean, type-cast, and label these for Rill consumption.
+
 ## Conventions
 
 - Keep the original filenames from CDE (they encode year + domain).

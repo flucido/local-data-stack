@@ -1,0 +1,25 @@
+# Chronic Absenteeism Indicator — CDE Dashboard
+# Source: metrics view cde_chronic_absenteeism
+# CA School Dashboard: Status / Change / Performance Color by student group
+
+type: explore
+title: "Chronic Absenteeism (CDE Dashboard)"
+metrics_view: cde_chronic_absenteeism
+
+dimensions: "*"
+measures: "*"
+
+defaults:
+  comparison_mode: dimension
+  comparison_dimension: academic_year
+  measures:
+    - status_value
+    - change_value
+    - curr_numerator
+    - curr_denominator
+  dimensions:
+    - student_group
+    - performance_color
+    - school_name
+time_ranges:
+  - P12M

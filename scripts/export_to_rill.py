@@ -37,12 +37,13 @@ RILL_DATA_DIR = PROJECT_ROOT / "rill_project" / "data"
 
 # Analytics views to export
 # Format: {view_name: output_parquet_filename}
+# CDE California School Dashboard indicators — pre-computed Status/Change/Color
+# directly from the CDE downloadable Dashboard data files.
 ANALYTICS_VIEWS = {
-    "main_analytics.v_chronic_absenteeism_risk": "chronic_absenteeism_risk.parquet",
-    "main_analytics.v_equity_outcomes_by_demographics": "equity_outcomes_by_demographics.parquet",
-    "main_analytics.v_class_section_comparison": "class_effectiveness.parquet",
-    "main_analytics.v_performance_correlations": "performance_correlations.parquet",
-    "main_analytics.v_wellbeing_risk_profiles": "wellbeing_risk_profiles.parquet",
+    "main_analytics.rill_cde_chronic_absenteeism": "cde_chronic_absenteeism.parquet",
+    "main_analytics.rill_cde_suspension": "cde_suspension.parquet",
+    "main_analytics.rill_cde_ela": "cde_ela.parquet",
+    "main_analytics.rill_cde_elpac": "cde_elpac.parquet",
 }
 
 
@@ -242,10 +243,11 @@ def export_all_views(dry_run: bool = False, filter_view: str | None = None) -> d
             parquet_file = ANALYTICS_VIEWS[view]
             model_name = parquet_file.replace(".parquet", "")
             logger.info(f"     - rill_project/models/{model_name}.sql")
-        logger.info("  2. Create Rill dashboards (if not exists):")
+        logger.info("  2. Create Rill metrics views (if not exists):")
         for view in successful:
             parquet_file = ANALYTICS_VIEWS[view]
             dashboard_name = parquet_file.replace(".parquet", "")
+            logger.info(f"     - rill_project/metrics/{dashboard_name}.yaml")
             logger.info(f"     - rill_project/dashboards/{dashboard_name}.yaml")
         logger.info("  3. Start Rill:")
         logger.info("     cd rill_project && rill start")

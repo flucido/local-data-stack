@@ -1,0 +1,23 @@
+# Suspension Rate Indicator — CDE Dashboard
+# Source: metrics view cde_suspension
+# CA School Dashboard: Status / Change / Performance Color by student group
+
+type: explore
+title: "Suspension Rate (CDE Dashboard)"
+metrics_view: cde_suspension
+
+dimensions: "*"
+measures: "*"
+
+defaults:
+  comparison_mode: dimension
+  comparison_dimension: academic_year
+  measures:
+    - status_value
+    - change_value
+    - curr_numerator
+    - curr_denominator
+  dimensions:
+    - student_group
+    - performance_color
+    - school_name

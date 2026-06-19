@@ -1,0 +1,125 @@
+# CDE Suspension Rate Indicator
+# Source: CDE Dashboard download file (suspdownloadYYYY.txt) via dbt rill_cde_suspension
+# TK-12 indicator. Reverse goal: lower rate = better. Color: Red(1)→Blue(5).
+
+type: metrics_view
+title: "Suspension Rate (CDE Dashboard)"
+model: cde_suspension
+
+dimensions:
+  - name: cds_code
+    label: "CDS Code"
+    column: cds_code
+    description: "14-character County-District-School code"
+
+  - name: school_name
+    label: "School Name"
+    column: school_name
+
+  - name: district_name
+    label: "District Name"
+    column: district_name
+
+  - name: county_name
+    label: "County"
+    column: county_name
+
+  - name: aggregate_level
+    label: "Aggregate Level"
+    column: aggregate_level
+    description: "School or District"
+
+  - name: academic_year
+    label: "Academic Year"
+    column: academic_year
+    description: "Reporting year (e.g. 2025)"
+
+  - name: student_group
+    label: "Student Group"
+    column: student_group
+    description: "All Students, race/ethnicity, or program subgroup"
+
+  - name: student_group_type
+    label: "Student Group Type"
+    column: student_group_type
+
+  - name: performance_color
+    label: "Performance Color"
+    column: performance_color
+    description: "Red, Orange, Yellow, Green, Blue, or No Performance Color"
+
+  - name: status_level
+    label: "Status Level"
+    column: status_level
+
+  - name: change_level
+    label: "Change Level"
+    column: change_level
+
+  - name: is_charter
+    label: "Charter School"
+    column: is_charter
+
+  - name: is_dass
+    label: "DASS School"
+    column: is_dass
+
+measures:
+  - name: status_value
+    label: "Suspension Rate (%)"
+    expression: AVG(status_value)
+    format_preset: humanize
+    description: "Current-year suspension rate (lower is better)"
+
+  - name: prior_status_value
+    label: "Prior Year Rate (%)"
+    expression: AVG(prior_status_value)
+    format_preset: humanize
+
+  - name: change_value
+    label: "Change (ppts)"
+    expression: AVG(change_value)
+    format_preset: humanize
+    description: "Year-over-year change in percentage points (negative = improved)"
+
+  - name: curr_denominator
+    label: "Cumulative Enrollment (n)"
+    expression: SUM(curr_denominator)
+    format_preset: humanize
+    description: "Students enrolled ≥1 day (denominator)"
+
+  - name: curr_numerator
+    label: "Students Suspended"
+    expression: SUM(curr_numerator)
+    format_preset: humanize
+    description: "Unduplicated count of students suspended (numerator)"
+
+  - name: school_count
+    label: "Schools / Entities"
+    expression: COUNT(DISTINCT cds_code)
+    format_preset: humanize
+
+  - name: red_count
+    label: "Red Performance Count"
+    expression: SUM(CASE WHEN performance_color = 'Red' THEN 1 ELSE 0 END)
+    format_preset: humanize
+
+  - name: orange_count
+    label: "Orange Performance Count"
+    expression: SUM(CASE WHEN performance_color = 'Orange' THEN 1 ELSE 0 END)
+    format_preset: humanize
+
+  - name: yellow_count
+    label: "Yellow Performance Count"
+    expression: SUM(CASE WHEN performance_color = 'Yellow' THEN 1 ELSE 0 END)
+    format_preset: humanize
+
+  - name: green_count
+    label: "Green Performance Count"
+    expression: SUM(CASE WHEN performance_color = 'Green' THEN 1 ELSE 0 END)
+    format_preset: humanize
+
+  - name: blue_count
+    label: "Blue Performance Count"
+    expression: SUM(CASE WHEN performance_color = 'Blue' THEN 1 ELSE 0 END)
+    format_preset: humanize

@@ -45,6 +45,58 @@ Rill dashboards (rill_project/)
 
 The committed sample data is synthetic and anonymized. It is present only to demonstrate expected column names and lightweight local testing patterns.
 
+### Dashboard layer: California School Dashboard alignment
+
+The Rill dashboard layer is aligned with the **California School Dashboard**,
+the CDE's integrated accountability and continuous improvement system. Four
+state indicators are exposed, each sourced directly from the CDE's
+pre-computed Dashboard downloadable data files:
+
+| Indicator | Source file | Grades | Status measure | Goal direction |
+|---|---|---|---|---|
+| Chronic Absenteeism | `chronicdownloadYYYY.txt` | TK–8 | Chronic absenteeism rate (%) | Lower is better |
+| Suspension Rate | `suspdownloadYYYY.txt` | TK–12 | Suspension rate (%) | Lower is better |
+| Academic — ELA | `eladownloadYYYY.txt` | 3–8, 11 | Avg Distance from Standard | Higher is better |
+| English Learner Progress (ELPI) | `elpidownloadYYYY.txt` | 1–12 | ELPI status rate (%) | Higher is better |
+
+Each indicator carries the CDE-pre-computed **Status** (current year),
+**Change** (year-over-year difference), and **Performance Color** (Red → Orange
+→ Yellow → Green → Blue) straight from the state's 5×5 Status×Change grid.
+The CDE has already done the 5×5 placement work — we surface it rather than
+re-deriving it.
+
+**Grain**: school × academic_year × student_group × aggregate_level (School
+or District). Student groups include race/ethnicity (AA, AI, AS, FI, HI, MR,
+PI, WH), program subgroups (EL, LTEL, SED, SWD, HOM, FOS), and All Students.
+
+**Directory structure**:
+
+```text
+rill_project/
+├── rill.yaml              # Project config (OLAP engine: duckdb)
+├── metrics/               # Metrics view YAML (type: metrics_view) — one per indicator
+├── dashboards/            # Explore dashboard YAML (type: explore) — one per indicator
+├── models/                # SQL model definitions (read parquet)
+├── data/                  # Exported parquet files (gitignored)
+├── alerts/                # Alert definitions
+└── apis/                  # Custom API definitions
+```
+
+**Data pipeline**: dbt export views (`oss_framework/dbt/models/exports/rill_cde_*.sql`)
+clean and type-cast the CDE Dashboard raw tables, then `scripts/export_to_rill.py`
+exports them to parquet for Rill to consume. The Style B student-group codes
+(ALL, AA, HI, EL, SWD, etc.) are mapped to human-readable labels via the
+`cde_dashboard_groups.sql` dbt macro.
+
+**No timeseries**: academic_year is a plain dimension (not a continuous
+timeseries). Dashboards use `comparison_mode: dimension` with
+`comparison_dimension: academic_year` to deliver the year-over-year comparison
+that's central to the CA Dashboard's Status × Change model.
+
+For the full CDE methodology (5×5 colored tables, cut scores, three-by-five
+small-n methodology, n-size gates, automatic Orange assignment rules), see the
+[2025 Dashboard Technical Guide](https://www.cde.ca.gov/ta/ac/cm/dashboardguide.asp).
+
 ## Quick start
 
 ### 1. Install Python dependencies

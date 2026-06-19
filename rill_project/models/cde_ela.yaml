@@ -1,0 +1,11 @@
+# Model YAML
+# Reference documentation: https://docs.rilldata.com/build/models
+
+type: model
+materialize: true
+
+sql: |
+  -- CDE Academic Indicator — English Language Arts (Dashboard)
+  -- Pre-computed Distance from Standard / Change / Performance Color
+  -- Grain: cds_code × academic_year × student_group × aggregate_level
+  SELECT * FROM read_parquet('data/cde_ela.parquet')
