@@ -119,6 +119,7 @@ Issues = "https://github.com/flucido/local-data-stack/issues"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["oss_framework*"]
+exclude = ["tests*", "*.tests*"]
 
 # pytest configuration
 [tool.pytest.ini_options]
@@ -207,3 +208,9 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "tests.*"
 ignore_errors = true
+
+# ── CLI entry points ──────────────────────────────────────────────────────
+# pip install registers console_scripts that delegate to top-level scripts/
+
+[project.scripts]
+export-to-rill = "oss_framework.cli:export_to_rill"

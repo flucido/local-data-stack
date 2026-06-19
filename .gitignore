@@ -61,3 +61,4 @@ archive/
 # Logs
 logs/
 *.log
+*.egg-info/
