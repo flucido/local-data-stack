@@ -30,7 +30,7 @@ We welcome several types of contributions:
 - Search [existing issues](https://github.com/flucido/local-data-stack/issues) first
 - Use the bug report template
 - Include reproduction steps, expected vs. actual behavior
-- Provide system information (OS, Python version, Docker version)
+- Provide system information (OS, Python version)
 
 ### ✨ Feature Requests
 
@@ -57,34 +57,37 @@ We welcome several types of contributions:
 
 ### Prerequisites
 
-- Ubuntu 20.04+ or macOS or Windows with WSL2
-- Python 3.10+
-- Docker and Docker Compose
+- macOS or Linux (Ubuntu 20.04+)
+- Python 3.12+
 - Git
-- 16GB+ RAM (32GB recommended)
+- 16GB+ RAM (32GB recommended for running the full pipeline + dashboards)
+- Optional: CUDA GPU for the NL-to-SQL model inference (14B 4-bit)
 
 ### Local Setup
 
 ```bash
 # 1. Fork and clone the repository
-git clone https://github.com/YOUR_USERNAME/local-data-stack.git
-cd local-data-stack/oss_framework
+git clone https://github.com/flucido/local-data-stack.git
+cd local-data-stack
 
 # 2. Create a virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python3.12 -m venv .venv
+source .venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # 3. Install dependencies
-pip install -r requirements.txt
-pip install -r requirements-dev.txt  # Development dependencies
+pip install -e '.[dev]'
 
 # 4. Run tests
-pytest tests/
+python -m pytest oss_framework/tests/
 
 # 5. Initialize dbt
-cd dbt
+cd oss_framework/dbt
 dbt deps
-dbt build --target test
+DBT_PROFILES_DIR=. dbt build
+
+# 6. (Optional) Fetch the LoRA adapter for NL-to-SQL
+hf download KDDSTLC/lfed-qwen2.5-coder-14b-sql-lora-warehouse-r64 \
+  --local-dir models/lora-warehouse-r64
 ```
 
 ### Development Workflow
@@ -94,8 +97,8 @@ dbt build --target test
 git checkout -b feature/your-feature-name
 
 # Make changes and test
-pytest tests/
-cd dbt && dbt test
+python -m pytest oss_framework/tests/
+cd oss_framework/dbt && dbt test
 
 # Commit with descriptive messages
 git add .
@@ -147,7 +150,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 ```
 feat(dbt): add student cohort tracking model
 fix(ingestion): handle missing attendance records
-docs(setup): clarify Docker requirements
+docs(setup): clarify local setup requirements
 test(dbt): add tests for attendance aggregation
 ```
 
@@ -159,16 +162,15 @@ test(dbt): add tests for attendance aggregation
 
 - **Style**: Follow [PEP 8](https://pep8.org/)
 - **Formatting**: Use `black` (line length: 100)
-- **Linting**: Use `flake8` and `pylint`
+- **Linting**: Use `ruff` (replaces flake8, isort, pyflakes)
 - **Type Hints**: Use type annotations where appropriate
 
 ```bash
 # Format code
-black src/ tests/
+black oss_framework/ nl_query/
 
 # Check linting
-flake8 src/ tests/
-pylint src/
+ruff check oss_framework nl_query
 ```
 
 ### dbt Models
@@ -226,33 +228,36 @@ All code contributions must include appropriate tests:
 #### Python Tests (pytest)
 
 ```bash
-# Run all tests
-pytest tests/
+# Run all pipeline tests
+python -m pytest oss_framework/tests/
+
+# Run NL query layer tests (mocked LLM, no GPU needed)
+cd nl_query && python -m pytest tests/
 
 # Run specific test file
-pytest tests/test_ingestion.py
+python -m pytest oss_framework/tests/test_public_release_sanitization.py
 
 # Run with coverage
-pytest --cov=src tests/
+python -m pytest --cov=oss_framework oss_framework/tests/
 ```
 
 **Test locations:**
-- Unit tests: `tests/unit/`
-- Integration tests: `tests/integration/`
-- End-to-end tests: `tests/e2e/`
+- Pipeline tests: `oss_framework/tests/`
+- NL query tests: `nl_query/tests/`
+- Contract tests: `scripts/contracts/`
 
 #### dbt Tests
 
 ```bash
 # Run dbt tests
-cd dbt
-dbt test
+cd oss_framework/dbt
+DBT_PROFILES_DIR=. dbt test
 
 # Test specific model
-dbt test --select dim_students
+DBT_PROFILES_DIR=. dbt test --select dim_students
 
-# Test with data refresh
-dbt build --target test
+# Build with data refresh
+DBT_PROFILES_DIR=. dbt build
 ```
 
 **Required dbt tests:**
@@ -285,14 +290,17 @@ dbt build --target test
 
 2. **Run all tests**
    ```bash
-   pytest tests/
-   cd dbt && dbt test
+   python -m pytest oss_framework/tests/
+   cd oss_framework/dbt && dbt test
+
+   # NL query layer tests (mocked LLM, no GPU needed)
+   cd nl_query && python -m pytest tests/
    ```
 
 3. **Check code quality**
    ```bash
-   black --check src/
-   flake8 src/
+   python -m ruff check oss_framework nl_query
+   python -m black --check oss_framework nl_query
    ```
 
 4. **Update documentation**
@@ -319,8 +327,8 @@ dbt build --target test
 
 - **CI Checks**: All checks must pass before merging
   - Contract tests
-  - Tests (Python 3.9, 3.10, 3.11)
-  - Linting
+  - Tests (Python 3.12, 3.13)
+  - Linting (ruff, black)
   - Branch must be up-to-date with `main`
 
 ### PR Template
@@ -356,7 +364,7 @@ Fixes #123
 
 ### Getting Help
 
-- **Documentation**: Start with [oss_framework/docs/](oss_framework/docs/README.md)
+- **Documentation**: Start with the [README](README.md)
 - **Discussions**: [GitHub Discussions](https://github.com/flucido/local-data-stack/discussions)
 - **Issues**: [GitHub Issues](https://github.com/flucido/local-data-stack/issues)
 
@@ -386,7 +394,7 @@ By contributing to this project, you agree that your contributions will be licen
 ## Questions?
 
 If you have questions about contributing, please:
-1. Check the [documentation](oss_framework/docs/README.md)
+1. Check the [README](README.md)
 2. Search [existing discussions](https://github.com/flucido/local-data-stack/discussions)
 3. Open a new discussion
 

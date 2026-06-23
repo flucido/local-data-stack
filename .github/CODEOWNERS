@@ -14,16 +14,15 @@
 # Core framework code
 oss_framework/ @flucido
 
-# Data pipeline and ingestion code
-src/ @flucido
+# NL-to-SQL query layer and model inference
+nl_query/ @flucido
 
-# Infrastructure and deployment
-docker-compose.yml @flucido
-k8s-deployment.yaml @flucido
-k8s_deploy.py @flucido
+# Training pipeline and model artifacts
+training/ @flucido
+models/ @flucido
 
-# Schema and data contracts
-schema/ @flucido
+# Rill dashboards and metrics
+rill_project/ @flucido
 
 # Scripts and automation
 scripts/ @flucido
