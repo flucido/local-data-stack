@@ -49,20 +49,23 @@ dependencies = [
     # Orchestration
     # Orchestration (removed - using simple Python scripts)
     # Utilities
-    "python-dotenv>=1.0.0",
+    "python-dotenv>=1.2.2",
     "pydantic>=2.0.0",
-    "requests>=2.31.0",
+    "requests>=2.33.0",
     "tqdm>=4.65.0",
 
     # Security
-    "cryptography>=41.0.0",
+    "cryptography>=48.0.1",
     "passlib>=1.7.0",
+    # Constrain transitive urllib3 (via requests/dbt) to fix GHSA-qccp-gfcp-xxvc,
+    # GHSA-mf9v-mfxr-j63j (header leak on redirect, decompression bomb).
+    "urllib3>=2.7.0",
 ]
 
 [project.optional-dependencies]
 # Development tools
 dev = [
-    "pytest>=7.4.0",
+    "pytest>=9.0.3",
     "pytest-cov>=4.1.0",
     "pytest-asyncio>=0.21.0",
     "black>=23.0.0",
@@ -75,6 +78,7 @@ dev = [
 jupyter = [
     "jupyter>=1.0.0",
     "jupyterlab>=4.5.9",
+    "jupyter-server>=2.20.0",
     "ipywidgets>=8.0.0",
 ]
 
@@ -97,7 +101,7 @@ nl-query = [
 
 # All optional dependencies
 all = [
-    "pytest>=7.4.0",
+    "pytest>=9.0.3",
     "pytest-cov>=4.1.0",
     "pytest-asyncio>=0.21.0",
     "black>=23.0.0",
@@ -106,6 +110,7 @@ all = [
     "pre-commit>=3.5.0",
     "jupyter>=1.0.0",
     "jupyterlab>=4.5.9",
+    "jupyter-server>=2.20.0",
     "ipywidgets>=8.0.0",
 ]
 

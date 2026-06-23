@@ -488,6 +488,18 @@ pip install --upgrade duckdb dlt dbt-duckdb
 pytest oss_framework/tests/
 ```
 
+#### Known Accepted Vulnerabilities
+
+The following Dependabot alerts have been triaged and accepted as documented
+risk. They are not exploitable in the local-data-stack threat model (local-first
+tool, no internet-facing server, no untrusted input reaching the vulnerable code
+path). They will be resolved when upstream patches are available.
+
+| Package | GHSA | Risk | Rationale |
+|---|---|---|---|
+| `diskcache` 5.6.3 | GHSA-w8v5-vhqr-4h9v | Unsafe pickle deserialization | Transitive via `llama-cpp-python` (nl-query extra). **No patched version exists.** Requires attacker write access to the local cache directory — equivalent to local box compromise. Local-only tool; accepted until upstream fix. |
+| `black` < 26.3.1 | GHSA-3936-cmfr-pm3m | Arbitrary file write via cache filename | Dev-only formatter. Requires attacker-controlled filenames fed to `black`. Cannot bump to 26.3.1 because it requires `pathspec>=1.0.0`, which conflicts with `dbt-core`'s `pathspec<0.13` pin. Will resolve when dbt relaxes the pathspec constraint. |
+
 ---
 
 ### 10. Compliance & Monitoring
