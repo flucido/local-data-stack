@@ -1,0 +1,2103 @@
+{
+  "tables": {
+    "main_core.dim_students": [
+      {
+        "name": "student_id_hash",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "age_at_event",
+        "type": "INTEGER"
+      },
+      {
+        "name": "gender",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "ethnicity",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "race_code_1",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "race_code_2",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "race_code_3",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "race_code_4",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "race_code_5",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "primary_race",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "is_multi_racial",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "grade_level",
+        "type": "INTEGER"
+      },
+      {
+        "name": "school_id",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "academic_year",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "home_language",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "special_education_flag",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "ell_status",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "free_reduced_lunch_flag",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "homeless_flag",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "foster_care_flag",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "section_504_flag",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "gate_flag",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "ell_program_flag",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "cohort",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "high_need_flag",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "language_support_needed",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "socioeconomic_risk",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "housing_risk",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "enrollment_status",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "pseudonymization_timestamp",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      },
+      {
+        "name": "dbt_processed_date",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      }
+    ],
+    "main_core.dim_schools": [
+      {
+        "name": "school_id",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "cds_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "cde_school_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "cde_district_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "cde_city",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "cde_county",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "latitude",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "longitude",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "match_method",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "match_confidence",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "is_mapped",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "dbt_processed_date",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      }
+    ],
+    "main_core.dim_student_demographics": [
+      {
+        "name": "grade_level",
+        "type": "INTEGER"
+      },
+      {
+        "name": "gender",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "ethnicity",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "primary_race",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "is_multi_racial",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "school_id",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "special_education_flag",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "ell_status",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "free_reduced_lunch_flag",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "homeless_flag",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "foster_care_flag",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "section_504_flag",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "gate_flag",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "student_count",
+        "type": "BIGINT"
+      },
+      {
+        "name": "avg_age",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "min_age",
+        "type": "INTEGER"
+      },
+      {
+        "name": "max_age",
+        "type": "INTEGER"
+      },
+      {
+        "name": "active_count",
+        "type": "BIGINT"
+      },
+      {
+        "name": "active_rate",
+        "type": "FLOAT"
+      }
+    ],
+    "main_core.fact_attendance": [
+      {
+        "name": "student_id_hash",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_id",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "academic_year",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "days_enrolled",
+        "type": "BIGINT"
+      },
+      {
+        "name": "days_present",
+        "type": "HUGEINT"
+      },
+      {
+        "name": "days_absent",
+        "type": "HUGEINT"
+      },
+      {
+        "name": "days_excused",
+        "type": "HUGEINT"
+      },
+      {
+        "name": "days_unexcused",
+        "type": "HUGEINT"
+      },
+      {
+        "name": "days_tardy",
+        "type": "HUGEINT"
+      },
+      {
+        "name": "days_truancy",
+        "type": "INTEGER"
+      },
+      {
+        "name": "days_suspended",
+        "type": "INTEGER"
+      },
+      {
+        "name": "days_in_school_suspension",
+        "type": "INTEGER"
+      },
+      {
+        "name": "days_complete_independent_study",
+        "type": "INTEGER"
+      },
+      {
+        "name": "days_incomplete_independent_study",
+        "type": "INTEGER"
+      },
+      {
+        "name": "periods_expected",
+        "type": "INTEGER"
+      },
+      {
+        "name": "periods_attended",
+        "type": "INTEGER"
+      },
+      {
+        "name": "periods_excused_absence",
+        "type": "INTEGER"
+      },
+      {
+        "name": "periods_unexcused_absence",
+        "type": "INTEGER"
+      },
+      {
+        "name": "periods_out_of_school_suspension",
+        "type": "INTEGER"
+      },
+      {
+        "name": "periods_in_school_suspension",
+        "type": "INTEGER"
+      },
+      {
+        "name": "attendance_rate",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "absence_rate",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "excused_absence_rate",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP"
+      },
+      {
+        "name": "dbt_processed_date",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      }
+    ],
+    "main_core.fact_discipline": [
+      {
+        "name": "student_id_hash",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_id",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "incident_id",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "academic_year",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "incident_date",
+        "type": "DATE"
+      },
+      {
+        "name": "incident_type",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "severity",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "resolution",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "suspension_days",
+        "type": "INTEGER"
+      },
+      {
+        "name": "suspension_flag",
+        "type": "INTEGER"
+      },
+      {
+        "name": "serious_incident_flag",
+        "type": "INTEGER"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP"
+      },
+      {
+        "name": "dbt_processed_date",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      }
+    ],
+    "main_core.fact_academic_records": [
+      {
+        "name": "academic_record_sk",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "student_id_hash",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "teacher_id_hash",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_id",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "course_id",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "section_id",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "term",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_year",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "grade",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "credit_earned",
+        "type": "DECIMAL(2,1)"
+      },
+      {
+        "name": "gpa_points",
+        "type": "DECIMAL(2,1)"
+      },
+      {
+        "name": "is_passing",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP"
+      },
+      {
+        "name": "dbt_processed_date",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      }
+    ],
+    "main_core.fact_enrollment": [
+      {
+        "name": "enrollment_sk",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "student_id_hash",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_id",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_year",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "enrollment_date",
+        "type": "DATE"
+      },
+      {
+        "name": "withdrawal_date",
+        "type": "DATE"
+      },
+      {
+        "name": "grade_level",
+        "type": "INTEGER"
+      },
+      {
+        "name": "enrollment_status",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "enrollment_status_derived",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP"
+      },
+      {
+        "name": "dbt_processed_date",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      }
+    ],
+    "main_analytics.mart_cde_school_accountability": [
+      {
+        "name": "cds_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "academic_year",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "reporting_category",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "reporting_category_label",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_id",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "district_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "county_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "latitude",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "longitude",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "ca_eligible_enrollment",
+        "type": "INTEGER"
+      },
+      {
+        "name": "ca_chronic_absent_count",
+        "type": "INTEGER"
+      },
+      {
+        "name": "ca_chronic_absent_rate_pct",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "ar_students_with_absences",
+        "type": "INTEGER"
+      },
+      {
+        "name": "ar_avg_days_absent",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "ar_total_days_absent",
+        "type": "INTEGER"
+      },
+      {
+        "name": "ar_pct_excused",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "ar_pct_unexcused",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "ar_pct_oss_absence",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "ar_pct_incomplete_is",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "en_cumulative_enrollment",
+        "type": "INTEGER"
+      },
+      {
+        "name": "su_total_suspensions",
+        "type": "INTEGER"
+      },
+      {
+        "name": "su_unique_students_suspended",
+        "type": "INTEGER"
+      },
+      {
+        "name": "su_suspension_rate_pct",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "su_violent_injury",
+        "type": "INTEGER"
+      },
+      {
+        "name": "su_violent_no_injury",
+        "type": "INTEGER"
+      },
+      {
+        "name": "su_weapons",
+        "type": "INTEGER"
+      },
+      {
+        "name": "su_drug_related",
+        "type": "INTEGER"
+      },
+      {
+        "name": "su_defiance_only",
+        "type": "INTEGER"
+      },
+      {
+        "name": "su_other_reasons",
+        "type": "INTEGER"
+      },
+      {
+        "name": "ex_total_expulsions",
+        "type": "INTEGER"
+      },
+      {
+        "name": "ex_unique_students_expelled",
+        "type": "INTEGER"
+      },
+      {
+        "name": "ex_expulsion_rate_pct",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "hs_cumulative_enrollment",
+        "type": "INTEGER"
+      },
+      {
+        "name": "hs_homeless_count",
+        "type": "INTEGER"
+      },
+      {
+        "name": "hs_doubled_up_pct",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "hs_shelters_pct",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "hs_hotels_pct",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "hs_unsheltered_pct",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "frpm_enrollment_k12",
+        "type": "INTEGER"
+      },
+      {
+        "name": "frpm_free_count_k12",
+        "type": "INTEGER"
+      },
+      {
+        "name": "frpm_free_pct_k12",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "frpm_reduced_count_k12",
+        "type": "INTEGER"
+      },
+      {
+        "name": "frpm_reduced_pct_k12",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "ela_currdenom",
+        "type": "INTEGER"
+      },
+      {
+        "name": "ela_currstatus",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "ela_status",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "elpac_progressed_pct",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "elpac_maintained_pl4_pct",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "elpac_declined_pct",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "sbac_mean_scale_score",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "sbac_pct_standard_exceeded",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "sbac_pct_standard_met_above",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "sbac_pct_standard_not_met",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "sbac_students_tested",
+        "type": "INTEGER"
+      },
+      {
+        "name": "rs_mechanical_restraints",
+        "type": "INTEGER"
+      },
+      {
+        "name": "rs_physical_restraints",
+        "type": "INTEGER"
+      },
+      {
+        "name": "rs_seclusions",
+        "type": "INTEGER"
+      },
+      {
+        "name": "dbt_loaded_at",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      },
+      {
+        "name": "is_suppressed",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "data_domains_present",
+        "type": "INTEGER"
+      },
+      {
+        "name": "has_cde_data",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_race_ethnicity_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_gender_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_atrisk_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_grade_level_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "aggregate_level",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "aggregate_level_label",
+        "type": "VARCHAR"
+      }
+    ],
+    "main_analytics.equity_by_race": [
+      {
+        "name": "primary_race",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "is_multi_racial",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "student_count",
+        "type": "BIGINT"
+      },
+      {
+        "name": "special_ed_count",
+        "type": "HUGEINT"
+      },
+      {
+        "name": "frl_count",
+        "type": "HUGEINT"
+      },
+      {
+        "name": "ell_count",
+        "type": "HUGEINT"
+      },
+      {
+        "name": "homeless_count",
+        "type": "HUGEINT"
+      },
+      {
+        "name": "avg_attendance_rate",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_good_attendance",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "avg_days_absent",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "avg_discipline_incidents",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_no_discipline",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_suspended",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "avg_gpa",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_gpa_2_5_plus",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_below_c",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_high_risk",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_moderate_risk",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_low_risk",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "_loaded_at",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      }
+    ],
+    "main_analytics.school_summary": [
+      {
+        "name": "school_id",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "student_count",
+        "type": "BIGINT"
+      },
+      {
+        "name": "pct_special_ed",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_frl",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_ell",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_white",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_hispanic",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_asian",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_black",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_multi_racial",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "avg_grade_level",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "avg_attendance_rate",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_good_attendance",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "avg_discipline_incidents",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "avg_gpa",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_high_risk",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "_loaded_at",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      }
+    ],
+    "main_analytics.v_chronic_absenteeism_risk": [
+      {
+        "name": "student_key",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "grade_level",
+        "type": "INTEGER"
+      },
+      {
+        "name": "school_id",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "academic_year",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "gender",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "race_ethnicity",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "english_learner",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "special_education",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "economically_disadvantaged",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "homeless_flag",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "attendance_rate_30d",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "unexcused_absence_rate_30d",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "discipline_incidents_30d",
+        "type": "HUGEINT"
+      },
+      {
+        "name": "absence_discipline_correlation_score",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "attendance_rate_90d",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "attendance_trend_90d",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "chronic_absence_flag",
+        "type": "INTEGER"
+      },
+      {
+        "name": "chronic_absenteeism_risk_score",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "snapshot_date",
+        "type": "DATE"
+      },
+      {
+        "name": "risk_level",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "_loaded_at",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      }
+    ],
+    "main_analytics.v_equity_outcomes_by_demographics": [
+      {
+        "name": "race_ethnicity",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "english_learner",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "special_education",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "economically_disadvantaged",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "cohort_size",
+        "type": "BIGINT"
+      },
+      {
+        "name": "pct_good_attendance",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_no_discipline",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "avg_gpa",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_gpa_2_5_plus",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_below_c",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "_loaded_at",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      }
+    ],
+    "main_staging.stg_cde__chronic_absenteeism": [
+      {
+        "name": "academic_year",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "aggregate_level",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "cds_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "county_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "district_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "county_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "district_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "charter_school",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "dashboard_alternative_school_status",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "reporting_category",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "reporting_category_label",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "eligible_enrollment",
+        "type": "INTEGER"
+      },
+      {
+        "name": "chronic_absent_count",
+        "type": "INTEGER"
+      },
+      {
+        "name": "chronic_absent_rate_pct",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "is_suppressed",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_small_n",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "dlt_loaded_at",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      },
+      {
+        "name": "source_filename",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "dlt_load_id",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "dbt_loaded_at",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      },
+      {
+        "name": "aggregate_level_label",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "is_race_ethnicity_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_gender_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_atrisk_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_grade_level_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "grade_level_group",
+        "type": "VARCHAR"
+      }
+    ],
+    "main_staging.stg_cde__suspension": [
+      {
+        "name": "academic_year",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "aggregate_level",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "cds_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "county_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "district_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "county_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "district_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "charter_school",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "reporting_category",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "cumulative_enrollment",
+        "type": "INTEGER"
+      },
+      {
+        "name": "total_suspensions",
+        "type": "INTEGER"
+      },
+      {
+        "name": "unduplicated_count_of_students_suspended_total",
+        "type": "INTEGER"
+      },
+      {
+        "name": "unduplicated_count_of_students_suspended_defiance_only",
+        "type": "INTEGER"
+      },
+      {
+        "name": "suspension_rate_total",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "suspension_count_violent_incident_injury",
+        "type": "INTEGER"
+      },
+      {
+        "name": "suspension_count_violent_incident_no_injury",
+        "type": "INTEGER"
+      },
+      {
+        "name": "suspension_count_weapons_possession",
+        "type": "INTEGER"
+      },
+      {
+        "name": "suspension_count_illicit_drug_related",
+        "type": "INTEGER"
+      },
+      {
+        "name": "suspension_count_defiance_only",
+        "type": "INTEGER"
+      },
+      {
+        "name": "suspension_count_other_reasons",
+        "type": "INTEGER"
+      },
+      {
+        "name": "is_suppressed",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_small_n",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "_loaded_at",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      },
+      {
+        "name": "_source_file",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "dbt_loaded_at",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      },
+      {
+        "name": "reporting_category_label",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "aggregate_level_label",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "is_race_ethnicity_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_gender_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_atrisk_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_grade_level_subgroup",
+        "type": "BOOLEAN"
+      }
+    ],
+    "main_staging.stg_cde__enrollment": [
+      {
+        "name": "academic_year",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "aggregate_level",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "cds_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "county_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "district_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "county_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "district_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "charter_school",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "reporting_category",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "cumulative_enrollment",
+        "type": "INTEGER"
+      },
+      {
+        "name": "is_suppressed",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_small_n",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "_loaded_at",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      },
+      {
+        "name": "_source_file",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "dbt_loaded_at",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      },
+      {
+        "name": "reporting_category_label",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "aggregate_level_label",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "is_race_ethnicity_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_gender_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_atrisk_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_grade_level_subgroup",
+        "type": "BOOLEAN"
+      }
+    ],
+    "main_staging.stg_cde__frpm": [
+      {
+        "name": "cds_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "county_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "district_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "county_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "district_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "academic_year",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "district_type",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_type",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "educational_option_type",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "nslp_provision_status",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "charter_school",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "charter_number",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "charter_funding_type",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "irc",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "low_grade",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "high_grade",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "enrollment_k12",
+        "type": "INTEGER"
+      },
+      {
+        "name": "free_meal_count_k12",
+        "type": "INTEGER"
+      },
+      {
+        "name": "percent_eligible_free_k12",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "frpm_count_k12",
+        "type": "INTEGER"
+      },
+      {
+        "name": "percent_eligible_frpm_k12",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "enrollment_ages_5_17",
+        "type": "INTEGER"
+      },
+      {
+        "name": "free_meal_count_ages_5_17",
+        "type": "INTEGER"
+      },
+      {
+        "name": "percent_eligible_free_ages_5_17",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "frpm_count_ages_5_17",
+        "type": "INTEGER"
+      },
+      {
+        "name": "percent_eligible_frpm_ages_5_17",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "calpads_certification_status",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "dlt_loaded_at",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      },
+      {
+        "name": "source_filename",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "reporting_category",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "reporting_category_label",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "dbt_loaded_at",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      },
+      {
+        "name": "is_race_ethnicity_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_gender_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_atrisk_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_grade_level_subgroup",
+        "type": "BOOLEAN"
+      }
+    ],
+    "main_staging.stg_cde__homeless_enrollment": [
+      {
+        "name": "academic_year",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "aggregate_level",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "cds_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "county_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "district_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "county_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "district_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "charter_school",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "dashboard_alternative_school_status",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "reporting_category",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "cumulative_enrollment",
+        "type": "INTEGER"
+      },
+      {
+        "name": "homeless_student_enrollment",
+        "type": "INTEGER"
+      },
+      {
+        "name": "temporarily_doubled_up",
+        "type": "INTEGER"
+      },
+      {
+        "name": "temporary_shelters",
+        "type": "INTEGER"
+      },
+      {
+        "name": "hotels_motels",
+        "type": "INTEGER"
+      },
+      {
+        "name": "temporarily_unsheltered",
+        "type": "INTEGER"
+      },
+      {
+        "name": "missing_unknown",
+        "type": "INTEGER"
+      },
+      {
+        "name": "temporarily_doubled_up_percent",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "temporary_shelters_percent",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "hotels_motels_percent",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "temporarily_unsheltered_percent",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "missing_unknown_percent",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "is_suppressed",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_small_n",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "_loaded_at",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      },
+      {
+        "name": "_source_file",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "dbt_loaded_at",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      },
+      {
+        "name": "reporting_category_label",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "aggregate_level_label",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "is_race_ethnicity_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_gender_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_atrisk_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_grade_level_subgroup",
+        "type": "BOOLEAN"
+      }
+    ],
+    "main_staging.stg_cde__expulsion": [
+      {
+        "name": "academic_year",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "aggregate_level",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "cds_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "county_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "district_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "county_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "district_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "charter_school",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "reporting_category",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "cumulative_enrollment",
+        "type": "INTEGER"
+      },
+      {
+        "name": "total_expulsions",
+        "type": "INTEGER"
+      },
+      {
+        "name": "unduplicated_count_of_students_expelled_total",
+        "type": "INTEGER"
+      },
+      {
+        "name": "unduplicated_count_of_students_expelled_defiance_only",
+        "type": "INTEGER"
+      },
+      {
+        "name": "expulsion_rate_total",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "expulsion_count_violent_incident_injury",
+        "type": "INTEGER"
+      },
+      {
+        "name": "expulsion_count_violent_incident_no_injury",
+        "type": "INTEGER"
+      },
+      {
+        "name": "expulsion_count_weapons_possession",
+        "type": "INTEGER"
+      },
+      {
+        "name": "expulsion_count_illicit_drug_related",
+        "type": "INTEGER"
+      },
+      {
+        "name": "expulsion_count_defiance_only",
+        "type": "INTEGER"
+      },
+      {
+        "name": "expulsion_count_other_reasons",
+        "type": "INTEGER"
+      },
+      {
+        "name": "is_suppressed",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_small_n",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "_loaded_at",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      },
+      {
+        "name": "_source_file",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "dbt_loaded_at",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      },
+      {
+        "name": "reporting_category_label",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "aggregate_level_label",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "is_race_ethnicity_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_gender_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_atrisk_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_grade_level_subgroup",
+        "type": "BOOLEAN"
+      }
+    ],
+    "main_staging.stg_cde__assessment_caspp": [
+      {
+        "name": "cds_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "county_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "district_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "reporting_category",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "reporting_category_label",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "academic_year",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "test_type",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "total_tested_at_reporting_level",
+        "type": "INTEGER"
+      },
+      {
+        "name": "total_tested_with_scores_at_reporting_level",
+        "type": "INTEGER"
+      },
+      {
+        "name": "students_enrolled",
+        "type": "INTEGER"
+      },
+      {
+        "name": "students_tested",
+        "type": "INTEGER"
+      },
+      {
+        "name": "students_with_scores",
+        "type": "INTEGER"
+      },
+      {
+        "name": "mean_scale_score",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_standard_exceeded",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_standard_met",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_standard_met_and_above",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_standard_nearly_met",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "pct_standard_not_met",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "area_1_pct_above_standard",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "area_1_pct_near_standard",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "area_1_pct_below_standard",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "area_2_pct_above_standard",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "area_2_pct_near_standard",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "area_2_pct_below_standard",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "area_3_pct_above_standard",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "area_3_pct_near_standard",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "area_3_pct_below_standard",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "area_4_pct_above_standard",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "area_4_pct_near_standard",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "area_4_pct_below_standard",
+        "type": "DOUBLE"
+      },
+      {
+        "name": "aggregate_level_label",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "is_race_ethnicity_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_gender_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_atrisk_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_grade_level_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "dlt_loaded_at",
+        "type": "TIMESTAMP"
+      },
+      {
+        "name": "source_filename",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "dbt_loaded_at",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      }
+    ]
+  },
+  "key_values": {
+    "reporting_categories": [
+      {
+        "code": "TA",
+        "label": "All Students"
+      },
+      {
+        "code": "RA",
+        "label": "Asian"
+      },
+      {
+        "code": "RB",
+        "label": "Black/African American"
+      },
+      {
+        "code": "RH",
+        "label": "Hispanic/Latino"
+      },
+      {
+        "code": "RW",
+        "label": "White"
+      },
+      {
+        "code": "SE",
+        "label": "Socioeconomically Disadvantaged"
+      },
+      {
+        "code": "EL",
+        "label": "English Learners"
+      },
+      {
+        "code": "SWD",
+        "label": "Students with Disabilities"
+      },
+      {
+        "code": "HOM",
+        "label": "Homeless"
+      },
+      {
+        "code": "FOS",
+        "label": "Foster Youth"
+      },
+      {
+        "code": "GM",
+        "label": "Male"
+      },
+      {
+        "code": "GF",
+        "label": "Female"
+      }
+    ],
+    "academic_years_cde": [
+      "2024-25",
+      "2023-24",
+      "2022-23",
+      "2021-22",
+      "2020-21"
+    ],
+    "academic_years_aeries": [
+      "2023-2024",
+      "2022-2023",
+      "2021-2022"
+    ],
+    "cds_code_examples": [
+      "01611190000000",
+      "19647331938885",
+      "37625550109727"
+    ],
+    "grade_levels": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "incident_types": [
+      "Defiance",
+      "Fighting",
+      "Bullying",
+      "Theft",
+      "Vandalism",
+      "Substance",
+      "Weapon",
+      "Harassment"
+    ]
+  }
+}

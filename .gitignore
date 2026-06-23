@@ -62,3 +62,19 @@ archive/
 logs/
 *.log
 *.egg-info/
+
+# Local model weights — fetch from HF Hub, do not commit
+models/lora-warehouse-r64/
+models/*/adapter_model.safetensors
+models/*/adapter_model.bin
+
+# Training artifacts
+training/__pycache__/
+training/pairs.jsonl
+training/pairs_*.jsonl
+
+# Tooling artifacts
+.understand-anything/
+
+# Eval results (generated, not committed)
+nl_query/eval_results_*.json

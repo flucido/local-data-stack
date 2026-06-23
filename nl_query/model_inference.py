@@ -23,7 +23,7 @@ import os
 import threading
 import time
 from collections.abc import Generator
-from typing import Optional
+from pathlib import Path
 
 os.environ.setdefault("HF_HUB_ENABLE_HF_TRANSFER", "1")
 
@@ -32,11 +32,12 @@ from prompts import build_prompt
 # ── Model configuration ────────────────────────────────────────────────
 
 BASE_MODEL_4BIT = "unsloth/qwen2.5-coder-14b-instruct-bnb-4bit"
-ADAPTER_REPO = "build-small-hackathon/lfed-qwen2.5-coder-14b-sql-lora"
+ADAPTER_REPO = os.environ.get(
+    "LFED_ADAPTER_REPO",
+    str(Path(__file__).resolve().parent.parent / "models" / "lora-warehouse-r64"),
+)
 
-# Override via env for local dev (e.g. a smaller model on a Mac)
 BASE_MODEL_4BIT = os.environ.get("LFED_BASE_MODEL", BASE_MODEL_4BIT)
-ADAPTER_REPO = os.environ.get("LFED_ADAPTER_REPO", ADAPTER_REPO)
 
 DEFAULT_MAX_TOKENS = 256
 DEFAULT_TEMPERATURE = 0.0
@@ -44,7 +45,7 @@ STOP_SEQUENCES = ["\n\n", "Question:", "User:", "<|im_end|>", "<|im_start|>"]
 
 # Thread-safe model cache
 _lock = threading.Lock()
-_llm: Optional[TransformersLLM] = None
+_llm: TransformersLLM | None = None
 
 
 # ── llama.cpp-compatible wrapper ───────────────────────────────────────

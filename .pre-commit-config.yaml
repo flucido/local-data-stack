@@ -16,6 +16,7 @@ repos:
     hooks:
       - id: check-added-large-files
         args: ["--maxkb=1000"]
+        exclude: \.docx$  # CDE reference docs are large binary files
         stages: [pre-commit]
       - id: detect-private-key
         stages: [pre-commit]

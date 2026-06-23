@@ -222,7 +222,7 @@ DEFAULT_SCHEMA = {
 # ── Few-shot examples (warehouse schema) ───────────────────────────────
 
 FEW_SHOT_EXAMPLES = [
-    # ── Aeries student-level queries ────────────────────────────────
+    # ── Student-level core queries ──────────────────────────────────
     {
         "question": "How many students were enrolled in 2023-2024?",
         "sql": "SELECT COUNT(DISTINCT student_id_hash) AS student_count\nFROM main_core.dim_students\nWHERE academic_year = '2023-2024';",
@@ -232,38 +232,59 @@ FEW_SHOT_EXAMPLES = [
         "sql": "SELECT school_id, ROUND(AVG(attendance_rate), 4) AS avg_attendance_rate\nFROM main_core.fact_attendance\nWHERE academic_year = '2023-2024'\nGROUP BY school_id\nORDER BY avg_attendance_rate;",
     },
     {
-        "question": "How many suspensions happened by incident type in 2023-2024?",
+        "question": "How many discipline incidents occurred by incident type in 2023-2024?",
         "sql": "SELECT incident_type, COUNT(*) AS incident_count, SUM(suspension_days) AS total_suspension_days\nFROM main_core.fact_discipline\nWHERE academic_year = '2023-2024'\nGROUP BY incident_type\nORDER BY incident_count DESC;",
-    },
-    {
-        "question": "Compare average GPA and attendance across race groups.",
-        "sql": "SELECT primary_race, student_count, ROUND(avg_gpa, 2) AS avg_gpa, ROUND(avg_attendance_rate, 4) AS avg_attendance_rate\nFROM main_analytics.equity_by_race\nORDER BY student_count DESC;",
     },
     {
         "question": "What is the average attendance rate for English Learners in 2023-2024?",
         "sql": "SELECT ROUND(AVG(a.attendance_rate), 4) AS avg_attendance_rate\nFROM main_core.fact_attendance a\nJOIN main_core.dim_students s\n  ON a.student_id_hash = s.student_id_hash\n  AND a.academic_year = s.academic_year\nWHERE a.academic_year = '2023-2024'\n  AND s.ell_status = TRUE;",
     },
-    # ── CDE aggregate queries (OBT path) ──────────────────────────
     {
-        "question": "What is the chronic absenteeism rate for Hispanic students across all schools in 2023-24?",
-        "sql": "SELECT cds_code, school_name, ca_chronic_absent_rate_pct\nFROM main_analytics.mart_cde_school_accountability\nWHERE academic_year = '2023-24'\n  AND reporting_category = 'RH'\n  AND ca_chronic_absent_rate_pct IS NOT NULL\nORDER BY ca_chronic_absent_rate_pct DESC;",
+        "question": "What is the average GPA by grade level in 2023-2024?",
+        "sql": "SELECT grade_level, ROUND(AVG(gpa_points), 2) AS avg_gpa\nFROM main_core.fact_academic_records\nWHERE school_year = '2023-2024'\nGROUP BY grade_level\nORDER BY grade_level;",
+    },
+    # ── OBT path (mart_cde_school_accountability) ──────────────────
+    {
+        "question": "What is the chronic absenteeism rate for Hispanic students in 2023-24?",
+        "sql": "SELECT cds_code, ca_chronic_absent_rate_pct\nFROM main_analytics.mart_cde_school_accountability\nWHERE academic_year = '2023-24'\n  AND reporting_category = 'RH'\n  AND ca_chronic_absent_rate_pct IS NOT NULL\nORDER BY ca_chronic_absent_rate_pct DESC;",
     },
     {
-        "question": "Compare suspension rates and chronic absenteeism rates by race group for 2023-24.",
-        "sql": "SELECT reporting_category_label,\n       ROUND(AVG(su_suspension_rate_pct), 2) AS avg_suspension_rate,\n       ROUND(AVG(ca_chronic_absent_rate_pct), 2) AS avg_chronic_absent_rate\nFROM main_analytics.mart_cde_school_accountability\nWHERE academic_year = '2023-24'\n  AND is_race_ethnicity_subgroup = TRUE\nGROUP BY reporting_category_label\nORDER BY avg_suspension_rate DESC;",
+        "question": "Compare suspension rates by race group for 2023-24.",
+        "sql": "SELECT reporting_category_label,\n       ROUND(AVG(su_suspension_rate_pct), 2) AS avg_suspension_rate\nFROM main_analytics.mart_cde_school_accountability\nWHERE academic_year = '2023-24'\n  AND is_race_ethnicity_subgroup = TRUE\n  AND su_suspension_rate_pct IS NOT NULL\nGROUP BY reporting_category_label\nORDER BY avg_suspension_rate DESC;",
     },
     {
         "question": "Which schools have the highest free meal eligibility in 2023-24?",
-        "sql": "SELECT school_name, district_name, frpm_free_pct_k12\nFROM main_analytics.mart_cde_school_accountability\nWHERE academic_year = '2023-24'\n  AND reporting_category = 'TA'\n  AND frpm_free_pct_k12 IS NOT NULL\nORDER BY frpm_free_pct_k12 DESC\nLIMIT 20;",
+        "sql": "SELECT cds_code, frpm_free_pct_k12\nFROM main_analytics.mart_cde_school_accountability\nWHERE academic_year = '2023-24'\n  AND reporting_category = 'TA'\n  AND frpm_free_pct_k12 IS NOT NULL\nORDER BY frpm_free_pct_k12 DESC\nLIMIT 20;",
     },
-    # ── CDE staging table queries (direct path) ───────────────────
     {
-        "question": "What are the SBAC math scores by grade level for a specific school?",
-        "sql": "SELECT reporting_category, ROUND(AVG(mean_scale_score), 1) AS avg_score,\n       ROUND(AVG(percentage_standard_met_and_above), 1) AS pct_met_above\nFROM main_staging.stg_cde__assessment_caspp\nWHERE cds_code = '01610040119999'\nGROUP BY reporting_category\nORDER BY avg_score DESC;",
+        "question": "Compare chronic absenteeism and suspension rates for all race subgroups in 2023-24.",
+        "sql": "SELECT reporting_category_label,\n       ROUND(AVG(ca_chronic_absent_rate_pct), 2) AS avg_chronic_absent,\n       ROUND(AVG(su_suspension_rate_pct), 2) AS avg_suspension\nFROM main_analytics.mart_cde_school_accountability\nWHERE academic_year = '2023-24'\n  AND is_race_ethnicity_subgroup = TRUE\nGROUP BY reporting_category_label\nORDER BY avg_chronic_absent DESC;",
     },
+    # ── Staging path (stg_cde__*) ──────────────────────────────────
     {
         "question": "How many homeless students are in each district in 2023-24?",
         "sql": "SELECT district_name, SUM(homeless_student_enrollment) AS total_homeless\nFROM main_staging.stg_cde__homeless_enrollment\nWHERE academic_year = '2023-24'\n  AND aggregate_level = 'D'\n  AND reporting_category = 'TA'\n  AND homeless_student_enrollment IS NOT NULL\nGROUP BY district_name\nORDER BY total_homeless DESC;",
+    },
+    {
+        "question": "What is the total number of suspensions across all schools in 2023-24?",
+        "sql": "SELECT SUM(total_suspensions) AS total_suspensions\nFROM main_staging.stg_cde__suspension\nWHERE academic_year = '2023-24'\n  AND aggregate_level = 'S'\n  AND reporting_category = 'TA';",
+    },
+    {
+        "question": "What percentage of students are eligible for free meals district-wide in 2023-24?",
+        "sql": "SELECT cds_code, percent_eligible_free_k12\nFROM main_staging.stg_cde__frpm\nWHERE academic_year = '2023-24'\n  AND percent_eligible_free_k12 IS NOT NULL\nORDER BY percent_eligible_free_k12 DESC\nLIMIT 10;",
+    },
+    {
+        "question": "How many total students were enrolled across all schools in 2023-24?",
+        "sql": "SELECT SUM(cumulative_enrollment) AS total_enrollment\nFROM main_staging.stg_cde__enrollment\nWHERE academic_year = '2023-24'\n  AND aggregate_level = 'S'\n  AND reporting_category = 'TA';",
+    },
+    {
+        "question": "What are the SBAC mean scale scores by reporting category for a school in 2023-24?",
+        "sql": "SELECT reporting_category, ROUND(AVG(mean_scale_score), 1) AS avg_score\nFROM main_staging.stg_cde__assessment_caspp\nWHERE cds_code = '01611190000000'\n  AND academic_year = '2023-24'\nGROUP BY reporting_category\nORDER BY avg_score DESC;",
+    },
+    # ── Mixed / cross-grain ────────────────────────────────────────
+    {
+        "question": "How many economically disadvantaged students had at least one discipline incident in 2023-2024?",
+        "sql": "SELECT COUNT(DISTINCT s.student_id_hash) AS student_count\nFROM main_core.dim_students s\nJOIN main_core.fact_discipline d\n  ON s.student_id_hash = d.student_id_hash\n  AND s.academic_year = d.academic_year\nWHERE s.academic_year = '2023-2024'\n  AND s.free_reduced_lunch_flag = TRUE;",
     },
 ]
 
