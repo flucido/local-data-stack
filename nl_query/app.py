@@ -675,7 +675,7 @@ def build_demo() -> gr.Blocks:
 
                     csv_path = os.path.join(
                         tempfile.gettempdir(),
-                        f"lfed_result_{_dt.datetime.now(_dt.timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv",
+                        f"lfed_result_{_dt.datetime.now(_dt.UTC).strftime('%Y%m%d_%H%M%S')}.csv",
                     )
                     df.to_csv(csv_path, index=False)
 
