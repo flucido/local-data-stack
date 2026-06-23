@@ -129,6 +129,37 @@ class TestBuildFewShotBlock:
         assert FEW_SHOT_EXAMPLES[0]["question"] not in result
 
 
+# ── Adapter resolution ─────────────────────────────────────────────────
+
+
+class TestAdapterResolution:
+    """The adapter repo should resolve from env, local path, or HF."""
+
+    def test_env_override_takes_priority(self, monkeypatch):
+        import model_inference
+
+        monkeypatch.setenv("LFED_ADAPTER_REPO", "my-org/my-adapter")
+        assert model_inference._resolve_adapter() == "my-org/my-adapter"
+
+    def test_local_path_used_when_present(self, monkeypatch, tmp_path):
+        import model_inference
+
+        monkeypatch.delenv("LFED_ADAPTER_REPO", raising=False)
+        fake = tmp_path / "fake-adapter"
+        fake.mkdir()
+        monkeypatch.setattr(model_inference, "_LOCAL_ADAPTER", str(fake))
+        assert model_inference._resolve_adapter() == str(fake)
+
+    def test_hf_fallback_when_local_absent(self, monkeypatch, tmp_path):
+        import model_inference
+
+        monkeypatch.delenv("LFED_ADAPTER_REPO", raising=False)
+        monkeypatch.setattr(model_inference, "_LOCAL_ADAPTER", "/nonexistent/path")
+        result = model_inference._resolve_adapter()
+        assert result == model_inference._HF_ADAPTER
+        assert "KDDSTLC" in result
+
+
 # ── Model singleton ────────────────────────────────────────────────────
 
 

@@ -6,7 +6,7 @@ the only CUDA path supported by HF Spaces ZeroGPU. The previous llama.cpp
 backend could not access ZeroGPU's PyTorch-only CUDA emulation.
 
 Model = pre-quantized 4-bit base (unsloth/qwen2.5-coder-14b-instruct-bnb-4bit)
-      + LoRA adapter (build-small-hackathon/lfed-qwen2.5-coder-14b-sql-lora)
+      + LoRA adapter (KDDSTLC/lfed-qwen2.5-coder-14b-sql-lora-warehouse-r64, r=64)
 
 This is exactly the configuration the model was QLoRA fine-tuned in.
 
@@ -32,10 +32,25 @@ from prompts import build_prompt
 # ── Model configuration ────────────────────────────────────────────────
 
 BASE_MODEL_4BIT = "unsloth/qwen2.5-coder-14b-instruct-bnb-4bit"
-ADAPTER_REPO = os.environ.get(
-    "LFED_ADAPTER_REPO",
-    str(Path(__file__).resolve().parent.parent / "models" / "lora-warehouse-r64"),
-)
+
+# New r=64 warehouse-trained adapter. Resolution order:
+#   1. LFED_ADAPTER_REPO env var (HF repo id or local path)
+#   2. Local path models/lora-warehouse-r64/ (if it exists)
+#   3. HF Hub repo id (downloaded on first use)
+_LOCAL_ADAPTER = str(Path(__file__).resolve().parent.parent / "models" / "lora-warehouse-r64")
+_HF_ADAPTER = "KDDSTLC/lfed-qwen2.5-coder-14b-sql-lora-warehouse-r64"
+
+
+def _resolve_adapter() -> str:
+    env = os.environ.get("LFED_ADAPTER_REPO")
+    if env:
+        return env
+    if Path(_LOCAL_ADAPTER).exists():
+        return _LOCAL_ADAPTER
+    return _HF_ADAPTER
+
+
+ADAPTER_REPO = _resolve_adapter()
 
 BASE_MODEL_4BIT = os.environ.get("LFED_BASE_MODEL", BASE_MODEL_4BIT)
 
