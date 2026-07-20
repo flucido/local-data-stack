@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="650" viewBox="0 0 1200 650" role="img" aria-labelledby="title desc">
+  <title id="title">Local Data Stack system map</title>
+  <desc id="desc">Aeries and CDE data move through deterministic ingestion and transformation into a local DuckDB warehouse. Rill dashboards and a local natural-language SQL model produce reviewable outputs and evaluation traces for a supervised case study.</desc>
+  <defs>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#1E3A5F"/></marker>
+    <marker id="arrow-rust" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#C2703A"/></marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#4A7C59"/></marker>
+  </defs>
+  <rect width="1200" height="650" rx="24" fill="#FAF8F3"/>
+  <text x="56" y="62" fill="#1A1A1A" font-family="Georgia, Songti SC, serif" font-size="42">From district records to reviewable research evidence</text>
+  <text x="56" y="96" fill="#53606D" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="20">Deterministic data processing stays separate from probabilistic model output.</text>
+  <rect x="252" y="126" width="690" height="444" rx="20" fill="#E9E5DA" stroke="#1E3A5F" stroke-width="2" stroke-dasharray="8 8"/>
+  <text x="278" y="158" fill="#1E3A5F" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" font-weight="700" letter-spacing="1">LOCAL DATA + INFERENCE BOUNDARY</text>
+  <g font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif">
+    <text x="56" y="170" fill="#C2703A" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" font-weight="700">SOURCES</text>
+    <rect x="56" y="192" width="156" height="68" rx="12" fill="#FAF8F3" stroke="#53606D"/><text x="134" y="220" text-anchor="middle" fill="#1A1A1A" font-size="22" font-weight="700">Aeries SIS</text><text x="134" y="246" text-anchor="middle" fill="#53606D" font-size="18">district exports</text>
+    <rect x="56" y="282" width="156" height="68" rx="12" fill="#FAF8F3" stroke="#53606D"/><text x="134" y="310" text-anchor="middle" fill="#1A1A1A" font-size="22" font-weight="700">CDE</text><text x="134" y="336" text-anchor="middle" fill="#53606D" font-size="18">public files</text>
+    <path d="M212 226H292" stroke="#1E3A5F" stroke-width="2" marker-end="url(#arrow-blue)"/><path d="M212 316H292" stroke="#1E3A5F" stroke-width="2" marker-end="url(#arrow-blue)"/>
+    <rect x="304" y="208" width="170" height="126" rx="14" fill="#FAF8F3" stroke="#53606D"/>
+    <text x="389" y="240" text-anchor="middle" fill="#1A1A1A" font-size="22" font-weight="700">dlt + dbt</text>
+    <text x="389" y="269" text-anchor="middle" fill="#53606D" font-size="18">ingest · stage</text>
+    <text x="389" y="294" text-anchor="middle" fill="#53606D" font-size="18">transform · test</text>
+    <text x="389" y="319" text-anchor="middle" fill="#4A7C59" font-size="18" font-weight="700">deterministic</text>
+    <path d="M474 271H526" stroke="#1E3A5F" stroke-width="2" marker-end="url(#arrow-blue)"/>
+    <rect x="526" y="198" width="230" height="146" rx="14" fill="#1E3A5F"/>
+    <text x="641" y="236" text-anchor="middle" fill="#FAF8F3" font-size="24" font-weight="700">DuckDB</text>
+    <text x="641" y="267" text-anchor="middle" fill="#E9E5DA" font-size="18">multi-schema warehouse</text>
+    <text x="641" y="296" text-anchor="middle" fill="#E9E5DA" font-size="18">student_id_hash</text>
+    <text x="641" y="325" text-anchor="middle" fill="#E9E5DA" font-size="18">read-only query path</text>
+    <path d="M756 238H770" stroke="#1E3A5F" stroke-width="2" marker-end="url(#arrow-blue)"/>
+    <path d="M756 304H770" stroke="#C2703A" stroke-width="2" marker-end="url(#arrow-rust)"/>
+    <rect x="782" y="190" width="132" height="94" rx="12" fill="#FAF8F3" stroke="#53606D"/>
+    <text x="848" y="225" text-anchor="middle" fill="#1A1A1A" font-size="22" font-weight="700">Rill</text>
+    <text x="848" y="253" text-anchor="middle" fill="#53606D" font-size="18">4 indicators</text>
+    <rect x="782" y="304" width="132" height="118" rx="12" fill="#FAF8F3" stroke="#C2703A" stroke-width="2"/>
+    <text x="848" y="338" text-anchor="middle" fill="#1A1A1A" font-size="22" font-weight="700">NL→SQL</text>
+    <text x="848" y="366" text-anchor="middle" fill="#53606D" font-size="18">local model</text>
+    <text x="848" y="395" text-anchor="middle" fill="#C2703A" font-size="18" font-weight="700">probabilistic</text>
+    <rect x="304" y="390" width="418" height="132" rx="14" fill="#FAF8F3" stroke="#4A7C59" stroke-width="2"/>
+    <text x="330" y="424" fill="#4A7C59" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" font-weight="700">RESEARCH RECORD</text>
+    <text x="330" y="458" fill="#1A1A1A" font-size="20">question · generated SQL · result</text>
+    <text x="330" y="489" fill="#1A1A1A" font-size="20">execution match · exact match · latency</text>
+    <path d="M782 402H734V456H722" fill="none" stroke="#4A7C59" stroke-width="2" marker-end="url(#arrow-green)"/>
+    <text x="976" y="170" fill="#C2703A" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" font-weight="700">EXTERNAL INPUT</text>
+    <rect x="974" y="192" width="170" height="92" rx="12" fill="#FAF8F3" stroke="#53606D"/>
+    <text x="1059" y="224" text-anchor="middle" fill="#1A1A1A" font-size="20" font-weight="700">Model download</text>
+    <text x="1059" y="252" text-anchor="middle" fill="#53606D" font-size="18">9–10 GB class</text>
+    <path d="M974 238H932V350H914" fill="none" stroke="#C2703A" stroke-width="2" marker-end="url(#arrow-rust)"/>
+    <text x="976" y="366" fill="#4A7C59" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" font-weight="700">REVIEW</text>
+    <rect x="974" y="388" width="170" height="116" rx="12" fill="#FAF8F3" stroke="#4A7C59" stroke-width="2"/>
+    <text x="1059" y="422" text-anchor="middle" fill="#1A1A1A" font-size="20" font-weight="700">Human check</text>
+    <text x="1059" y="451" text-anchor="middle" fill="#53606D" font-size="18">SQL · chart</text>
+    <text x="1059" y="480" text-anchor="middle" fill="#53606D" font-size="18">case-study evidence</text>
+    <path d="M722 480H960" stroke="#4A7C59" stroke-width="2" marker-end="url(#arrow-green)"/>
+  </g>
+  <g transform="translate(56 592)" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">
+    <circle cx="8" cy="-6" r="6" fill="#1E3A5F"/><text x="24" y="0" fill="#53606D">deterministic path</text>
+    <circle cx="232" cy="-6" r="6" fill="#C2703A"/><text x="248" y="0" fill="#53606D">model path</text>
+    <circle cx="414" cy="-6" r="6" fill="#4A7C59"/><text x="430" y="0" fill="#53606D">evidence + review</text>
+  </g>
+</svg>
