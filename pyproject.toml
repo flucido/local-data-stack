@@ -55,7 +55,7 @@ dependencies = [
     "tqdm>=4.65.0",
 
     # Security
-    "cryptography>=48.0.1",
+    "cryptography>=50.0.0",
     "passlib>=1.7.0",
     # Constrain transitive urllib3 (via requests/dbt) to fix GHSA-qccp-gfcp-xxvc,
     # GHSA-mf9v-mfxr-j63j (header leak on redirect, decompression bomb).
