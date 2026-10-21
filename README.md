@@ -7,6 +7,7 @@
   <a href="https://huggingface.co/datasets/KDDSTLC/lfed-training-data">Training data</a> ·
   <a href="https://huggingface.co/KDDSTLC/lfed-qwen2.5-coder-14b-sql-lora-warehouse-r64">r=64 model</a> ·
   <a href="https://huggingface.co/spaces/KDDSTLC/LFED">Live demo</a> ·
+  <a href="https://flucido.github.io/local-data-stack/diagrams/">Diagrams</a> ·
   <a href="#reproduce-locally">Reproduce locally</a>
 </p>
 
@@ -37,6 +38,19 @@ Read the [60-second overview](https://research.lucidotechnologyconsulting.com/ov
 - **Interfaces:** Rill provides state-accountability dashboards; the local model generates DuckDB SQL from natural-language questions.
 - **Evidence:** the evaluation harness records match outcomes, row counts, and mismatch samples per question; output goes to `nl_query/traces_eval_test_set_<timestamp>.jsonl`. Inspect or replicate traces before treating any generated SQL as authoritative.
 - **Review:** generated SQL and charts require human review before operational use.
+
+## Architecture diagrams
+
+Four interactive views of the same system, generated from the code with every node and edge linked to the file and line it came from. Open the [diagram index](https://flucido.github.io/local-data-stack/diagrams/) in a browser.
+
+| View | What it answers |
+| --- | --- |
+| [End-to-end data flow](https://flucido.github.io/local-data-stack/diagrams/dataflow-end-to-end.html) | How Aeries and CDE data become warehouse tables, dashboards, and answers |
+| [NL-to-SQL query sequence](https://flucido.github.io/local-data-stack/diagrams/sequence-nl-sql-query.html) | What happens between a question and a result table, guard by guard |
+| [Trust boundaries](https://flucido.github.io/local-data-stack/diagrams/architecture-trust-boundaries.html) | What stays on local hardware versus what crosses to Modal or the Hub |
+| [Model and eval lifecycle](https://flucido.github.io/local-data-stack/diagrams/lifecycle-model-artifacts.html) | How validated pairs become a dataset, an adapter, device builds, and a rollback |
+
+Source links are pinned to revision `e275d05`. Each file in [`docs/diagrams/`](docs/diagrams) is standalone HTML with bundled fonts, so the diagrams also open offline without a server.
 
 ## Built now; studied next
 
