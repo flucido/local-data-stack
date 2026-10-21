@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Local Data Stack — Architecture Diagrams</title>
+<style>
+  :root {
+    --bg: #fbfaf8;
+    --fg: #1c1917;
+    --muted: #6b6560;
+    --line: #e3ddd6;
+    --card: #ffffff;
+    --accent: #1f6f5c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16151a;
+      --fg: #ece9e4;
+      --muted: #a39d96;
+      --line: #2c2a30;
+      --card: #1d1c22;
+      --accent: #6fc2ab;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 4rem 1.5rem 5rem;
+    background: var(--bg);
+    color: var(--fg);
+    font: 400 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 46rem; margin: 0 auto; }
+  h1 {
+    margin: 0 0 .5rem;
+    font-size: 1.875rem;
+    line-height: 1.2;
+    letter-spacing: -.015em;
+    font-weight: 650;
+  }
+  .lede { margin: 0 0 2.5rem; color: var(--muted); font-size: 1.0625rem; }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .75rem; }
+  a.card {
+    display: block;
+    padding: 1.125rem 1.25rem;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color .15s ease, transform .15s ease;
+  }
+  a.card:hover, a.card:focus-visible {
+    border-color: var(--accent);
+    transform: translateY(-1px);
+    outline: none;
+  }
+  .kind {
+    display: block;
+    margin-bottom: .3rem;
+    font-size: .6875rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .name { display: block; font-size: 1.0625rem; font-weight: 600; margin-bottom: .25rem; }
+  .desc { display: block; color: var(--muted); font-size: .9375rem; }
+  footer {
+    margin-top: 2.75rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: .875rem;
+  }
+  footer p { margin: 0 0 .35rem; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    font-size: .8125rem;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Local Data Stack — Architecture Diagrams</h1>
+  <p class="lede">
+    Four interactive views of the same system, derived from the code and traced back to
+    specific files and line numbers. Each file is standalone: open it directly in a browser,
+    no server or network needed.
+  </p>
+
+  <ul>
+    <li>
+      <a class="card" href="dataflow-end-to-end.html">
+        <span class="kind">Data flow</span>
+        <span class="name">End-to-end data flow</span>
+        <span class="desc">Aeries and CDE sources through dlt, dbt, and DuckDB into Rill, the NL-to-SQL app, evaluation, and training.</span>
+      </a>
+    </li>
+    <li>
+      <a class="card" href="sequence-nl-sql-query.html">
+        <span class="kind">Sequence</span>
+        <span class="name">NL-to-SQL query path</span>
+        <span class="desc">One question through schema injection, streamed generation, the SQL guard, and read-only execution.</span>
+      </a>
+    </li>
+    <li>
+      <a class="card" href="architecture-trust-boundaries.html">
+        <span class="kind">Architecture</span>
+        <span class="name">Trust boundaries</span>
+        <span class="desc">What stays local, what crosses to Modal, and what is published to or pulled from the Hugging Face Hub.</span>
+      </a>
+    </li>
+    <li>
+      <a class="card" href="lifecycle-model-artifacts.html">
+        <span class="kind">Lifecycle</span>
+        <span class="name">Model and eval artifacts</span>
+        <span class="desc">Curated schema to validated pairs, published dataset, r=64 adapter, device builds, gate, and rollback.</span>
+      </a>
+    </li>
+  </ul>
+
+  <footer>
+    <p>Every diagram carries in-page source links pinned to revision <code>e275d05945117a827a10e5a6189c817f48a4830a</code>.</p>
+    <p>Rendered with Archify. Diagram sources are regenerated locally and are not committed.</p>
+  </footer>
+</main>
+</body>
+</html>
