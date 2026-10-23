@@ -1,6 +1,6 @@
 """OSS Framework package."""
 
-from .utilities.oss_framework import (
+from .utilities import (
     BatchProcessor,
     ConfigurationManager,
     DataDictionary,

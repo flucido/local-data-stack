@@ -6,10 +6,13 @@ models:
       Aggregated student demographics with k-anonymity enforcement (k≥5).
 
       This model provides privacy-preserving demographic analytics by grouping
-      students into cohorts and suppressing groups smaller than k=5 students.
+      students into cohorts and applying CELL SUPPRESSION to groups smaller
+      than k=5 students: all quasi-identifiers and statistics are set to NULL
+      and the row is flagged is_suppressed = true.
 
       Privacy Features:
-      - K-anonymity: Every combination of quasi-identifiers has ≥5 students
+      - K-anonymity: Published cells only expose combinations with ≥5 students
+      - Cell suppression: small-group rows are retained but fully nulled
       - No individual student identifiable from demographic attributes
       - Quasi-identifiers: grade_level, gender, ethnicity, school_id
 
@@ -21,49 +24,31 @@ models:
       - Equity gap analysis by subgroup
       - Enrollment trend analysis by demographic cohort
 
-      Note: K-anonymity enforcement is built into the model via HAVING clause.
-      The generic k_anonymity test is not applicable to pre-aggregated data.
+      Note: K-anonymity enforcement is built into the model via cell
+      suppression. Consumers should filter `WHERE NOT is_suppressed` (or
+      `WHERE student_count IS NOT NULL`) for analysis. The generic k_anonymity
+      test is not applicable to pre-aggregated data.
 
     columns:
       - name: grade_level
-        description: "Student grade level (1-12) - quasi-identifier"
-        data_tests:
-          - not_null
+        description: "Student grade level (1-12) - quasi-identifier (NULL when suppressed)"
 
       - name: gender
-        description: "Gender identity - quasi-identifier"
-        data_tests:
-          - not_null
+        description: "Gender identity - quasi-identifier (NULL when suppressed)"
 
       - name: ethnicity
-        description: "Ethnicity/race category - quasi-identifier"
-        data_tests:
-          - not_null
+        description: "Ethnicity/race category - quasi-identifier (NULL when suppressed)"
 
       - name: school_id
-        description: "School identifier - quasi-identifier"
-        data_tests:
-          - not_null
+        description: "School identifier - quasi-identifier (NULL when suppressed)"
 
       - name: student_count
-        description: "Number of students in this demographic cohort (minimum 5 for k-anonymity)"
+        description: "Number of students in this demographic cohort (NULL when < 5; k-anonymity cell suppression)"
+
+      - name: is_suppressed
+        description: "True when every cell in the row was suppressed because the group has fewer than 5 students"
         data_tests:
           - not_null
-
-      - name: special_education_count
-        description: "Count of students with special education services in cohort"
-
-      - name: ell_count
-        description: "Count of English language learners in cohort"
-
-      - name: free_reduced_lunch_count
-        description: "Count of students eligible for free/reduced lunch in cohort"
-
-      - name: homeless_count
-        description: "Count of homeless students in cohort"
-
-      - name: foster_care_count
-        description: "Count of students in foster care in cohort"
 
   - name: fact_attendance_daily
     description: >

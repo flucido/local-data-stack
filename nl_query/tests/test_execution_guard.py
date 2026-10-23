@@ -104,7 +104,34 @@ class TestValidateSqlStatic:
             validate_sql("PRAGMA database_list")
 
     def test_allows_valid_select(self):
-        validate_sql("SELECT * FROM main_core.dim_students")
+        validate_sql("SELECT * FROM main_core.fact_attendance")
+
+    def test_rejects_wildcard_on_protected_pii_table(self):
+        with pytest.raises(ValueError, match="protected table"):
+            validate_sql("SELECT * FROM main_core.dim_students")
+
+    def test_rejects_qualified_wildcard_on_protected_pii_table(self):
+        with pytest.raises(ValueError, match="protected table"):
+            validate_sql(
+                "SELECT s.* FROM main_core.fact_attendance a "
+                "JOIN main_core.dim_students s ON a.student_id_hash = s.student_id_hash"
+            )
+
+    def test_rejects_read_parquet(self):
+        with pytest.raises(ValueError, match="file-reading function"):
+            validate_sql("SELECT * FROM read_parquet('/tmp/secret/*.parquet')")
+
+    def test_rejects_read_csv(self):
+        with pytest.raises(ValueError, match="file-reading function"):
+            validate_sql("SELECT * FROM read_csv_auto('/tmp/pii.csv')")
+
+    def test_rejects_read_text(self):
+        with pytest.raises(ValueError, match="file-reading function"):
+            validate_sql("SELECT * FROM read_text('/etc/passwd')")
+
+    def test_rejects_glob(self):
+        with pytest.raises(ValueError, match="file-reading function"):
+            validate_sql("SELECT * FROM glob('/tmp/**')")
 
 
 # ── Schema-aware validation ────────────────────────────────────────────
@@ -133,7 +160,8 @@ class TestValidateSqlSchema:
 
     def test_accepts_join(self, db):
         validate_sql(
-            "SELECT * FROM main_core.fact_attendance a "
+            "SELECT a.student_id_hash, a.attendance_rate, s.school_id "
+            "FROM main_core.fact_attendance a "
             "JOIN main_core.dim_students s ON a.student_id_hash = s.student_id_hash",
             conn=db,
         )
@@ -190,6 +218,14 @@ class TestExecuteSafe:
         assert df.shape == (1, 1)
 
     def test_limit_wrapping(self, db):
-        sql, df = execute_safe(db, "```sql\nSELECT * FROM main_core.dim_students\n```")
-        assert sql == "SELECT * FROM main_core.dim_students"
+        sql, df = execute_safe(db, "```sql\nSELECT * FROM main_core.fact_attendance\n```")
+        assert sql == "SELECT * FROM main_core.fact_attendance"
         assert len(df) <= 1000
+
+    def test_execute_safe_blocks_wildcard_on_protected_table(self, db):
+        with pytest.raises(ValueError, match="protected table"):
+            execute_safe(db, "```sql\nSELECT * FROM main_core.dim_students\n```")
+
+    def test_execute_safe_blocks_read_parquet(self, db):
+        with pytest.raises(ValueError, match="file-reading function"):
+            execute_safe(db, "```sql\nSELECT * FROM read_parquet('data/*.parquet')\n```")

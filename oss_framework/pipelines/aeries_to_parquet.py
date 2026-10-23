@@ -38,10 +38,9 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-import duckdb
-import pandas as pd
+import polars as pl
 
 # Configure logging
 logging.basicConfig(
@@ -75,7 +74,10 @@ YEARS = ["2020-2021", "2021-2022", "2022-2023", "2023-2024", "2024-2025", "2025-
 
 # Compression settings
 COMPRESSION_CODEC = "zstd"
-COMPRESSION_LEVEL = 5
+COMPRESSION_LEVEL = 3
+
+# Values treated as NULL when scanning CSVs
+NULL_VALUES = ["", "NULL", "N/A", "NA", "None", " "]
 
 # Data type mappings to preserve leading zeros in ID, code, and phone fields
 DTYPE_MAPPINGS = {
@@ -214,7 +216,24 @@ class AeriesToParquetPipeline:
             "failed_files": [],
         }
 
-    def convert(self, domain: str, year: str) -> Dict[str, Any]:
+    @staticmethod
+    def _scan_csv(csv_file: Path, domain: str) -> pl.LazyFrame:
+        """Lazily scan a CSV with Polars, pinning ID/code columns to Utf8.
+
+        ``encoding='lossy_utf8'`` tolerates the BOM in Excel-exported CSVs and
+        ``truncate_ragged_lines`` absorbs trailing-delimiter drift.
+        """
+        overrides = {col: pl.Utf8 for col in DTYPE_MAPPINGS.get(domain, {})}
+        return pl.scan_csv(
+            csv_file,
+            schema_overrides=overrides,
+            encoding="utf8-lossy",
+            null_values=NULL_VALUES,
+            infer_schema_length=10_000,
+            truncate_ragged_lines=True,
+        )
+
+    def convert(self, domain: str, year: str) -> dict[str, Any]:
         """
         Convert single CSV file to Parquet with ZSTD compression.
 
@@ -271,31 +290,23 @@ class AeriesToParquetPipeline:
             if self.verbose:
                 logger.debug(f"Reading CSV: {csv_file}")
 
-            # Read CSV file with BOM handling
-            df = pd.read_csv(
-                csv_file,
-                dtype=DTYPE_MAPPINGS.get(domain, {}),
-                encoding="utf-8-sig",  # Handle BOM in Excel-exported CSVs
-                na_values=["", "NULL", "N/A", "NA", "None", " "],
-                keep_default_na=True,
-            )
-            # Old line removed - using enhanced version above
-            rows_read = len(df)
+            # Scan CSV lazily with Polars (BOM-tolerant, all IDs kept as Utf8)
+            lf = self._scan_csv(csv_file, domain)
+            rows_read = lf.select(pl.len()).collect().item()
 
             if self.verbose:
+                columns = lf.collect_schema().names()
                 logger.debug(f"Loaded {rows_read} rows from {csv_file}")
-                logger.debug(f"Columns: {', '.join(df.columns.tolist())}")
+                logger.debug(f"Columns: {', '.join(columns)}")
 
             # Create parent directories
             output_dir.mkdir(parents=True, exist_ok=True)
 
-            # Write to Parquet with ZSTD compression
-            df.to_parquet(
+            # Stream to Parquet with ZSTD compression (level 3)
+            lf.sink_parquet(
                 output_file,
                 compression=COMPRESSION_CODEC,
                 compression_level=COMPRESSION_LEVEL,
-                index=False,
-                engine="pyarrow",
             )
 
             # Get output file size
@@ -304,11 +315,7 @@ class AeriesToParquetPipeline:
 
             # Validate: Check row count in written Parquet
             try:
-                con = duckdb.connect()
-                validation_result = con.execute(
-                    f"SELECT COUNT(*) FROM read_parquet('{output_file}')"
-                ).fetchone()
-                parquet_rows = validation_result[0]
+                parquet_rows = pl.scan_parquet(output_file).select(pl.len()).collect().item()
 
                 if parquet_rows != rows_read:
                     logger.warning(
@@ -317,8 +324,6 @@ class AeriesToParquetPipeline:
                     )
                     result["error"] = f"Row count validation failed: {rows_read} vs {parquet_rows}"
                     return result
-
-                con.close()
             except Exception as e:
                 logger.warning(f"Could not validate row count: {str(e)}")
 
@@ -356,9 +361,97 @@ class AeriesToParquetPipeline:
             logger.error(f"✗ {domain:20} {year}  Error: {str(e)}")
             return result
 
+    def convert_domain_union(self, domain: str, years: list[str] | None = None) -> dict[str, Any]:
+        """Union all available years of a domain into a single Parquet file.
+
+        Uses ``pl.concat(how="diagonal_relaxed")`` so schema drift across
+        academic years (columns added/removed between exports) is unioned by
+        name, with missing columns filled as null.  A ``source_year`` column
+        preserves provenance.
+
+        Args:
+            domain: Domain name (e.g., 'students')
+            years: Academic years to union (default: all available).
+
+        Returns:
+            Result dictionary (same shape as ``convert()``).
+        """
+        result: dict[str, Any] = {
+            "domain": domain,
+            "year": "all",
+            "success": False,
+            "rows_written": None,
+            "input_size": None,
+            "output_size": None,
+            "compression_ratio": None,
+            "error": None,
+        }
+
+        if domain not in DOMAIN_MAPPINGS:
+            result["error"] = f"Unknown domain: {domain}"
+            logger.warning(result["error"])
+            return result
+
+        target_name, source_dir, csv_prefix = DOMAIN_MAPPINGS[domain]
+        candidate_years = years or YEARS
+
+        frames: list[pl.LazyFrame] = []
+        total_input_bytes = 0
+        for year in candidate_years:
+            csv_file = SOURCE_BASE / source_dir / f"{csv_prefix}_{year.replace('-', '_')}.csv"
+            if not csv_file.exists():
+                logger.warning(f"CSV file not found, skipping: {csv_file}")
+                continue
+            total_input_bytes += csv_file.stat().st_size
+            frames.append(
+                self._scan_csv(csv_file, domain).with_columns(pl.lit(year).alias("source_year"))
+            )
+
+        if not frames:
+            result["error"] = f"No source CSV files found for domain '{domain}'"
+            logger.warning(result["error"])
+            return result
+
+        output_dir = TARGET_BASE / target_name / "year=all"
+        output_file = output_dir / "part-000.parquet"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        unioned = pl.concat(frames, how="diagonal_relaxed")
+        unioned.sink_parquet(
+            output_file,
+            compression=COMPRESSION_CODEC,
+            compression_level=COMPRESSION_LEVEL,
+        )
+
+        rows_written = pl.scan_parquet(output_file).select(pl.len()).collect().item()
+        output_size = output_file.stat().st_size
+
+        result.update(
+            {
+                "success": True,
+                "rows_written": rows_written,
+                "input_size": total_input_bytes,
+                "output_size": output_size,
+                "compression_ratio": (
+                    1.0 - (output_size / total_input_bytes) if total_input_bytes else 0.0
+                ),
+            }
+        )
+
+        self.stats["total_files_processed"] += len(frames)
+        self.stats["total_rows_written"] += rows_written
+        self.stats["total_input_bytes"] += total_input_bytes
+        self.stats["total_output_bytes"] += output_size
+
+        logger.info(
+            f"✓ {domain:20} all-years  Rows: {rows_written:8}  "
+            f"Files: {len(frames)}  Output: {output_size / 1024:8.1f}KB"
+        )
+        return result
+
     def process_domains_and_years(
-        self, domains: Optional[List[str]] = None, years: Optional[List[str]] = None
-    ) -> List[Dict[str, Any]]:
+        self, domains: list[str] | None = None, years: list[str] | None = None
+    ) -> list[dict[str, Any]]:
         """
         Process multiple domains and years.
 
@@ -485,7 +578,7 @@ Available Years:
     logger.info(f"Timestamp: {datetime.now().isoformat()}")
 
     try:
-        results = pipeline.process_domains_and_years(domains=domains, years=years)
+        pipeline.process_domains_and_years(domains=domains, years=years)
 
         # Print summary
         stats = pipeline.print_summary()

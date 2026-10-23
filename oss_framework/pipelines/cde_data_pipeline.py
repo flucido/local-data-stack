@@ -18,16 +18,17 @@ Features:
 See ``data/cde_raw/DATA_CATALOG.md`` for the full domain catalogue and quirks.
 """
 
-import csv
+import io
 import logging
 import os
 import zipfile
 from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import dlt
+import polars as pl
 from dlt.common.pipeline import LoadInfo
 from dlt.sources import DltResource
 
@@ -43,7 +44,7 @@ logger = logging.getLogger(__name__)
 #            (None -> last sheet)
 #   delim  : field delimiter for txt/zip ("\\t" default)
 #   desc   : human-readable description
-DOMAIN_CONFIG: Dict[str, Dict[str, Any]] = {
+DOMAIN_CONFIG: dict[str, dict[str, Any]] = {
     "chronic_absenteeism": {
         "glob": "chronicabsenteeism*.txt",
         "type": "txt",
@@ -166,7 +167,7 @@ DOMAIN_CONFIG: Dict[str, Dict[str, Any]] = {
 }
 
 # Ordered list of domain keys (used for iteration + --domain=help)
-ALL_DOMAINS: List[str] = list(DOMAIN_CONFIG.keys())
+ALL_DOMAINS: list[str] = list(DOMAIN_CONFIG.keys())
 
 
 def _strip_bom(name: str) -> str:
@@ -182,7 +183,7 @@ def _strip_bom(name: str) -> str:
         return name
     for prefix in ("\ufeff", "ï»¿"):
         if name.startswith(prefix):
-            return name[len(prefix):]
+            return name[len(prefix) :]
     return name
 
 
@@ -198,6 +199,29 @@ def _clean_value(value: Any) -> Any:
     return value
 
 
+def _clean_frame(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Vectorised equivalent of ``_clean_value`` across every Utf8 column.
+
+    Strips whitespace/``\\r`` and maps suppression markers (``*``) and empty
+    strings to null.
+    """
+    schema = lf.collect_schema()
+    exprs = [
+        pl.col(name).str.strip_chars().replace("", None).replace("*", None).alias(name)
+        for name, dtype in schema.items()
+        if dtype == pl.Utf8
+    ]
+    return lf.with_columns(exprs) if exprs else lf
+
+
+def _strip_bom_columns(lf: pl.LazyFrame) -> pl.LazyFrame:
+    """Rename columns whose names carry a leading UTF-8 BOM."""
+    renames = {
+        name: _strip_bom(name) for name in lf.collect_schema().names() if _strip_bom(name) != name
+    }
+    return lf.rename(renames) if renames else lf
+
+
 # ---------------------------------------------------------------------------
 # Core loader
 # ---------------------------------------------------------------------------
@@ -210,32 +234,40 @@ class CDEDataLoader:
 
     # -- generic file readers ---------------------------------------------
 
-    def _read_tsv_file(self, file_path: str, delimiter: str = "\t") -> Iterator[Dict[str, Any]]:
-        """Read a delimited text file and yield rows as dictionaries.
+    def _read_tsv_frame(self, file_path: str, delimiter: str = "\t") -> pl.LazyFrame | None:
+        """Scan a delimited text file into a Polars LazyFrame.
 
-        Handles BOM on the first header name, ``\r`` in values, and suppression
-        markers (``*`` / empty -> None).
+        All columns are pinned to Utf8 (CDE files ship string-typed counts and
+        codes with leading zeros). Handles BOM on the first header name and
+        suppression markers (``*`` / empty -> None) vectorised.
         """
         try:
-            with open(file_path, encoding="latin1") as f:
-                reader = csv.DictReader(f, delimiter=delimiter)
-                if reader.fieldnames:
-                    # Strip BOM from the first column name in-place.
-                    reader.fieldnames = [
-                        _strip_bom(n) if i == 0 else n for i, n in enumerate(reader.fieldnames)
-                    ]
-                for row in reader:
-                    yield {k: _clean_value(v) for k, v in row.items()}
+            lf = pl.scan_csv(
+                file_path,
+                separator=delimiter,
+                encoding="utf8-lossy",
+                infer_schema_length=0,
+                truncate_ragged_lines=True,
+            )
         except FileNotFoundError:
             logger.warning("File not found: %s", file_path)
-            return
+            return None
         except Exception as e:  # noqa: BLE001 - surface, don't crash the batch
             logger.error("Error reading %s: %s", file_path, e)
+            return None
+        return _clean_frame(_strip_bom_columns(lf))
+
+    def _read_tsv_file(self, file_path: str, delimiter: str = "\t") -> Iterator[dict[str, Any]]:
+        """Read a delimited text file and yield rows as dictionaries."""
+        lf = self._read_tsv_frame(file_path, delimiter=delimiter)
+        if lf is None:
             return
+        df = lf.collect()
+        yield from df.iter_rows(named=True)
 
     def _read_xlsx_file(
-        self, file_path: str, sheet_substr: Optional[str] = None
-    ) -> Iterator[Dict[str, Any]]:
+        self, file_path: str, sheet_substr: str | None = None
+    ) -> Iterator[dict[str, Any]]:
         """Read an Excel data file, yielding rows as dictionaries.
 
         CDE Excel files put title/metadata rows above the real header on the
@@ -270,7 +302,7 @@ class CDEDataLoader:
         # Auto-detect header row: first row (within the first ~5) that has >=3
         # non-None cells. This skips title blocks (1 cell) and the suppression
         # note row in rsddata2425.
-        header: List[str] = []
+        header: list[str] = []
         header_found = False
         for _ in range(5):
             try:
@@ -295,41 +327,46 @@ class CDEDataLoader:
             yield {header[i]: _clean_value(row[i]) for i in range(min(len(header), len(row)))}
         wb.close()
 
-    def _read_zip_file(self, file_path: str, delimiter: str = "^") -> Iterator[Dict[str, Any]]:
+    def _read_zip_frame(self, file_path: str, delimiter: str = "^") -> pl.LazyFrame | None:
         """Read a caret-delimited data file inside a .zip (SBAC/CAASPP).
 
-        Picks the largest ``all_csv_v1.txt`` member when present, otherwise the
-        first ``.txt`` member. Handles BOM + suppression markers.
+        Picks the full ``all_csv_v1.txt`` member when present, otherwise the
+        first ``.txt`` member. Handles BOM + suppression markers vectorised.
         """
         try:
             with zipfile.ZipFile(file_path) as zf:
                 members = [m for m in zf.namelist() if m.lower().endswith(".txt")]
                 if not members:
                     logger.warning("No .txt member inside %s", file_path)
-                    return
-                # Prefer the full 'all_csv_v1' data member.
+                    return None
                 target = next((m for m in members if "all_csv_v1" in m.lower()), members[0])
-                with zf.open(target) as inner:
-                    reader = csv.DictReader(
-                        (line.decode("latin1") for line in inner),
-                        delimiter=delimiter,
-                    )
-                    if reader.fieldnames:
-                        reader.fieldnames = [
-                            _strip_bom(n) if i == 0 else n for i, n in enumerate(reader.fieldnames)
-                        ]
-                    for row in reader:
-                        yield {k: _clean_value(v) for k, v in row.items()}
+                raw = zf.read(target)
+            df = pl.read_csv(
+                io.BytesIO(raw),
+                separator=delimiter,
+                encoding="utf8-lossy",
+                infer_schema_length=0,
+                truncate_ragged_lines=True,
+            )
         except FileNotFoundError:
             logger.warning("File not found: %s", file_path)
-            return
+            return None
         except Exception as e:  # noqa: BLE001
             logger.error("Error reading zip %s: %s", file_path, e)
+            return None
+        return _clean_frame(_strip_bom_columns(df.lazy()))
+
+    def _read_zip_file(self, file_path: str, delimiter: str = "^") -> Iterator[dict[str, Any]]:
+        """Read a caret-delimited file inside a .zip and yield row dicts."""
+        lf = self._read_zip_frame(file_path, delimiter=delimiter)
+        if lf is None:
             return
+        df = lf.collect()
+        yield from df.iter_rows(named=True)
 
     # -- file discovery ---------------------------------------------------
 
-    def _discover_files(self, pattern: str) -> List[Path]:
+    def _discover_files(self, pattern: str) -> list[Path]:
         """Return sorted list of files matching ``pattern`` under data_dir."""
         base = Path(self.data_dir)
         if not base.exists():
@@ -340,7 +377,7 @@ class CDEDataLoader:
         files = [f for f in files if "(" not in f.name]
         return files
 
-    def _reader_for(self, file_path: Path, cfg: Dict[str, Any]) -> Iterator[Dict[str, Any]]:
+    def _reader_for(self, file_path: Path, cfg: dict[str, Any]) -> Iterator[dict[str, Any]]:
         """Dispatch to the right reader based on file type."""
         ftype = cfg.get("type", "txt")
         if ftype == "txt":
@@ -351,94 +388,33 @@ class CDEDataLoader:
             return self._read_zip_file(str(file_path), delimiter=cfg.get("delim", "^"))
         raise ValueError(f"Unknown file type '{ftype}' for {file_path}")
 
-    # -- header scanning (for schema-drift union) -------------------------
+    def _frame_for(self, file_path: Path, cfg: dict[str, Any]) -> pl.LazyFrame | None:
+        """Dispatch to the right Polars frame reader based on file type.
 
-    def _scan_txt_header(self, file_path: Path, delimiter: str) -> List[str]:
-        """Read only the header line of a delimited text file."""
-        try:
-            with open(file_path, encoding="latin1") as f:
-                first_line = f.readline()
-            names = first_line.rstrip("\n").rstrip("\r").split(delimiter)
-            return [_strip_bom(n) if i == 0 else n for i, n in enumerate(names)]
-        except Exception as e:  # noqa: BLE001
-            logger.warning("Could not scan header of %s: %s", file_path, e)
-            return []
-
-    def _scan_xlsx_header(self, file_path: Path, sheet_substr: Optional[str] = None) -> List[str]:
-        """Read only the detected header row of an Excel data sheet."""
-        try:
-            import openpyxl
-        except ImportError:
-            return []
-        try:
-            wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
-        except Exception as e:  # noqa: BLE001
-            logger.warning("Could not open %s: %s", file_path, e)
-            return []
-        ws = None
-        if sheet_substr:
-            for name in wb.sheetnames:
-                if sheet_substr.lower() in name.lower():
-                    ws = wb[name]
-                    break
-        if ws is None:
-            ws = wb[wb.sheetnames[-1]]
-        header: List[str] = []
-        for row in ws.iter_rows(min_row=1, max_row=5, values_only=True):
-            populated = [c for c in row if c is not None]
-            if len(populated) >= 3:
-                header = [
-                    _strip_bom(str(c)) if c is not None else f"col_{i}" for i, c in enumerate(row)
-                ]
-                break
-        wb.close()
-        return header
-
-    def _scan_zip_header(self, file_path: Path, delimiter: str) -> List[str]:
-        """Read only the header line inside a .zip data file."""
-        try:
-            with zipfile.ZipFile(file_path) as zf:
-                members = [m for m in zf.namelist() if m.lower().endswith(".txt")]
-                if not members:
-                    return []
-                target = next((m for m in members if "all_csv_v1" in m.lower()), members[0])
-                with zf.open(target) as inner:
-                    first_line = inner.readline().decode("latin1")
-            names = first_line.rstrip("\n").rstrip("\r").split(delimiter)
-            return [_strip_bom(n) if i == 0 else n for i, n in enumerate(names)]
-        except Exception as e:  # noqa: BLE001
-            logger.warning("Could not scan header of %s: %s", file_path, e)
-            return []
-
-    def _scan_header(self, file_path: Path, cfg: Dict[str, Any]) -> List[str]:
-        """Dispatch to the right header scanner based on file type."""
+        ``xlsx`` files keep the openpyxl reader (title rows above the header
+        need row-wise detection) and are lifted into a lazy frame afterwards.
+        """
         ftype = cfg.get("type", "txt")
         if ftype == "txt":
-            return self._scan_txt_header(file_path, cfg.get("delim", "\t"))
-        if ftype == "xlsx":
-            return self._scan_xlsx_header(file_path, sheet_substr=cfg.get("sheet"))
+            return self._read_tsv_frame(str(file_path), delimiter=cfg.get("delim", "\t"))
         if ftype == "zip":
-            return self._scan_zip_header(file_path, cfg.get("delim", "^"))
-        return []
-
-    def _collect_columns(self, files: List[Path], cfg: Dict[str, Any]) -> List[str]:
-        """First pass: scan headers of all files to build the column union."""
-        all_columns: List[str] = []
-        for f in files:
-            for col in self._scan_header(f, cfg):
-                if col and col not in all_columns:
-                    all_columns.append(col)
-        return all_columns
+            return self._read_zip_frame(str(file_path), delimiter=cfg.get("delim", "^"))
+        if ftype == "xlsx":
+            rows = list(self._read_xlsx_file(str(file_path), sheet_substr=cfg.get("sheet")))
+            if not rows:
+                return None
+            return pl.from_dicts(rows, infer_schema_length=10_000).lazy()
+        raise ValueError(f"Unknown file type '{ftype}' for {file_path}")
 
     # -- schema-drift-tolerant union loader -------------------------------
 
-    def _load_domain(self, domain_key: str) -> Iterator[Dict[str, Any]]:
+    def _load_domain(self, domain_key: str) -> Iterator[dict[str, Any]]:
         """Load all files for a domain, unioning columns across years.
 
-        Two-pass approach for schema-drift tolerance:
-        1. Scan headers of all matching files to build the full column union.
-        2. Read data rows, filling missing columns with None so every emitted
-           row has the same key set regardless of which year it came from.
+        Uses Polars ``concat(how="diagonal_relaxed")`` for schema-drift
+        tolerance: columns are unioned by name across yearly files and
+        columns missing from a given year are filled with null — no manual
+        header-scan pass required.
         """
         cfg = DOMAIN_CONFIG[domain_key]
         files = self._discover_files(cfg["glob"])
@@ -446,30 +422,39 @@ class CDEDataLoader:
             logger.info("No files matched %s for domain '%s'", cfg["glob"], domain_key)
             return
 
-        # Pass 1: collect the union of all column names across years.
-        all_columns = self._collect_columns(files, cfg)
+        frames: list[pl.LazyFrame] = []
+        for file_path in files:
+            lf = self._frame_for(file_path, cfg)
+            if lf is None:
+                continue
+            lf = lf.with_columns(
+                pl.lit(datetime.now().isoformat()).alias("_loaded_at"),
+                pl.lit(file_path.name).alias("_source_file"),
+                pl.lit(domain_key).alias("_domain"),
+            )
+            frames.append(lf)
+
+        if not frames:
+            logger.warning("No readable files for domain '%s'", domain_key)
+            return
+
+        unioned = pl.concat(frames, how="diagonal_relaxed")
         logger.info(
-            "Domain '%s': %d files, %d union columns", domain_key, len(files), len(all_columns)
+            "Domain '%s': %d files, %d union columns",
+            domain_key,
+            len(frames),
+            len(unioned.collect_schema().names()),
         )
 
-        # Pass 2: emit data rows with the full column set.
-        for file_path in files:
-            logger.info("Loading %s ...", file_path.name)
-            row_count = 0
-            for row in self._reader_for(file_path, cfg):
-                out = {col: row.get(col) for col in all_columns}
-                out["_loaded_at"] = datetime.now().isoformat()
-                out["_source_file"] = file_path.name
-                out["_domain"] = domain_key
-                yield out
-                row_count += 1
-            logger.info("  loaded %s rows from %s", f"{row_count:,}", file_path.name)
+        df = unioned.collect()
+        logger.info("  loaded %s rows from %d files", f"{df.height:,}", len(frames))
+        yield from df.iter_rows(named=True)
 
     # -- per-domain public loaders ---------------------------------------
 
     def load_chronic_absenteeism(
-        self, academic_year: Optional[str] = None
-    ) -> Iterator[Dict[str, Any]]:
+        self, academic_year: str | None = None
+    ) -> Iterator[dict[str, Any]]:
         """Load chronic absenteeism data (backward compatible).
 
         Args:
@@ -495,70 +480,70 @@ class CDEDataLoader:
             logger.info("  loaded %s rows from %s", f"{row_count:,}", file_path.name)
 
     # Generic per-domain loaders (one method per catalogue domain).
-    def load_absenteeism_reason(self) -> Iterator[Dict[str, Any]]:
+    def load_absenteeism_reason(self) -> Iterator[dict[str, Any]]:
         yield from self._load_domain("absenteeism_reason")
 
-    def load_cumulative_enrollment(self) -> Iterator[Dict[str, Any]]:
+    def load_cumulative_enrollment(self) -> Iterator[dict[str, Any]]:
         yield from self._load_domain("cumulative_enrollment")
 
-    def load_census_enrollment_rates(self) -> Iterator[Dict[str, Any]]:
+    def load_census_enrollment_rates(self) -> Iterator[dict[str, Any]]:
         yield from self._load_domain("census_enrollment_rates")
 
-    def load_chronic_absenteeism_dashboard(self) -> Iterator[Dict[str, Any]]:
+    def load_chronic_absenteeism_dashboard(self) -> Iterator[dict[str, Any]]:
         yield from self._load_domain("chronic_absenteeism_dashboard")
 
-    def load_suspension(self) -> Iterator[Dict[str, Any]]:
+    def load_suspension(self) -> Iterator[dict[str, Any]]:
         yield from self._load_domain("suspension")
 
-    def load_suspension_dashboard(self) -> Iterator[Dict[str, Any]]:
+    def load_suspension_dashboard(self) -> Iterator[dict[str, Any]]:
         yield from self._load_domain("suspension_dashboard")
 
-    def load_expulsion(self) -> Iterator[Dict[str, Any]]:
+    def load_expulsion(self) -> Iterator[dict[str, Any]]:
         yield from self._load_domain("expulsion")
 
-    def load_ela_dashboard(self) -> Iterator[Dict[str, Any]]:
+    def load_ela_dashboard(self) -> Iterator[dict[str, Any]]:
         yield from self._load_domain("ela_dashboard")
 
-    def load_elpac_dashboard(self) -> Iterator[Dict[str, Any]]:
+    def load_elpac_dashboard(self) -> Iterator[dict[str, Any]]:
         yield from self._load_domain("elpac_dashboard")
 
-    def load_sbac_caaspp(self) -> Iterator[Dict[str, Any]]:
+    def load_sbac_caaspp(self) -> Iterator[dict[str, Any]]:
         yield from self._load_domain("sbac_caaspp")
 
-    def load_homeless_enrollment(self) -> Iterator[Dict[str, Any]]:
+    def load_homeless_enrollment(self) -> Iterator[dict[str, Any]]:
         yield from self._load_domain("homeless_enrollment")
 
-    def load_frpm(self) -> Iterator[Dict[str, Any]]:
+    def load_frpm(self) -> Iterator[dict[str, Any]]:
         yield from self._load_domain("frpm")
 
-    def load_upc(self) -> Iterator[Dict[str, Any]]:
+    def load_upc(self) -> Iterator[dict[str, Any]]:
         yield from self._load_domain("upc")
 
-    def load_restraint_seclusion(self) -> Iterator[Dict[str, Any]]:
+    def load_restraint_seclusion(self) -> Iterator[dict[str, Any]]:
         yield from self._load_domain("restraint_seclusion")
 
-    def load_school_directory(self) -> Iterator[Dict[str, Any]]:
+    def load_school_directory(self) -> Iterator[dict[str, Any]]:
         yield from self._load_domain("school_directory")
 
-    def load_cbedsora(self) -> Iterator[Dict[str, Any]]:
+    def load_cbedsora(self) -> Iterator[dict[str, Any]]:
         yield from self._load_domain("cbedsora")
 
-    def load_enrollment_by_grade(self) -> Iterator[Dict[str, Any]]:
+    def load_enrollment_by_grade(self) -> Iterator[dict[str, Any]]:
         yield from self._load_domain("enrollment_by_grade")
 
-    def load_enrollment_by_subgroup(self) -> Iterator[Dict[str, Any]]:
+    def load_enrollment_by_subgroup(self) -> Iterator[dict[str, Any]]:
         yield from self._load_domain("enrollment_by_subgroup")
 
-    def load_class_assignment(self) -> Iterator[Dict[str, Any]]:
+    def load_class_assignment(self) -> Iterator[dict[str, Any]]:
         yield from self._load_domain("class_assignment")
 
-    def load_teacher_misassignment(self) -> Iterator[Dict[str, Any]]:
+    def load_teacher_misassignment(self) -> Iterator[dict[str, Any]]:
         yield from self._load_domain("teacher_misassignment")
 
-    def load_teacher_out_of_field(self) -> Iterator[Dict[str, Any]]:
+    def load_teacher_out_of_field(self) -> Iterator[dict[str, Any]]:
         yield from self._load_domain("teacher_out_of_field")
 
-    def load_teacher_prep(self) -> Iterator[Dict[str, Any]]:
+    def load_teacher_prep(self) -> Iterator[dict[str, Any]]:
         yield from self._load_domain("teacher_prep")
 
 
@@ -566,7 +551,7 @@ class CDEDataLoader:
 # dlt source: one resource per domain
 # ---------------------------------------------------------------------------
 # Map domain key -> loader method name on CDEDataLoader.
-_DOMAIN_METHODS: Dict[str, str] = {
+_DOMAIN_METHODS: dict[str, str] = {
     "chronic_absenteeism": "load_chronic_absenteeism",
     "absenteeism_reason": "load_absenteeism_reason",
     "cumulative_enrollment": "load_cumulative_enrollment",
@@ -593,15 +578,15 @@ _DOMAIN_METHODS: Dict[str, str] = {
 }
 
 # dlt table name per domain (cde_<domain>).
-_DOMAIN_TABLES: Dict[str, str] = {key: f"cde_{key}" for key in DOMAIN_CONFIG}
+_DOMAIN_TABLES: dict[str, str] = {key: f"cde_{key}" for key in DOMAIN_CONFIG}
 
 
 @dlt.source(name="cde")
 def cde_source(
-    data_dir: Optional[str] = None,
-    academic_year: Optional[str] = None,
-    domains: Optional[List[str]] = None,
-) -> List[DltResource]:
+    data_dir: str | None = None,
+    academic_year: str | None = None,
+    domains: list[str] | None = None,
+) -> list[DltResource]:
     """dlt source for California Department of Education data.
 
     Args:
@@ -613,7 +598,7 @@ def cde_source(
     loader = CDEDataLoader(data_dir=data_dir or "")
     selected = domains or ALL_DOMAINS
 
-    resources: List[DltResource] = []
+    resources: list[DltResource] = []
 
     def _make_resource(method, table_name, academic_year_filter):
         """Build a dlt resource wrapping a loader method (closure factory)."""
@@ -621,13 +606,13 @@ def cde_source(
         if academic_year_filter is not None:
 
             @dlt.resource(name=table_name, write_disposition="replace")
-            def _r() -> Iterator[Dict[str, Any]]:
+            def _r() -> Iterator[dict[str, Any]]:
                 yield from method(academic_year=academic_year_filter)
 
         else:
 
             @dlt.resource(name=table_name, write_disposition="replace")
-            def _r() -> Iterator[Dict[str, Any]]:
+            def _r() -> Iterator[dict[str, Any]]:
                 yield from method()
 
         return _r
@@ -653,9 +638,9 @@ def cde_source(
 def run_cde_pipeline(
     destination_type: str = "duckdb",
     dataset_name: str = "cde_raw",
-    data_dir: Optional[str] = None,
-    academic_year: Optional[str] = None,
-    domains: Optional[List[str]] = None,
+    data_dir: str | None = None,
+    academic_year: str | None = None,
+    domains: list[str] | None = None,
 ) -> LoadInfo:
     """Run the CDE dlt pipeline.
 
@@ -705,9 +690,9 @@ def run_cde_pipeline(
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
-def _parse_cli_args(argv: List[str]) -> Dict[str, Any]:
+def _parse_cli_args(argv: list[str]) -> dict[str, Any]:
     """Parse simple ``--key=value`` style CLI arguments."""
-    opts: Dict[str, Any] = {
+    opts: dict[str, Any] = {
         "destination": "duckdb",
         "academic_year": None,
         "data_dir": None,

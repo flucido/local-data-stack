@@ -22,6 +22,15 @@ duckdb_oss:
         - httpfs
         - json
 
+      # Python UDFs (AES-256-GCM PII encryption for mart_privacy models)
+      udfs:
+        - name: aes_encrypt_pii
+          module: udfs/pii_crypto.py
+          function: aes_encrypt_pii
+        - name: aes_decrypt_pii
+          module: udfs/pii_crypto.py
+          function: aes_decrypt_pii
+
     prod:
       type: 'duckdb'
       path: "{{ env_var('DUCKDB_DATABASE_PATH', '../data/analytics.duckdb') }}"
@@ -38,3 +47,12 @@ duckdb_oss:
         - delta
         - httpfs
         - json
+
+      # Python UDFs (AES-256-GCM PII encryption for mart_privacy models)
+      udfs:
+        - name: aes_encrypt_pii
+          module: udfs/pii_crypto.py
+          function: aes_encrypt_pii
+        - name: aes_decrypt_pii
+          module: udfs/pii_crypto.py
+          function: aes_decrypt_pii

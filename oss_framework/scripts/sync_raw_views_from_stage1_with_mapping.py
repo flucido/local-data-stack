@@ -256,7 +256,11 @@ def sync_raw_views_from_stage1(
             sql = f"""
                 CREATE OR REPLACE VIEW {entity} AS
                 SELECT {column_select}
-                FROM read_parquet('{parquet_glob_sql}')
+                FROM read_parquet(
+                    '{parquet_glob_sql}',
+                    hive_partitioning = true,
+                    union_by_name = true
+                )
             """
 
             con.execute(sql)

@@ -22,8 +22,12 @@ import os
 import re
 import threading
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import duckdb
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 # ── Warehouse location ─────────────────────────────────────────────────
 
@@ -139,6 +143,14 @@ def _get_pii_columns(key: str) -> set[str]:
     return {c.lower() for c in PII_COLUMNS.get(key, set())}
 
 
+# Tables containing PII: wildcard SELECT * against these is blocked so the
+# model can never bulk-extract protected columns it should not even see.
+PROTECTED_TABLES = {key.lower() for key in PII_COLUMNS}
+
+# Bare table names of protected tables (matches unqualified / aliased refs).
+PROTECTED_TABLE_NAMES = {key.split(".")[-1] for key in PROTECTED_TABLES}
+
+
 # ── Forbidden SQL terms (case-insensitive) ─────────────────────────────
 
 FORBIDDEN_TOKENS = [
@@ -153,6 +165,51 @@ FORBIDDEN_TOKENS = [
     "detach",
     "pragma",
 ]
+
+# Table-valued file readers / external-access functions. These bypass the
+# warehouse catalog entirely (arbitrary filesystem reads), so they are
+# rejected statically AND disabled at the engine level via
+# ``SET enable_external_access = false`` (see get_connection()).
+FORBIDDEN_FUNCTIONS = [
+    "read_parquet",
+    "parquet_scan",
+    "query_parquet",
+    "read_csv",
+    "read_csv_auto",
+    "csv_scan",
+    "query_csv",
+    "from_csv",
+    "sniff_csv",
+    "read_text",
+    "read_blob",
+    "read_json",
+    "read_json_auto",
+    "read_json_objects",
+    "read_ndjson",
+    "read_ndjson_objects",
+    "json_scan",
+    "query_json",
+    "read_xlsx",
+    "from_excel",
+    "glob",
+    "iceberg_scan",
+    "iceberg_metadata",
+    "delta_scan",
+    "delta_metadata",
+    "gdal_scan",
+    "st_read",
+]
+
+_FORBIDDEN_FUNCTION_RE = re.compile(
+    r"\b(" + "|".join(re.escape(f) for f in FORBIDDEN_FUNCTIONS) + r")\s*\(",
+    re.IGNORECASE,
+)
+
+# Wildcard projections: `SELECT *`, `SELECT DISTINCT *`, or `alias.*`.
+_WILDCARD_SELECT_RE = re.compile(
+    r"\bselect\s+(?:distinct\s+)?\*|\bselect\b[^;]*?\w+\.\s*\*",
+    re.IGNORECASE | re.DOTALL,
+)
 
 # ── Execution limits ───────────────────────────────────────────────────
 
@@ -181,8 +238,41 @@ def get_connection(read_only: bool = True) -> duckdb.DuckDBPyConnection:
             f"or set LFED_WAREHOUSE_DB to an existing DuckDB file."
         )
     conn = duckdb.connect(database=str(path), read_only=read_only)
-    conn.execute("SET enable_progress_bar = false;")
+    _apply_sandbox_settings(conn)
     return conn
+
+
+def _apply_sandbox_settings(conn: duckdb.DuckDBPyConnection) -> None:
+    """Harden a DuckDB handle: no external access, then lock the config.
+
+    ``SET enable_external_access = false`` disables file reads, HTTP, COPY
+    to/from files, read_parquet/read_csv, etc. at the engine level.
+    ``SET lock_configuration = true`` freezes further configuration changes
+    so a query cannot re-enable them.
+
+    DuckDB shares one database instance across connections opened in the
+    same process, so once the first handle locks the configuration, later
+    handles cannot re-issue the SETs. A failed SET is therefore tolerated
+    only when the locked-in value already matches the required setting.
+    """
+    required = (
+        ("enable_external_access", "false"),
+        ("lock_configuration", "true"),
+    )
+    try:
+        conn.execute("SET enable_progress_bar = false;")
+    except duckdb.Error:
+        pass  # cosmetic only; instance may already be locked
+    for name, expected in required:
+        try:
+            conn.execute(f"SET {name} = {expected};")
+        except duckdb.Error as exc:
+            actual = str(conn.execute(f"SELECT current_setting('{name}')").fetchone()[0])
+            if actual.lower() != expected:
+                raise RuntimeError(
+                    f"DuckDB sandbox setting '{name}' is '{actual}', expected '{expected}', "
+                    "and the configuration is locked — refusing to serve queries."
+                ) from exc
 
 
 def create_session() -> duckdb.DuckDBPyConnection:
@@ -291,6 +381,8 @@ def validate_sql(sql: str, conn: duckdb.DuckDBPyConnection | None = None) -> Non
       - Not empty
       - No forbidden tokens (DROP, DELETE, INSERT, etc.)
       - Contains SELECT
+      - No table-valued file readers (read_parquet, read_csv, read_text, ...)
+      - No wildcard SELECT * against PII-bearing protected tables
 
     Layer 2 — schema-aware validation (if conn provided):
       - Runs EXPLAIN against the live warehouse to catch missing columns,
@@ -311,6 +403,25 @@ def validate_sql(sql: str, conn: duckdb.DuckDBPyConnection | None = None) -> Non
 
     if "SELECT" not in sql.upper():
         raise ValueError("Only SELECT queries are allowed. No SELECT found.")
+
+    # Block table-valued file readers (read_parquet, read_csv, read_text, ...).
+    # These would let a query escape the warehouse catalog and read arbitrary
+    # files (including raw PII Parquet) from disk.
+    fn_match = _FORBIDDEN_FUNCTION_RE.search(sql)
+    if fn_match:
+        raise ValueError(
+            f"Forbidden file-reading function detected: '{fn_match.group(1).lower()}'. "
+            "Only queries against warehouse tables are allowed."
+        )
+
+    # Block wildcard SELECT * / alias.* against PII-bearing protected tables.
+    if _WILDCARD_SELECT_RE.search(sql):
+        for name in PROTECTED_TABLE_NAMES:
+            if re.search(rf"\b{re.escape(name)}\b", sql_lower):
+                raise ValueError(
+                    f"Wildcard SELECT * against protected table '{name}' is not allowed. "
+                    "Select only the specific non-PII columns you need."
+                )
 
     for blocked in BLOCKED_SCHEMAS:
         if re.search(rf"\b{re.escape(blocked)}\.", sql_lower):
@@ -388,7 +499,7 @@ def execute_safe(
     conn: duckdb.DuckDBPyConnection,
     raw_llm_output: str,
     timeout_sec: int = QUERY_TIMEOUT_SEC,
-) -> tuple[str, DataFrame]:
+) -> tuple[str, pd.DataFrame]:
     """
     Extract, validate, and execute LLM-generated SQL.
 

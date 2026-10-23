@@ -8,7 +8,7 @@ Supports three batch processing modes:
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -34,9 +34,9 @@ class BatchProcessor:
     def process(
         self,
         new_data: pd.DataFrame,
-        existing_data: Optional[pd.DataFrame] = None,
-        key_columns: List[str] = None,
-        batch_mode: Optional[str] = None,
+        existing_data: pd.DataFrame | None = None,
+        key_columns: list[str] = None,
+        batch_mode: str | None = None,
     ) -> pd.DataFrame:
         """
         Process batch according to configured mode
@@ -59,14 +59,14 @@ class BatchProcessor:
             return self._snapshot_replace(new_data)
 
     @staticmethod
-    def deduplicate(df: pd.DataFrame, subset: List[str]) -> pd.DataFrame:
+    def deduplicate(df: pd.DataFrame, subset: list[str]) -> pd.DataFrame:
         """Remove duplicate rows based on subset columns."""
         return df.drop_duplicates(subset=subset)
 
     @staticmethod
-    def check_quality(df: pd.DataFrame, entity: str = "") -> Dict[str, Any]:
+    def check_quality(df: pd.DataFrame, entity: str = "") -> dict[str, Any]:
         """Run data quality checks and return a report."""
-        report: Dict[str, Any] = {
+        report: dict[str, Any] = {
             "entity": entity,
             "checks": {},
             "valid": True,
@@ -80,7 +80,7 @@ class BatchProcessor:
 
     @staticmethod
     def _delta_merge(
-        new_data: pd.DataFrame, existing_data: pd.DataFrame, key_columns: List[str]
+        new_data: pd.DataFrame, existing_data: pd.DataFrame, key_columns: list[str]
     ) -> pd.DataFrame:
         """
         Delta merge: Keep existing, upsert new, remove deleted
@@ -96,27 +96,15 @@ class BatchProcessor:
         if key_columns is None or not key_columns:
             raise ValueError("key_columns required for delta merge")
 
-        # Find records to update
-        merge_df = new_data.merge(
-            existing_data[key_columns], on=key_columns, how="left", indicator=True
-        )
+        # Vectorised upsert via MultiIndex membership (index-alignment safe):
+        # keep existing rows whose key is NOT in the new batch, then append
+        # the entire new batch (inserts + updates win via keep="last").
+        new_keys = pd.MultiIndex.from_frame(new_data[key_columns])
+        existing_keys = pd.MultiIndex.from_frame(existing_data[key_columns])
+        keep_mask = ~existing_keys.isin(new_keys)
 
-        # Split into new and updated
-        new_records = new_data[merge_df["_merge"] == "left_only"]
-
-        # Find existing records not in new batch
-        existing_not_in_new = existing_data.merge(
-            new_data[key_columns], on=key_columns, how="left", indicator=True
-        )
-        existing_not_in_new = existing_data[existing_not_in_new["_merge"] == "left_only"]
-
-        # Combine
         result = pd.concat(
-            [
-                existing_not_in_new,
-                new_records,
-                new_data[new_data[key_columns].isin(existing_data[key_columns]).all(axis=1)],
-            ],
+            [existing_data.loc[keep_mask], new_data],
             ignore_index=True,
         )
 
@@ -124,21 +112,22 @@ class BatchProcessor:
 
     @staticmethod
     def _additive_append(
-        new_data: pd.DataFrame, existing_data: Optional[pd.DataFrame] = None
+        new_data: pd.DataFrame, existing_data: pd.DataFrame | None = None
     ) -> pd.DataFrame:
         """
         Additive append: Only add new records (append-only log)
 
         Args:
             new_data: New events/records
-            existing_data: Existing data (optional for validation)
+            existing_data: Existing data (optional)
 
         Returns:
-            New records to append
+            Existing records followed by the new records (append-only)
         """
-        # For additive mode, simply return new data
-        # Caller is responsible for appending to table
-        return new_data
+        # Append-only semantics: never modify or drop existing rows.
+        if existing_data is None or existing_data.empty:
+            return new_data
+        return pd.concat([existing_data, new_data], ignore_index=True)
 
     @staticmethod
     def _snapshot_replace(new_data: pd.DataFrame) -> pd.DataFrame:
@@ -159,7 +148,7 @@ class DataQualityChecker:
 
     @staticmethod
     def check_row_count_anomaly(
-        new_count: int, historical_counts: List[int], threshold_pct: float = 0.5
+        new_count: int, historical_counts: list[int], threshold_pct: float = 0.5
     ) -> bool:
         """
         Detect abnormal row count changes
@@ -181,7 +170,7 @@ class DataQualityChecker:
         return change_pct > threshold_pct
 
     @staticmethod
-    def check_null_percentage(df: pd.DataFrame, threshold_pct: float = 0.1) -> Dict[str, float]:
+    def check_null_percentage(df: pd.DataFrame, threshold_pct: float = 0.1) -> dict[str, float]:
         """
         Check for excessive nulls per column
 
@@ -202,7 +191,7 @@ class DataQualityChecker:
         return problematic
 
     @staticmethod
-    def check_duplicates(df: pd.DataFrame, key_columns: List[str]) -> int:
+    def check_duplicates(df: pd.DataFrame, key_columns: list[str]) -> int:
         """
         Count duplicate records by key
 
@@ -216,7 +205,7 @@ class DataQualityChecker:
         return df.duplicated(subset=key_columns).sum()
 
     @staticmethod
-    def check_schema_conformance(df: pd.DataFrame, expected_columns: List[str]) -> Dict[str, Any]:
+    def check_schema_conformance(df: pd.DataFrame, expected_columns: list[str]) -> dict[str, Any]:
         """
         Verify DataFrame matches expected schema
 

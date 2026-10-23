@@ -12,8 +12,9 @@ This module provides common data transformation functions for education analytic
 import hashlib
 import json
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Union
 
+import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -47,24 +48,25 @@ class DataTransformer:
     @staticmethod
     def normalize_numeric(
         df: pd.DataFrame,
-        columns: Optional[List[str]] = None,
+        columns: list[str] | None = None,
         target_min: float = 0,
         target_max: float = 1,
     ) -> pd.DataFrame:
-        """Min-max normalize numeric columns."""
+        """Min-max normalize numeric columns (fully vectorised)."""
         result = df.copy()
         cols = columns or result.select_dtypes(include=[np.number]).columns.tolist()
-        for col in cols:
-            col_min = result[col].min()
-            col_max = result[col].max()
-            if col_max > col_min:
-                result[col] = (result[col] - col_min) / (col_max - col_min)
-                result[col] = result[col] * (target_max - target_min) + target_min
-            else:
-                result[col] = target_min
+        if not cols:
+            return result
+        mins = result[cols].min()
+        spans = result[cols].max() - mins
+        # Constant columns (span == 0) collapse to target_min via fillna below.
+        scaled_spans = spans.replace(0, np.nan)
+        result[cols] = (
+            (result[cols] - mins) / scaled_spans * (target_max - target_min) + target_min
+        ).fillna(target_min)
         return result
 
-    def validate_schema(self, df: pd.DataFrame, entity: str = "") -> Dict[str, Any]:
+    def validate_schema(self, df: pd.DataFrame, entity: str = "") -> dict[str, Any]:
         """Validate DataFrame schema against metadata. Delegates to SchemaValidator."""
         if self.metadata_manager is None:
             return {"valid": True, "errors": {}}
@@ -73,10 +75,10 @@ class DataTransformer:
 
     @staticmethod
     def flatten_json(
-        json_obj: Union[Dict[str, Any], List[Dict[str, Any]]],
+        json_obj: dict[str, Any] | list[dict[str, Any]],
         parent_key: str = "",
         sep: str = "_",
-    ) -> Union[Dict[str, Any], "pd.DataFrame"]:
+    ) -> Union[dict[str, Any], "pd.DataFrame"]:
         """Flatten nested JSON to single-level dict.
 
         Accepts a single dict or a list of dicts."""
@@ -84,7 +86,7 @@ class DataTransformer:
             return pd.DataFrame(
                 [DataTransformer.flatten_json(item, parent_key, sep) for item in json_obj]
             )
-        items: List[tuple] = []
+        items: list[tuple] = []
         for k, v in json_obj.items():
             new_key = f"{parent_key}{sep}{k}" if parent_key else k
             if isinstance(v, dict):
@@ -94,7 +96,7 @@ class DataTransformer:
         return dict(items)
 
     @staticmethod
-    def flatten_dataframe(df: pd.DataFrame, json_columns: List[str]) -> pd.DataFrame:
+    def flatten_dataframe(df: pd.DataFrame, json_columns: list[str]) -> pd.DataFrame:
         """
         Flatten JSON columns in a DataFrame
 
@@ -184,21 +186,20 @@ class EngagementAggregator:
             "day": "%Y-%m-%d",
             "week": "%Y-W%U",
             "month": "%Y-%m",
-            "quarter": "%Y-Q%q",
+            "quarter": None,  # handled separately (strftime has no quarter code)
             "year": "%Y",
         }
 
         if period not in period_map:
             raise ValueError(f"Period must be one of {list(period_map.keys())}")
 
-        df_copy["period"] = df_copy[timestamp_col].dt.strftime(period_map[period])
+        if period == "quarter":
+            ts = df_copy[timestamp_col].dt
+            df_copy["period"] = ts.year.astype(str) + "-Q" + ts.quarter.astype(str)
+        else:
+            df_copy["period"] = df_copy[timestamp_col].dt.strftime(period_map[period])
 
         # Aggregate
-        agg_dict = {
-            "event_id": "count",  # Number of events
-            "duration_minutes": ["sum", "mean"] if "duration_minutes" in df.columns else "count",
-        }
-
         result = (
             df_copy.groupby([student_col, "period"])
             .agg(
@@ -287,7 +288,7 @@ class EngagementAggregator:
 class Pseudonymizer:
     """Privacy-preserving pseudonymization utilities"""
 
-    def __init__(self, salt: Optional[str] = None):
+    def __init__(self, salt: str | None = None):
         """
         Initialize pseudonymizer
 
@@ -308,13 +309,24 @@ class Pseudonymizer:
         for col in df.columns:
             col_lower = col.lower()
             if col_lower in ("student_id", "permanent_id", "student_id_raw", "ssn"):
-                df_pseudo[col] = df_pseudo[col].apply(lambda v: self.hash_value(str(v)))
+                df_pseudo[col] = self._map_unique(df_pseudo[col], self.hash_value)
             elif any(
                 name in col_lower
                 for name in ("first_name", "last_name", "address", "phone", "email")
             ):
-                df_pseudo[col] = df_pseudo[col].apply(lambda v: self.mask_value(str(v)))
+                df_pseudo[col] = self._map_unique(df_pseudo[col], self.mask_value)
         return df_pseudo
+
+    @staticmethod
+    def _map_unique(series: pd.Series, func) -> pd.Series:
+        """Apply ``func`` to the unique values of ``series`` then map back.
+
+        Avoids a per-row Python call for repeated values (vectorised lookup).
+        """
+        str_series = series.astype(str)
+        unique_values = pd.unique(str_series)
+        mapping = pd.Series({v: func(v) for v in unique_values})
+        return str_series.map(mapping)
 
     def hash_value(self, value: str, length: int = 16) -> str:
         """
@@ -349,8 +361,8 @@ class Pseudonymizer:
         return mask_char * len(value_str)
 
     def pseudonymize_dataframe(
-        self, df: pd.DataFrame, rules: Dict[str, str]
-    ) -> Tuple[pd.DataFrame, Dict[str, pd.DataFrame]]:
+        self, df: pd.DataFrame, rules: dict[str, str]
+    ) -> tuple[pd.DataFrame, dict[str, pd.DataFrame]]:
         """
         Apply pseudonymization rules to DataFrame
 
@@ -371,7 +383,7 @@ class Pseudonymizer:
                 continue
 
             if rule == "hash":
-                # Create lookup table
+                # Create lookup table (hash each unique value exactly once)
                 unique_values = df_pseudo[col].unique()
                 lookup_df = pd.DataFrame(
                     {
@@ -381,13 +393,14 @@ class Pseudonymizer:
                 )
                 lookup_tables[col] = lookup_df
 
-                # Apply hash
-                df_pseudo[f"{col}_hashed"] = df_pseudo[col].apply(self.hash_value)
+                # Apply hash via the unique-value lookup (no per-row hashing)
+                hash_map = lookup_df.set_index("original_value")["hashed_value"]
+                df_pseudo[f"{col}_hashed"] = df_pseudo[col].map(hash_map)
                 df_pseudo = df_pseudo.drop(col, axis=1)
 
             elif rule == "mask":
-                # Irreversible masking
-                df_pseudo[col] = df_pseudo[col].apply(self.mask_value)
+                # Irreversible masking (vectorised over unique values)
+                df_pseudo[col] = self._map_unique(df_pseudo[col], self.mask_value)
 
             elif rule == "no-op":
                 # Keep as-is
@@ -422,7 +435,7 @@ class SchemaValidator:
     @staticmethod
     def validate_schema(
         df: pd.DataFrame, metadata: pd.DataFrame, entity_name: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Validate DataFrame against metadata schema
 
@@ -470,7 +483,7 @@ class SchemaValidator:
     @staticmethod
     def type_check(
         df: pd.DataFrame, metadata: pd.DataFrame, entity_name: str
-    ) -> Dict[str, List[str]]:
+    ) -> dict[str, list[str]]:
         """
         Check DataFrame column types against metadata
 
@@ -493,7 +506,7 @@ class SchemaValidator:
             "BOOLEAN": ["bool"],
         }
 
-        for _, row in entity_metadata.iterrows():
+        for row in entity_metadata[["Attribute", "DataType"]].to_dict("records"):
             col = row["Attribute"]
             expected_type = row["DataType"]
 

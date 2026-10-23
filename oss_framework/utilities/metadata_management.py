@@ -5,7 +5,7 @@ Handles schema definitions, privacy rules, and data dictionaries
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 import pandas as pd
 import yaml
@@ -50,7 +50,7 @@ class MetadataManager:
         """
         return self.metadata[self.metadata["Entity"] == entity_name]
 
-    def get_privacy_rules(self, entity_name: str) -> Dict[str, str]:
+    def get_privacy_rules(self, entity_name: str) -> dict[str, str]:
         """
         Get privacy rules for an entity
 
@@ -61,9 +61,9 @@ class MetadataManager:
             Dictionary mapping attributes to privacy rules
         """
         schema = self.get_entity_schema(entity_name)
-        return dict(zip(schema["Attribute"], schema["Pseudonymization"]))
+        return dict(zip(schema["Attribute"], schema["Pseudonymization"], strict=False))
 
-    def get_attributes(self, entity_name: str) -> List[str]:
+    def get_attributes(self, entity_name: str) -> list[str]:
         """
         Get all attributes for an entity
 
@@ -76,7 +76,7 @@ class MetadataManager:
         schema = self.get_entity_schema(entity_name)
         return schema["Attribute"].tolist()
 
-    def get_data_types(self, entity_name: str) -> Dict[str, str]:
+    def get_data_types(self, entity_name: str) -> dict[str, str]:
         """
         Get data types for all attributes of an entity
 
@@ -87,9 +87,9 @@ class MetadataManager:
             Dictionary mapping attributes to data types
         """
         schema = self.get_entity_schema(entity_name)
-        return dict(zip(schema["Attribute"], schema["DataType"]))
+        return dict(zip(schema["Attribute"], schema["DataType"], strict=False))
 
-    def get_descriptions(self, entity_name: str) -> Dict[str, str]:
+    def get_descriptions(self, entity_name: str) -> dict[str, str]:
         """
         Get descriptions for all attributes
 
@@ -100,7 +100,7 @@ class MetadataManager:
             Dictionary mapping attributes to descriptions
         """
         schema = self.get_entity_schema(entity_name)
-        return dict(zip(schema["Attribute"], schema["Description"]))
+        return dict(zip(schema["Attribute"], schema["Description"], strict=False))
 
 
 class DataDictionary:
@@ -127,7 +127,9 @@ class DataDictionary:
         md += "| Attribute | DataType | Pseudonymization | Description |\n"
         md += "|-----------|----------|------------------|-------------|\n"
 
-        for _, row in schema.iterrows():
+        for row in schema[["Attribute", "DataType", "Pseudonymization", "Description"]].to_dict(
+            "records"
+        ):
             md += f"| {row['Attribute']} | {row['DataType']} | {row['Pseudonymization']} | {row['Description']} |\n"
 
         return md
@@ -152,7 +154,9 @@ class DataDictionary:
         html = f"<h1>{entity_name} Data Dictionary</h1>\n"
         html += "<table border='1'><tr><th>Attribute</th><th>DataType</th><th>Pseudonymization</th><th>Description</th></tr>\n"
 
-        for _, row in schema.iterrows():
+        for row in schema[["Attribute", "DataType", "Pseudonymization", "Description"]].to_dict(
+            "records"
+        ):
             html += f"<tr><td>{row['Attribute']}</td><td>{row['DataType']}</td><td>{row['Pseudonymization']}</td><td>{row['Description']}</td></tr>\n"
 
         html += "</table>"
@@ -172,7 +176,7 @@ class ConfigurationManager:
         self.config_path = config_path
         self.config = self._load_config()
 
-    def _load_config(self) -> Dict[str, Any]:
+    def _load_config(self) -> dict[str, Any]:
         """Load configuration from YAML file"""
         try:
             with open(self.config_path) as f:
@@ -208,14 +212,14 @@ class ConfigurationManager:
 
         return value if value is not None else default
 
-    def get_database_config(self) -> Dict[str, Any]:
+    def get_database_config(self) -> dict[str, Any]:
         """Get database configuration"""
         return self.config.get("database", {})
 
-    def get_pipeline_config(self) -> Dict[str, Any]:
+    def get_pipeline_config(self) -> dict[str, Any]:
         """Get pipeline configuration"""
         return self.config.get("pipelines", {})
 
-    def get_privacy_config(self) -> Dict[str, Any]:
+    def get_privacy_config(self) -> dict[str, Any]:
         """Get privacy configuration"""
         return self.config.get("privacy", {})

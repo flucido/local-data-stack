@@ -6,12 +6,40 @@ Supports both real API access (AERIES-CERT header auth) and synthetic test data.
 
 import os
 from datetime import date, timedelta
-from typing import Any, Optional
+from typing import Any
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from oss_framework.connectors.base import SISConnector
 from oss_framework.connectors.mappings.aeries_to_canonical import AERIES_COLUMN_MAPPING
+
+
+class AeriesAPIError(RuntimeError):
+    """Raised when the Aeries API request fails after retries.
+
+    Fail-fast by design: downstream dlt loads must abort rather than replace
+    production tables with an empty dataset.
+    """
+
+    def __init__(self, message: str, *, status_code: int | None = None):
+        super().__init__(message)
+        self.status_code = status_code
+
+
+def _build_retry() -> Retry:
+    """Retry policy for transient API failures (connection, 429, 5xx)."""
+    return Retry(
+        total=3,
+        connect=3,
+        read=3,
+        status=3,
+        backoff_factor=1.0,
+        status_forcelist=(429, 500, 502, 503, 504),
+        allowed_methods=frozenset(["GET"]),
+        raise_on_status=False,
+    )
 
 
 class AeriesConnector(SISConnector):
@@ -36,6 +64,12 @@ class AeriesConnector(SISConnector):
                 "AERIES-CERT": self.api_key,
                 "Accept": "application/json",
             }
+            adapter = HTTPAdapter(max_retries=_build_retry())
+            self._session = requests.Session()
+            self._session.mount("https://", adapter)
+            self._session.mount("http://", adapter)
+        else:
+            self._session = None
 
     # ------------------------------------------------------------------
     # SISConnector interface
@@ -46,7 +80,7 @@ class AeriesConnector(SISConnector):
         """Return Aeries → canonical column mappings per domain."""
         return AERIES_COLUMN_MAPPING
 
-    def get_students(self, school_code: Optional[str] = None) -> list[dict[str, Any]]:
+    def get_students(self, school_code: str | None = None) -> list[dict[str, Any]]:
         if self.test_mode:
             return self._generate_test_students()
         endpoint = f"/schools/{school_code}/students" if school_code else "/students"
@@ -54,8 +88,8 @@ class AeriesConnector(SISConnector):
 
     def get_attendance(
         self,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
     ) -> list[dict[str, Any]]:
         if self.test_mode:
             return self._generate_test_attendance()
@@ -85,17 +119,34 @@ class AeriesConnector(SISConnector):
     # Internal: API helpers
     # ------------------------------------------------------------------
 
-    def _make_request(self, endpoint: str, params: Optional[dict] = None) -> list[dict]:
+    def _make_request(self, endpoint: str, params: dict | None = None) -> list[dict]:
+        """GET a JSON list from the Aeries API, failing fast on errors.
+
+        Transient failures are retried via urllib3.Retry (mounted on the
+        session adapter). Any remaining failure raises AeriesAPIError so dlt
+        aborts the load instead of replacing production tables with an
+        empty dataset.
+        """
         if self.test_mode:
             return []
         url = f"{self.base_url}{endpoint}"
+        assert self._session is not None
         try:
-            response = requests.get(url, headers=self.headers, params=params, timeout=30)
+            response = self._session.get(url, headers=self.headers, params=params, timeout=30)
             response.raise_for_status()
-            return response.json()
+            payload = response.json()
         except requests.exceptions.RequestException as e:
-            print(f"API Error: {e}")
-            return []
+            status = getattr(getattr(e, "response", None), "status_code", None)
+            raise AeriesAPIError(
+                f"Aeries API request to {endpoint} failed: {e}", status_code=status
+            ) from e
+        except ValueError as e:
+            raise AeriesAPIError(f"Aeries API returned invalid JSON for {endpoint}: {e}") from e
+        if not isinstance(payload, list):
+            raise AeriesAPIError(
+                f"Aeries API returned unexpected payload type for {endpoint}: {type(payload).__name__}"
+            )
+        return payload
 
     # ------------------------------------------------------------------
     # Synthetic test-data generators (canonical column names)
@@ -255,9 +306,9 @@ class AeriesConnector(SISConnector):
 
 
 def create_connector(
-    base_url: Optional[str] = None,
-    api_key: Optional[str] = None,
-    test_mode: Optional[bool] = None,
+    base_url: str | None = None,
+    api_key: str | None = None,
+    test_mode: bool | None = None,
     **kwargs,
 ) -> AeriesConnector:
     """Factory for AeriesConnector — called by get_sis_connector()."""

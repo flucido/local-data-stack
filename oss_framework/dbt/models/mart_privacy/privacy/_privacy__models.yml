@@ -60,14 +60,19 @@ models:
 
   - name: priv_pii_lookup_table
     description: >
-      Secure lookup table mapping hashed identifiers back to raw PII.
+      Secure lookup table mapping hashed identifiers back to PII encrypted
+      at rest with AES-256-GCM.
 
-      ⚠️ WARNING: This model contains raw PII and MUST be restricted to authorized
-      personnel only (e.g., registrar, compliance officers).
+      ⚠️ WARNING: This model holds the encrypted PII needed for
+      re-identification and MUST be restricted to authorized personnel only
+      (e.g., registrar, compliance officers).
 
       Security Controls:
+      - All PII fields encrypted with AES-256-GCM (aes_encrypt_pii UDF;
+        key via PII_ENCRYPTION_KEY env var — no plaintext PII at rest)
       - Materialized in privacy_sensitive schema with restricted access
-      - Used only for re-identification when legally required
+      - Used only for re-identification when legally required (decrypt via
+        aes_decrypt_pii in an authorized session)
       - Should not be joined to analytics models
 
       Use Cases:
@@ -81,7 +86,7 @@ models:
             - academic_year
       - dbt_utils.unique_combination_of_columns:
           combination_of_columns:
-            - student_id_raw
+            - student_id_enc
             - academic_year
     columns:
       - name: student_id_hash
@@ -89,22 +94,16 @@ models:
         data_tests:
           - not_null
 
-      - name: student_id_raw
-        description: "⚠️ SENSITIVE: Raw student identifier"
+      - name: student_id_enc
+        description: "⚠️ SENSITIVE: Student identifier, AES-256-GCM encrypted (base64 token)"
         data_tests:
           - not_null
 
-      - name: first_name_raw
-        description: "⚠️ SENSITIVE: Student first name"
-        data_tests:
-          - not_null
+      - name: first_name_enc
+        description: "⚠️ SENSITIVE: Student first name, AES-256-GCM encrypted (base64 token)"
 
-      - name: last_name_raw
-        description: "⚠️ SENSITIVE: Student last name"
-        data_tests:
-          - not_null
+      - name: last_name_enc
+        description: "⚠️ SENSITIVE: Student last name, AES-256-GCM encrypted (base64 token)"
 
-      - name: date_of_birth_raw
-        description: "⚠️ SENSITIVE: Student date of birth"
-        data_tests:
-          - not_null
+      - name: date_of_birth_enc
+        description: "⚠️ SENSITIVE: Student date of birth, AES-256-GCM encrypted (base64 token)"

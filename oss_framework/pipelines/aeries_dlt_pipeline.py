@@ -16,7 +16,7 @@ Features:
 import os
 from collections.abc import Iterator
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import dlt
 from dlt.common.pipeline import LoadInfo
@@ -28,10 +28,10 @@ from oss_framework.connectors import get_sis_connector
 # dlt source definition
 @dlt.source(name="aeries")
 def aeries_source(
-    base_url: Optional[str] = None,
-    api_key: Optional[str] = None,
-    test_mode: Optional[bool] = None,
-) -> List[DltResource]:
+    base_url: str | None = None,
+    api_key: str | None = None,
+    test_mode: bool | None = None,
+) -> list[DltResource]:
     """
     dlt source for Aeries SIS data
 
@@ -51,8 +51,8 @@ def aeries_source(
         test_mode=test_mode,
     )
 
-    @dlt.resource(name="raw_students", write_disposition="replace")
-    def students() -> Iterator[Dict[str, Any]]:
+    @dlt.resource(name="raw_students", write_disposition="merge", primary_key=["student_id"])
+    def students() -> Iterator[dict[str, Any]]:
         """Extract student data"""
         data = client.get_students()
         for record in data:
@@ -60,32 +60,36 @@ def aeries_source(
             record["updated_at"] = datetime.now().isoformat()
             yield record
 
-    @dlt.resource(name="raw_attendance", write_disposition="append")
-    def attendance() -> Iterator[Dict[str, Any]]:
+    @dlt.resource(
+        name="raw_attendance",
+        write_disposition="merge",
+        primary_key=["student_id", "school_id", "attendance_date"],
+    )
+    def attendance() -> Iterator[dict[str, Any]]:
         """Extract attendance data"""
         data = client.get_attendance()
         for record in data:
             record["created_at"] = datetime.now().isoformat()
             yield record
 
-    @dlt.resource(name="raw_academic_records", write_disposition="append")
-    def academic_records() -> Iterator[Dict[str, Any]]:
+    @dlt.resource(name="raw_academic_records", write_disposition="merge", primary_key=["record_id"])
+    def academic_records() -> Iterator[dict[str, Any]]:
         """Extract grade/academic records"""
         data = client.get_grades()
         for record in data:
             record["created_at"] = datetime.now().isoformat()
             yield record
 
-    @dlt.resource(name="raw_discipline", write_disposition="append")
-    def discipline() -> Iterator[Dict[str, Any]]:
+    @dlt.resource(name="raw_discipline", write_disposition="merge", primary_key=["incident_id"])
+    def discipline() -> Iterator[dict[str, Any]]:
         """Extract discipline incidents"""
         data = client.get_discipline()
         for record in data:
             record["created_at"] = datetime.now().isoformat()
             yield record
 
-    @dlt.resource(name="raw_enrollment", write_disposition="replace")
-    def enrollment() -> Iterator[Dict[str, Any]]:
+    @dlt.resource(name="raw_enrollment", write_disposition="merge", primary_key=["enrollment_id"])
+    def enrollment() -> Iterator[dict[str, Any]]:
         """Extract enrollment data"""
         data = client.get_enrollment()
         for record in data:
@@ -98,7 +102,7 @@ def aeries_source(
 def run_aeries_pipeline(
     destination_type: str = "filesystem",
     dataset_name: str = "aeries_stage1",
-    test_mode: Optional[bool] = None,
+    test_mode: bool | None = None,
 ) -> LoadInfo:
     """
     Run the Aeries dlt pipeline

@@ -52,57 +52,45 @@ models:
       +post-hook: "{{ log('Staging layer complete', info=true) }}"
 
     # Core mart layer - dimension & fact tables
+    # One +schema per layer: models live in mart_*/<layer>/ subdirectories and
+    # inherit the layer schema, so no nested duplicate schema prefixes.
     mart_core:
       +materialized: table
       +tags: ['core']
-      +schema: 'mart_core'
-      +on_schema_change: 'fail'
-      core:
-        +schema: 'core'
-        +pre-hook: "{{ log('Building core dimensions and facts...', info=true) }}"
-        +post-hook: "{{ log('Core mart complete', info=true) }}"
+      +schema: 'core'
+      +pre-hook: "{{ log('Building core dimensions and facts...', info=true) }}"
+      +post-hook: "{{ log('Core mart complete', info=true) }}"
 
     # Feature engineering layer
     mart_features:
       +materialized: table
       +tags: ['features']
-      +schema: 'mart_features'
-      features:
-        +schema: 'features'
-        +pre-hook: "{{ log('Building feature engineering models...', info=true) }}"
-        +post-hook: "{{ log('Features complete', info=true) }}"
+      +schema: 'features'
+      +pre-hook: "{{ log('Building feature engineering models...', info=true) }}"
+      +post-hook: "{{ log('Features complete', info=true) }}"
 
     # Privacy/pseudonymization layer
     mart_privacy:
       +materialized: table
       +tags: ['privacy']
-      +schema: 'mart_privacy'
-      privacy:
-        +schema: 'privacy'
-        +pre-hook: "{{ log('Building pseudonymization layer...', info=true) }}"
-        +post-hook: "{{ log('Privacy layer complete', info=true) }}"
+      +schema: 'privacy'
+      +pre-hook: "{{ log('Building pseudonymization layer...', info=true) }}"
+      +post-hook: "{{ log('Privacy layer complete', info=true) }}"
 
     # Risk scoring layer
     mart_scoring:
       +materialized: table
       +tags: ['scoring']
-      +schema: 'mart_scoring'
-      scoring:
-        +schema: 'scoring'
-        +pre-hook: "{{ log('Building risk scoring models...', info=true) }}"
-        +post-hook: "{{ log('Scoring complete', info=true) }}"
+      +schema: 'scoring'
+      +pre-hook: "{{ log('Building risk scoring models...', info=true) }}"
+      +post-hook: "{{ log('Scoring complete', info=true) }}"
 
     # Analytics layer - DuckDB optimized
     mart_analytics:
+      +materialized: table
       +tags: ['analytics']
-      # Removed +schema: 'mart_analytics' to prevent duplication - only use nested 'analytics' schema
-      aggregations:
-        +materialized: table
-        +post-hook: "ANALYZE {{ this }}"
-      analytics:
-        +schema: 'analytics'
-        +materialized: table
-        +post-hook: "ANALYZE {{ this }}"
+      +schema: 'analytics'
+      +post-hook: "ANALYZE {{ this }}"
 
     # Export layer - Rill Parquet exports
     exports:
