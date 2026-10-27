@@ -103,6 +103,7 @@ def run_aeries_pipeline(
     destination_type: str = "filesystem",
     dataset_name: str = "aeries_stage1",
     test_mode: bool | None = None,
+    table_format: str | None = None,
 ) -> LoadInfo:
     """
     Run the Aeries dlt pipeline
@@ -111,6 +112,10 @@ def run_aeries_pipeline(
         destination_type: "filesystem" (Parquet) or "duckdb"
         dataset_name: Name for the dataset
         test_mode: Force test mode with synthetic data
+        table_format: For the filesystem destination, "iceberg" enables true
+            primary-key merge (upsert) loads; default (None) writes immutable
+            date-partitioned Parquet with append semantics. Also settable via
+            the STAGE1_TABLE_FORMAT env var.
     """
 
     api_key = os.getenv("AERIES_API_KEY")
@@ -125,18 +130,26 @@ def run_aeries_pipeline(
         print("🔌 Running in PRODUCTION MODE with real Aeries API")
 
     # NOTE on write_disposition="merge": dlt only performs true merge loads on
-    # database destinations (duckdb) or Iceberg tables. The plain filesystem
-    # destination falls back to "append" (dlt logs a warning), keeping one
-    # immutable Parquet file per load under the date-partitioned layout below.
+    # database destinations (duckdb) or open table formats. On the filesystem
+    # destination, pass table_format="iceberg" (or STAGE1_TABLE_FORMAT=iceberg)
+    # for primary-key upserts; the default plain-Parquet mode falls back to
+    # append (dlt logs a warning), keeping one immutable file per load.
+    # Beware: dlt 1.22 executes Iceberg upserts in <=1000-row batches
+    # (one commit per batch), so large tables (e.g. raw_attendance) are slow
+    # to merge — prefer the duckdb destination for frequent large merges.
+    table_format = table_format or os.getenv("STAGE1_TABLE_FORMAT")
     if destination_type == "filesystem":
         stage1_path = os.getenv("STAGE1_PATH", "./oss_framework/data/stage1")
 
+        destination_kwargs = {"bucket_url": f"{stage1_path}/transactional/aeries"}
+        if table_format != "iceberg":
+            destination_kwargs["layout"] = (
+                "{table_name}/load_date={curr_date}/{load_id}.{file_id}.{ext}"
+            )
+
         pipeline = dlt.pipeline(
             pipeline_name="aeries_to_stage1",
-            destination=dlt.destinations.filesystem(
-                bucket_url=f"{stage1_path}/transactional/aeries",
-                layout="{table_name}/load_date={curr_date}/{load_id}.{file_id}.{ext}",
-            ),
+            destination=dlt.destinations.filesystem(**destination_kwargs),
             dataset_name=dataset_name,
         )
         loader_file_format = "parquet"
@@ -151,6 +164,10 @@ def run_aeries_pipeline(
         loader_file_format = None
 
     source = aeries_source(base_url=base_url or "", api_key=api_key or "", test_mode=test_mode)
+    if destination_type == "filesystem" and table_format == "iceberg":
+        # Iceberg tables enable true primary-key merge (upsert) loads
+        for resource in source.resources.values():
+            resource.apply_hints(table_format="iceberg")
     info = pipeline.run(source, loader_file_format=loader_file_format)
 
     print("\n✅ Pipeline completed successfully")

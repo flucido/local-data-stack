@@ -23,9 +23,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 from aeries_dlt_pipeline import run_aeries_pipeline
 from excel_imports_dlt_pipeline import run_excel_imports_pipeline
 
-# dlt filesystem destination writes under <bucket>/<dataset_name>/<layout>;
+# Default filesystem mode: dlt writes under <bucket>/<dataset_name>/<layout>;
 # run_aeries_pipeline uses dataset "aeries_stage1" and layout
 # "{table_name}/load_date={curr_date}/{load_id}.{file_id}.{ext}".
+# Opt-in STAGE1_TABLE_FORMAT=iceberg switches to Iceberg tables with true
+# primary-key merge (see TestIcebergMerge).
 AERIES_DATASET = "aeries_stage1"
 
 
@@ -91,7 +93,6 @@ class TestAeriesPipeline:
         for table in expected_tables:
             load_dir = latest_load_dir(stage1_path, table)
             assert load_dir is not None, f"Missing load_date partition for {table}"
-            assert load_dir.exists(), f"Missing directory: {load_dir}"
 
             parquet_files = list(load_dir.glob("*.parquet"))
             assert len(parquet_files) > 0, f"No Parquet files in {load_dir}"
@@ -154,6 +155,48 @@ class TestAeriesPipeline:
             assert (
                 10000 <= len(df_attendance) <= 1000000
             ), f"Unexpected attendance count: {len(df_attendance)}"
+
+
+class TestIcebergMerge:
+    """Merge (upsert) semantics on the filesystem destination via Iceberg"""
+
+    def test_reload_dedupes_on_primary_key(self, tmp_path):
+        """Loading the same students twice must not duplicate rows.
+
+        Proves write_disposition="merge" with primary_key=["student_id"]
+        actually upserts on the Iceberg lake (the plain filesystem
+        destination would silently append).
+        """
+        import uuid
+
+        import dlt
+        from aeries_dlt_pipeline import aeries_source
+
+        def _run_students_load(pipeline):
+            source = aeries_source(test_mode=True).with_resources("raw_students")
+            for resource in source.resources.values():
+                resource.apply_hints(table_format="iceberg")
+            info = pipeline.run(source, loader_file_format="parquet")
+            assert not info.has_failed_jobs
+            return info
+
+        pipeline = dlt.pipeline(
+            pipeline_name=f"iceberg_merge_{uuid.uuid4().hex[:8]}",
+            destination=dlt.destinations.filesystem(
+                bucket_url=str(tmp_path / "bucket"),
+            ),
+            dataset_name=AERIES_DATASET,
+        )
+
+        _run_students_load(pipeline)
+        df1 = pipeline.dataset().raw_students.df()
+        assert len(df1) == 1700
+
+        # Second load of identical data — merge must dedupe, not append
+        _run_students_load(pipeline)
+        df2 = pipeline.dataset().raw_students.df()
+        assert len(df2) == 1700, f"Merge did not dedupe: {len(df2)} rows after 2 loads"
+        assert df2["student_id"].is_unique
 
 
 class TestExcelImportsPipeline:
