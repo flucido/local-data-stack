@@ -33,7 +33,8 @@ dependencies = [
 
     # Data Processing
     "pandas>=2.0.0",
-    "polars>=0.20.0",
+    # 2.x floor: pipelines use utf8-lossy CSV encoding naming and pl.len()
+    "polars>=2.0.0",
     "pyarrow>=12.0.0",
     "numpy>=1.24.0",
     "openpyxl>=3.1.0",
