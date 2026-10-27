@@ -40,7 +40,7 @@ def __():
 
 
 @app.cell
-def __(app):
+def __(app, Path, yaml):
     """
     ## Step 1: Understanding Your Configuration Files
 

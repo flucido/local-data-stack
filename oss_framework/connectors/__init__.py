@@ -14,7 +14,6 @@ Environment:
 
 import importlib
 import os
-from typing import Optional
 
 from oss_framework.connectors.base import SISConnector
 
@@ -24,10 +23,10 @@ _CONNECTOR_REGISTRY = {
 
 
 def get_sis_connector(
-    name: Optional[str] = None,
-    base_url: Optional[str] = None,
-    api_key: Optional[str] = None,
-    test_mode: Optional[bool] = None,
+    name: str | None = None,
+    base_url: str | None = None,
+    api_key: str | None = None,
+    test_mode: bool | None = None,
     **kwargs,
 ) -> SISConnector:
     """Factory: return a SISConnector instance by name.

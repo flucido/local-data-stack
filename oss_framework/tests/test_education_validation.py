@@ -53,9 +53,9 @@ class TestEducationMetrics:
         )
         students["chronic_absence"] = students["attendance_rate"] <= 90
 
-        assert students.loc[0, "chronic_absence"] == True
-        assert students.loc[1, "chronic_absence"] == False
-        assert students.loc[2, "chronic_absence"] == False
+        assert students.loc[0, "chronic_absence"]
+        assert not students.loc[1, "chronic_absence"]
+        assert not students.loc[2, "chronic_absence"]
 
     def test_academic_risk_flag(self):
         """Test academic risk identification"""
@@ -74,9 +74,9 @@ class TestEducationMetrics:
             | (students["missing_assignments"] > 2)
         )
 
-        assert students.loc[0, "at_risk"] == False
-        assert students.loc[1, "at_risk"] == True
-        assert students.loc[2, "at_risk"] == True
+        assert not students.loc[0, "at_risk"]
+        assert students.loc[1, "at_risk"]
+        assert students.loc[2, "at_risk"]
 
     def test_engagement_categories(self, sample_engagement_df):
         """Test categorizing student engagement levels"""

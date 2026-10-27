@@ -30,9 +30,7 @@ class TestLoadTestSet:
         from eval import load_test_set
 
         p = tmp_path / "test.jsonl"
-        p.write_text(
-            '{"id": "q01", "question": "Q", "gold_sql": "SELECT 1"}\nnot json\n'
-        )
+        p.write_text('{"id": "q01", "question": "Q", "gold_sql": "SELECT 1"}\nnot json\n')
         items = load_test_set(str(p))
         assert len(items) == 1
 

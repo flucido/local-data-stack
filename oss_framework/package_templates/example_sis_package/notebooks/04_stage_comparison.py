@@ -291,8 +291,6 @@ def __(stages_data, pd):
             # Show sample field type conversions
             for col in list(s1["students"].columns)[:3]:
                 s1_type = str(s1["students"][col].dtype)
-                # Try to find corresponding field in s2a
-                mapped_col = col.lower().replace("_", "").replace("studentnumber", "student_id")
                 if col in s2a["students"].columns:
                     s2a_type = str(s2a["students"][col].dtype)
                     mo.md(f"| {col} | {s1_type} | {s2a_type} | Type conversion |")
@@ -349,7 +347,6 @@ def __(stages_data):
     for stage, entities in sorted(stages_data.items()):
         if entities:
             total_records = sum(len(df) for df in entities.values())
-            total_fields = sum(len(df.columns) for df in entities.values())
             total_cells = sum(len(df) * len(df.columns) for df in entities.values())
             null_cells = sum(df.isnull().sum().sum() for df in entities.values())
             null_pct = null_cells / total_cells * 100 if total_cells > 0 else 0

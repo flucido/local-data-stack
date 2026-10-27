@@ -42,7 +42,6 @@ class TestDataTransformer:
 
     def test_handle_missing_values_drop(self, sample_academic_records_df):
         """Test dropping rows with missing values"""
-        original_len = len(sample_academic_records_df)
         df_with_nulls = sample_academic_records_df.copy()
         df_with_nulls.loc[0, "points_earned"] = np.nan
 

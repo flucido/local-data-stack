@@ -22,7 +22,6 @@ Based on production best practices:
 import logging
 import os
 from pathlib import Path
-from typing import Optional
 
 import duckdb
 
@@ -31,9 +30,9 @@ logger = logging.getLogger(__name__)
 
 def get_production_connection(
     db_path: str,
-    memory_limit: Optional[str] = None,
-    threads: Optional[int] = None,
-    temp_directory: Optional[str] = None,
+    memory_limit: str | None = None,
+    threads: int | None = None,
+    temp_directory: str | None = None,
     read_only: bool = False,
 ) -> duckdb.DuckDBPyConnection:
     """

@@ -72,7 +72,7 @@ def __(Path, yaml, pd):
 
 
 @app.cell
-def __(config, data):
+def __(config, data, pd):
     """
     ## Validation Rules
 
@@ -223,7 +223,7 @@ def __(config, data):
 
 
 @app.cell
-def __(data):
+def __(data, pd):
     """
     ## Field-by-Field Quality Report
 

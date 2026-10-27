@@ -14,8 +14,8 @@ from pathlib import Path
 PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PACKAGE_ROOT))
 
-import pytest
-from data_engine import create_session, get_warehouse_path
+import pytest  # noqa: E402
+from data_engine import create_session, get_warehouse_path  # noqa: E402
 
 
 def warehouse_available() -> bool:

@@ -15,7 +15,7 @@ Features:
 import os
 from collections.abc import Iterator
 from datetime import date, datetime
-from typing import Any, Dict, List
+from typing import Any
 
 import dlt
 import pandas as pd
@@ -31,7 +31,7 @@ class ExcelImporter:
         self.excel_demographic_path = os.getenv("EXCEL_DEMOGRAPHIC_PATH")
         self.excel_rfep_path = os.getenv("EXCEL_RFEP_PATH")
 
-    def read_d_and_f_report(self) -> List[Dict]:
+    def read_d_and_f_report(self) -> list[dict]:
         """Read D&F (Ds, Fs, 504, SPED) report from Excel"""
         if not self.excel_df_path or not os.path.exists(self.excel_df_path):
             print(f"⏭️  D&F report not found at: {self.excel_df_path}")
@@ -41,7 +41,7 @@ class ExcelImporter:
         print(f"📊 Loaded D&F report: {len(df)} rows")
         return df.to_dict("records")
 
-    def read_demographic_data(self) -> List[Dict]:
+    def read_demographic_data(self) -> list[dict]:
         """Read demographic data from Excel"""
         if not self.excel_demographic_path or not os.path.exists(self.excel_demographic_path):
             print(f"⏭️  Demographic data not found at: {self.excel_demographic_path}")
@@ -51,7 +51,7 @@ class ExcelImporter:
         print(f"📊 Loaded demographic data: {len(df)} rows")
         return df.to_dict("records")
 
-    def read_rfep_data(self) -> List[Dict]:
+    def read_rfep_data(self) -> list[dict]:
         """Read RFEP data (note: may be PNG, needs special handling)"""
         if not self.excel_rfep_path:
             print("⏭️  RFEP data path not configured")
@@ -73,7 +73,7 @@ class ExcelImporter:
 
 # dlt source definition
 @dlt.source(name="excel_imports")
-def excel_imports_source() -> List[DltResource]:
+def excel_imports_source() -> list[DltResource]:
     """
     dlt source for Excel file imports
 
@@ -83,7 +83,7 @@ def excel_imports_source() -> List[DltResource]:
     importer = ExcelImporter()
 
     @dlt.resource(name="raw_d_and_f", write_disposition="replace")
-    def d_and_f_report() -> Iterator[Dict[str, Any]]:
+    def d_and_f_report() -> Iterator[dict[str, Any]]:
         """Extract D&F report data"""
         data = importer.read_d_and_f_report()
         for record in data:
@@ -92,7 +92,7 @@ def excel_imports_source() -> List[DltResource]:
             yield record
 
     @dlt.resource(name="raw_demographic", write_disposition="replace")
-    def demographic_data() -> Iterator[Dict[str, Any]]:
+    def demographic_data() -> Iterator[dict[str, Any]]:
         """Extract demographic data"""
         data = importer.read_demographic_data()
         for record in data:
@@ -101,7 +101,7 @@ def excel_imports_source() -> List[DltResource]:
             yield record
 
     @dlt.resource(name="raw_rfep", write_disposition="replace")
-    def rfep_data() -> Iterator[Dict[str, Any]]:
+    def rfep_data() -> Iterator[dict[str, Any]]:
         """Extract RFEP data"""
         data = importer.read_rfep_data()
         for record in data:

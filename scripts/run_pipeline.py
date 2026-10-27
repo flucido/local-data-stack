@@ -17,7 +17,6 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 # Add project root to Python path
 project_root = Path(__file__).parent.parent
@@ -27,7 +26,7 @@ sys.path.insert(0, str(project_root))
 class PipelineOrchestrator:
     """Simple orchestrator for the local data pipeline."""
 
-    def __init__(self, dbt_project_dir: Optional[str] = None):
+    def __init__(self, dbt_project_dir: str | None = None):
         self.project_root = project_root
         self.dbt_project_dir = dbt_project_dir or self.project_root / "oss_framework" / "dbt"
         # Resolve dbt: prefer DBT_COMMAND env var, then venv dbt, then system dbt
@@ -45,7 +44,7 @@ class PipelineOrchestrator:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"[{timestamp}] [{level}] {message}")
 
-    def run_command(self, cmd: str, description: str, workdir: Optional[Path] = None) -> bool:
+    def run_command(self, cmd: str, description: str, workdir: Path | None = None) -> bool:
         """
         Run a shell command and return success status.
 

@@ -22,7 +22,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import duckdb
 
@@ -37,7 +37,7 @@ class PerformanceBenchmark:
     """Performance benchmarking suite"""
 
     def __init__(self):
-        self.results: Dict[str, Any] = {
+        self.results: dict[str, Any] = {
             "timestamp": datetime.now().isoformat(),
             "system_info": {},
             "database": {},
@@ -131,7 +131,7 @@ class PerformanceBenchmark:
             for _ in range(5):
                 start = time.perf_counter()
                 try:
-                    result = con.execute(query_sql).fetchall()
+                    con.execute(query_sql).fetchall()
                     elapsed = time.perf_counter() - start
                     times.append(elapsed)
                 except Exception as e:

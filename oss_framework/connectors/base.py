@@ -7,7 +7,7 @@ translate vendor-specific names into the canonical schema defined here.
 
 from abc import ABC, abstractmethod
 from datetime import date
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Canonical column schemas — the target shape every connector normalizes into.
@@ -106,7 +106,7 @@ class SISConnector(ABC):
 
     @property
     @abstractmethod
-    def column_mapping(self) -> Dict[str, Dict[str, str]]:
+    def column_mapping(self) -> dict[str, dict[str, str]]:
         """Return per-domain column mappings.
 
         Returns:
@@ -116,30 +116,30 @@ class SISConnector(ABC):
         ...
 
     @abstractmethod
-    def get_students(self, school_code: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_students(self, school_code: str | None = None) -> list[dict[str, Any]]:
         """Return student records with canonical column names."""
         ...
 
     @abstractmethod
     def get_attendance(
         self,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
-    ) -> List[Dict[str, Any]]:
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> list[dict[str, Any]]:
         """Return attendance records with canonical column names."""
         ...
 
     @abstractmethod
-    def get_grades(self) -> List[Dict[str, Any]]:
+    def get_grades(self) -> list[dict[str, Any]]:
         """Return grade / academic records with canonical column names."""
         ...
 
     @abstractmethod
-    def get_discipline(self) -> List[Dict[str, Any]]:
+    def get_discipline(self) -> list[dict[str, Any]]:
         """Return discipline incident records with canonical column names."""
         ...
 
     @abstractmethod
-    def get_enrollment(self) -> List[Dict[str, Any]]:
+    def get_enrollment(self) -> list[dict[str, Any]]:
         """Return enrollment records with canonical column names."""
         ...

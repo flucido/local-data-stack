@@ -223,7 +223,7 @@ class AeriesToParquetPipeline:
         ``encoding='lossy_utf8'`` tolerates the BOM in Excel-exported CSVs and
         ``truncate_ragged_lines`` absorbs trailing-delimiter drift.
         """
-        overrides = {col: pl.Utf8 for col in DTYPE_MAPPINGS.get(domain, {})}
+        overrides = dict.fromkeys(DTYPE_MAPPINGS.get(domain, {}), pl.Utf8)
         return pl.scan_csv(
             csv_file,
             schema_overrides=overrides,

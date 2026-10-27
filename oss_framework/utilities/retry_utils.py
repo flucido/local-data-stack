@@ -25,7 +25,8 @@ Dependencies:
 """
 
 import logging
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 import requests
 import structlog
@@ -139,7 +140,7 @@ class RetryableHTTPClient:
         max_attempts: int = 5,
         max_wait: int = 60,
         timeout: int = 30,
-        headers: Optional[dict] = None,
+        headers: dict | None = None,
     ):
         self.max_attempts = max_attempts
         self.max_wait = max_wait
@@ -149,7 +150,7 @@ class RetryableHTTPClient:
         self.session.headers.update(self.headers)
 
     @retry_with_backoff(max_attempts=5, max_wait=60)
-    def get(self, url: str, params: Optional[dict] = None, **kwargs) -> requests.Response:
+    def get(self, url: str, params: dict | None = None, **kwargs) -> requests.Response:
         """GET request with retry logic"""
         response = self.session.get(url, params=params, timeout=self.timeout, **kwargs)
         response.raise_for_status()
@@ -157,7 +158,7 @@ class RetryableHTTPClient:
 
     @retry_with_backoff(max_attempts=5, max_wait=60)
     def post(
-        self, url: str, data: Optional[dict] = None, json: Optional[dict] = None, **kwargs
+        self, url: str, data: dict | None = None, json: dict | None = None, **kwargs
     ) -> requests.Response:
         """POST request with retry logic"""
         response = self.session.post(url, data=data, json=json, timeout=self.timeout, **kwargs)

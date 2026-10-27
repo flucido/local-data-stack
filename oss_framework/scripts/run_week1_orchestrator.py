@@ -52,7 +52,7 @@ class Week1Orchestrator:
                 "stage1_path": result["stage1_path"],
             }
 
-            view_result = sync_raw_views_from_stage1()
+            sync_raw_views_from_stage1()
             logger.info("✅ DuckDB raw_* views synced from Stage 1 Parquet")
             self.results["raw_views"] = "success"
             return True

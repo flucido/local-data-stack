@@ -1,7 +1,6 @@
 """Data quality validation for OSS Framework"""
 
 import logging
-from typing import Dict
 
 import duckdb
 
@@ -20,7 +19,7 @@ class DataQualityValidator:
         try:
             result = self.con.execute(f"SELECT COUNT(*) FROM {table_name}").fetchall()
             return len(result) > 0
-        except:
+        except Exception:
             return False
 
     def validate_row_count(self, table_name: str, min_count: int = 1) -> bool:
@@ -36,7 +35,7 @@ class DataQualityValidator:
             logger.error(f"  Table {table_name}: Error - {str(e)}")
             return False
 
-    def run_all_validations(self) -> Dict[str, bool]:
+    def run_all_validations(self) -> dict[str, bool]:
         """Run all quality checks on Stage 1 tables"""
         logger.info("Running data quality validations...")
 

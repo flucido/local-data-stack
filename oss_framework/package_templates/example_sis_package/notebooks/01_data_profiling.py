@@ -226,7 +226,6 @@ def __(data):
 
             if numeric_cols:
                 mo.md(f"### {entity.upper()} - Numeric Fields")
-                stats = df[numeric_cols].describe().T
 
                 # Format for display
                 summary = []

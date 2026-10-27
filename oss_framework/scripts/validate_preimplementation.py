@@ -122,7 +122,7 @@ class PreImplementationValidator:
 
             db_path = os.getenv("DUCKDB_DATABASE_PATH", "./oss_framework/data/analytics.duckdb")
             con = duckdb.connect(db_path)
-            result = con.execute("SELECT 1").fetchall()
+            con.execute("SELECT 1").fetchall()
             con.close()
             self.test("DuckDB Connection", True)
         except Exception as e:
