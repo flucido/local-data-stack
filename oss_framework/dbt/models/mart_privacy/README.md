@@ -91,24 +91,38 @@ WHERE school_id = 'SCH001'
 
 ### `priv_pii_lookup_table`
 
-Secure lookup table mapping hashed identifiers back to raw PII.
+Secure lookup table mapping hashed identifiers back to PII that is
+**encrypted at rest with AES-256-GCM** (no plaintext PII is stored).
 
 **Schema**: `main_privacy_sensitive` (restricted access)
 **Materialization**: Table
 **Grain**: One row per student
 
 **⚠️ CRITICAL SECURITY NOTICE**:
-- This table contains raw PII and MUST be restricted to authorized personnel only
+- This table holds the encrypted PII needed for re-identification and MUST be
+  restricted to authorized personnel only
 - Access should be limited to: Registrar, Compliance Officers, Legal team
 - Should NEVER be joined to analytics models
 - Use ONLY for legally-mandated re-identification requests
 
+**Encryption (updated 2026-10-26)**:
+- Every PII field is wrapped with the `aes_encrypt_pii()` DuckDB Python UDF
+  (AES-256-GCM authenticated encryption; wire format
+  `base64(nonce || ciphertext || tag)`)
+- The UDFs are registered via the dbt-duckdb plugin
+  `udfs/pii_crypto_plugin.py` (see `module_paths`/`plugins` in `profiles.yml`)
+- The master secret comes from the `PII_ENCRYPTION_KEY` environment variable
+  (stretched to 256 bits with SHA-256). Model builds **fail fast** when the
+  key is absent — PII is never written in plaintext by accident
+- Decryption (`aes_decrypt_pii()`) is only possible in a session that holds
+  the key, i.e. an authorized dbt/DuckDB environment
+
 **Key Columns**:
 - `student_id_hash` (VARCHAR) - SHA256 hash (join key to pseudonymized models)
-- `student_id_raw` (VARCHAR) - ⚠️ SENSITIVE: Raw student identifier
-- `first_name_raw` (VARCHAR) - ⚠️ SENSITIVE: Student first name
-- `last_name_raw` (VARCHAR) - ⚠️ SENSITIVE: Student last name
-- `date_of_birth_raw` (DATE) - ⚠️ SENSITIVE: Student date of birth
+- `student_id_enc` (VARCHAR) - 🔐 AES-256-GCM encrypted student identifier (base64 token)
+- `first_name_enc` (VARCHAR) - 🔐 AES-256-GCM encrypted student first name
+- `last_name_enc` (VARCHAR) - 🔐 AES-256-GCM encrypted student last name
+- `date_of_birth_enc` (VARCHAR) - 🔐 AES-256-GCM encrypted student date of birth
 
 **Legal Use Cases**:
 - FERPA-mandated parent requests for student records
@@ -130,14 +144,15 @@ REVOKE SELECT ON main_privacy_sensitive.priv_pii_lookup_table
 FROM ROLE analyst;
 ```
 
-**Example Query** (authorized personnel only):
+**Example Query** (authorized personnel only, session must hold
+`PII_ENCRYPTION_KEY`):
 ```sql
 -- Re-identify a specific student for a parent FERPA request
 SELECT
-    p.student_id_raw,
-    p.first_name_raw,
-    p.last_name_raw,
-    p.date_of_birth_raw
+    aes_decrypt_pii(p.student_id_enc)    AS student_id,
+    aes_decrypt_pii(p.first_name_enc)    AS first_name,
+    aes_decrypt_pii(p.last_name_enc)     AS last_name,
+    aes_decrypt_pii(p.date_of_birth_enc) AS date_of_birth
 FROM {{ ref('priv_pii_lookup_table') }} p
 WHERE p.student_id_hash = '<hash_from_analytics_query>';
 ```
@@ -400,6 +415,23 @@ To migrate existing models:
 - [Macros README](../../macros/README.md) - Detailed documentation of hashing and masking macros
 - [Staging Layer README](../staging/aeries/README.md) - Raw PII fields in source data
 - [Stage 2B Design Document](../../../docs/STAGE2B_PRIVACY_DESIGN.md) - Privacy layer design and requirements
+
+## Free External Resources for K-12 Districts
+
+> **2026-07-15 note (Frank Lucido)** — these are *complementary* to this OSS
+> framework's privacy layer. They don't replace anything in `mart_privacy`;
+> they fill gaps in the surrounding cybersecurity posture (email + DNS)
+> that small districts often can't afford otherwise. Worth referencing in
+> district outreach — every district we work with probably qualifies.
+
+- **[Project Cybersafe Schools](https://www.cloudflare.com/lp/cybersafe-schools/)** — Cloudflare's free Zero Trust cybersecurity program for small K-12 public school districts in the United States with up to 2,500 students. Provides:
+  - **Email Protection** — cloud email security against Business Email Compromise, multichannel phishing, credential harvesting, malware-less attacks.
+  - **DNS Filtering** — prevents users from reaching ransomware / phishing sites; deployable as a CIPA compliance mechanism.
+  - **No cost, no time limit, no catch.** Launched 2023-08-08 at the White House "Back to School Safely" K-12 Cybersecurity Summit. Currently protecting 60,000+ students/teachers/staff. 9,800+ eligible districts in the US.
+  - **Eligibility:** K-12 public school districts in the US, ≤2,500 students. Apply via the Cybersafe Schools landing page.
+  - **Why it matters here:** if a partner district adopts Cybersafe Schools for email + DNS, that frees budget for analytics work (where this OSS framework helps). Plus, the DNS filter is a defense-in-depth control for the data warehouse — even if an analyst pastes a query URL into a phishing site, the DNS layer blocks the connection. Worth mentioning in the "what else should you know" section of any district kickoff.
+
+- **CIPA (Children's Internet Protection Act)** — federal requirement for schools receiving E-Rate discounts. Requires content filtering that "protects against access by minors to visual depictions that are obscene, child pornography, or harmful to minors." Cybersafe Schools' DNS filtering is positioned as a CIPA compliance mechanism.
 
 ## Metrics
 

@@ -6,6 +6,47 @@ This document specifies the enhanced privacy layer for FERPA-compliant student d
 
 ---
 
+## 0. Implementation Update (2026-10-26)
+
+Two design decisions in this document were superseded during the privacy
+hardening refactor. Where the original spec and this section disagree, this
+section reflects what is shipped:
+
+1. **`dim_student_demographics` — cell suppression replaces HAVING-based row
+   deletion.** The original design dropped groups with `COUNT(DISTINCT
+   student_id_hash) < 5` via a `HAVING` clause. The shipped model keeps every
+   aggregated group but NULLs **all** quasi-identifier and statistic cells for
+   groups under k=5 and flags the row with `is_suppressed = true`. Consumers
+   must filter `WHERE NOT is_suppressed` (or `WHERE student_count IS NOT NULL`)
+   before analysis. This preserves total-cohort accounting without exposing
+   small-cell membership.
+
+2. **`priv_pii_lookup_table` — AES-256-GCM encryption at rest replaces the
+   "raw PII + encrypted storage required" note.** The shipped model stores no
+   plaintext PII. The raw fields (`student_id_raw`, `first_name_raw`,
+   `last_name_raw`, `date_of_birth_raw`) are wrapped with the
+   `aes_encrypt_pii()` DuckDB Python UDF and land as base64 `*_enc` columns
+   (`student_id_enc`, `first_name_enc`, `last_name_enc`, `date_of_birth_enc`).
+   Details:
+   - AES-256-GCM authenticated encryption; wire format
+     `base64(nonce[12] || ciphertext || tag[16])`
+   - Master secret via `PII_ENCRYPTION_KEY` env var, stretched to 256 bits
+     with SHA-256; the UDF **fails fast** when the key is missing, so a
+     misconfigured environment can never write plaintext PII
+   - UDFs registered through the dbt-duckdb plugin API
+     (`udfs/pii_crypto_plugin.py`, wired via `module_paths` + `plugins` in
+     `profiles.yml`; dbt-duckdb 1.10 has no `udfs:` profile key)
+   - Authorized re-identification decrypts with `aes_decrypt_pii()` in a
+     session that holds the key
+
+Related hardening in the same refactor: the NL→SQL layer
+(`nl_query/data_engine.py`) now blocks table-valued file readers
+(`read_parquet`, `read_csv`, `read_text`, …) and wildcard `SELECT *` against
+PII tables, and every DuckDB handle is opened with
+`SET enable_external_access = false; SET lock_configuration = true;`.
+
+---
+
 ## 1. Privacy Architecture
 
 ### 1.1 Transformation Layers
@@ -217,6 +258,10 @@ GROUP BY
 HAVING COUNT(DISTINCT student_id_hash) >= 5  -- FERPA k-anonymity requirement
 ```
 
+> **Superseded (2026-10-26):** the shipped model replaces this HAVING-based
+> row deletion with per-group **cell suppression** — small groups are kept as
+> fully-NULL rows flagged `is_suppressed = true`. See §0.
+
 ### 3.3 fact_attendance_daily (NEW)
 
 **File:** `models/mart_core/core/fact_attendance_daily.sql`
@@ -417,7 +462,8 @@ models:
 
 **priv_pii_lookup_table Requirements:**
 - Schema: `privacy_sensitive` (separate permissions)
-- Encryption: At-rest encryption required
+- Encryption: ✅ IMPLEMENTED — AES-256-GCM field-level encryption via
+  `aes_encrypt_pii()` (see §0); no plaintext PII at rest
 - Access: Audit all queries
 - Retention: Purge after graduation + 7 years
 
@@ -447,7 +493,7 @@ Stage 2B complete when:
 
 - [x] ✅ **DONE** - All macros implemented (hash_pii_secure, mask_name, mask_email, mask_phone, mask_address, check_k_anonymity)
 - [x] ✅ **DONE** - priv_student_hashes enhanced with masked fields (first_name_masked, last_name_masked)
-- [x] ✅ **DONE** - dim_student_demographics created (k≥5 enforced via HAVING clause)
+- [x] ✅ **DONE** - dim_student_demographics created (k≥5 enforced via cell suppression + is_suppressed flag; originally HAVING clause — see §0)
 - [x] ✅ **DONE** - fact_attendance_daily aggregated (k≥5 enforced via HAVING clause)
 - [x] ✅ **DONE** - K-anonymity generic test created (tests/generic/test_k_anonymity.sql)
 - [x] ✅ **DONE** - All dbt tests passing (112 tests, 100% pass rate)
@@ -481,5 +527,15 @@ Stage 2B complete when:
 - DuckDB syntax corrected (native `sha256()` function, not PostgreSQL `ENCODE()`)
 - All fact tables migrated from MD5 (`hash_pii`) to SHA256 (`hash_pii_secure`)
 - K-anonymity enforced in SQL via `HAVING COUNT(DISTINCT student_id_hash) >= 5`
+  (dim_student_demographics since upgraded to cell suppression + `is_suppressed` — see §0)
 - Generic k_anonymity test created for unaggregated data validation
 - Comprehensive test coverage: 112 tests across all layers
+
+## 11. See Also — Free External Resources (added 2026-07-15)
+
+This design covers the data-warehouse-side privacy layer (hashing, masking, k-anonymity). It does **not** cover the surrounding cybersecurity posture a district needs (email security, DNS filtering, etc.). The following free programs complement Stage 2B and are worth referencing in district outreach:
+
+- **[Project Cybersafe Schools](https://www.cloudflare.com/lp/cybersafe-schools/)** — Cloudflare's free Zero Trust program for small K-12 public school districts (US, ≤2,500 students). Provides cloud email security + DNS filtering (CIPA-compliant). No cost, no time limit. Launched 2023-08-08 at the White House. 60,000+ users currently protected. 9,800+ eligible districts.
+- **CIPA (Children's Internet Protection Act)** — federal E-Rate requirement; Cybersafe Schools' DNS filtering positions as a CIPA compliance mechanism.
+
+See `oss_framework/dbt/models/mart_privacy/README.md#free-external-resources-for-k-12-districts` for the full note. The relationship is: Stage 2B protects the *data*; Cybersafe Schools protects the *users + access paths* to that data.

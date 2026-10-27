@@ -55,38 +55,56 @@ K-anonymity ensures that every individual in a dataset is indistinguishable from
 
 ### Enforcement Implementation
 
-K-anonymity is enforced via `HAVING COUNT(DISTINCT student_id_hash) >= 5` in SQL:
+`dim_student_demographics` enforces k-anonymity via **cell suppression**
+(updated 2026-10-26; replaces the earlier `HAVING COUNT(...) >= 5` row
+deletion). Every quasi-identifier combination is aggregated first; groups
+with fewer than 5 students keep their row but have **all** cells (quasi-
+identifiers and statistics) set to NULL and are flagged `is_suppressed`:
 
-**Example from `dim_student_demographics`**:
 ```sql
+WITH aggregated AS (
+    SELECT /* quasi-identifiers */, COUNT(DISTINCT student_id_hash) AS student_count, ...
+    FROM {{ ref('dim_students') }}
+    GROUP BY /* all quasi-identifiers */
+)
 SELECT
-    grade_level,
-    gender,
-    ethnicity,
-    school_id,
-    special_education_flag,
-    ell_status,
-    free_reduced_lunch_flag,
-    COUNT(DISTINCT student_id_hash) as student_count,
-    -- aggregated metrics --
-FROM {{ ref('priv_student_hashes') }}
-GROUP BY /* all quasi-identifiers */
-HAVING COUNT(DISTINCT student_id_hash) >= 5  -- Enforce k≥5
+    CASE WHEN student_count >= 5 THEN grade_level END AS grade_level,
+    -- ... same suppression for every quasi-identifier and statistic ...
+    CASE WHEN student_count >= 5 THEN student_count END AS student_count,
+    (student_count < 5) AS is_suppressed
+FROM aggregated
 ```
 
-**Result**: Only groups with ≥5 students are included. Smaller groups are suppressed automatically.
+**Result**: Groups with ≥5 students publish real values; smaller groups are
+retained as fully-suppressed NULL rows, preserving total-cohort accounting
+without exposing small-cell membership.
+
+**Consumer guidance**: dashboards and queries must filter suppressed rows:
+
+```sql
+SELECT * FROM {{ ref('dim_student_demographics') }} WHERE NOT is_suppressed
+```
+
+`fact_attendance_daily` still uses the `HAVING COUNT(...) >= 5` approach
+(small date/school/grade combinations are dropped entirely).
 
 ### Suppression Rates
 
-When k-anonymity filtering is applied, some groups may be suppressed:
+When k-anonymity enforcement is applied, some groups are suppressed. Rates
+depend on the loaded data — measure with:
 
-**Current Data**:
-- `dim_student_demographics`: ~60 small groups suppressed (out of ~400 total)
-- `fact_attendance_daily`: ~324 date/school/grade combinations suppressed
+```sql
+-- dim_student_demographics: suppressed rows are retained, flagged
+SELECT COUNT(*) FILTER (WHERE is_suppressed) AS suppressed, COUNT(*) AS total
+FROM {{ ref('dim_student_demographics') }};
+
+-- fact_attendance_daily: small groups are dropped by HAVING (count them
+-- against dim_students if you need a rate)
+```
 
 **Implications**:
-- ✅ FERPA compliant - no groups <5 students
-- ⚠️ Some rare demographic combinations excluded from aggregates
+- ✅ FERPA compliant - no published cells for groups <5 students
+- ⚠️ Some rare demographic combinations suppressed (NULL cells) in aggregates
 - ℹ️ Student-level models (e.g., `dim_students`, `fact_attendance`) are NOT suppressed - they use pseudonymous identifiers instead
 
 ## Models
@@ -117,13 +135,18 @@ Student dimension with pseudonymized identifiers.
 
 Aggregated demographics with k-anonymity enforcement (k≥5).
 
-**Grain**: One row per unique demographic combination (with ≥5 students)
-**Privacy**: K-anonymity enforced via HAVING clause
+**Grain**: One row per unique demographic combination
+**Privacy**: K-anonymity enforced via cell suppression (small groups are
+fully NULLed and flagged `is_suppressed = true`)
 
 **Key Columns**:
-- Quasi-identifiers (grade_level, gender, ethnicity, school_id, flags)
-- `student_count` - Number of students in this cohort (always ≥5)
-- Aggregated metrics (avg_age, active_rate)
+- Quasi-identifiers (grade_level, gender, ethnicity, school_id, flags) —
+  NULL when suppressed
+- `student_count` - Number of students in this cohort (≥5, or NULL when suppressed)
+- Aggregated metrics (avg_age, active_rate) — NULL when suppressed
+- `is_suppressed` - true when every cell in the row was suppressed (group < 5)
+
+**Query pattern**: always add `WHERE NOT is_suppressed` for analysis.
 
 **Use Cases**:
 - District-wide demographic reporting
