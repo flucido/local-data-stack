@@ -26,7 +26,10 @@ try:
 
     _gpu_decorator = spaces.GPU(duration=30)
 except ImportError:
-    _gpu_decorator = lambda fn: fn  # no-op for local dev
+
+    def _gpu_decorator(fn):  # no-op for local dev
+        return fn
+
 
 from data_engine import QueryTimeoutError, create_session, execute_safe, get_schema_info
 from model_inference import generate_sql_streaming, load_model
@@ -754,7 +757,7 @@ def build_demo() -> gr.Blocks:
 
 
 if __name__ == "__main__":
-    print("🤖 Loading model (Qwen2.5-Coder-14B bnb-4bit + LoRA)...")
+    print("🤖 Loading model (Qwen2.5-Coder-14B + LoRA / GGUF)...")
     llm = load_model()
     print("✅ Ready.")
     demo = build_demo()

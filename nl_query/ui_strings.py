@@ -22,7 +22,9 @@ APP_TAGLINE = (
 # ── Domain sections (starter questions) ────────────────────────────────
 # Each section is a label and 2-3 natural-language questions phrased the way
 # a non-technical administrator would actually ask. Questions target the
-# warehouse schema (core + analytics layers).
+# warehouse schema (core + analytics layers). The 20 gap-filler prompts
+# (Categories A-G) are surfaced here so a user can drive the full end-to-end
+# test set from the PromptUp UI dropdowns.
 
 DOMAIN_SECTIONS: list[dict] = [
     {
@@ -31,6 +33,8 @@ DOMAIN_SECTIONS: list[dict] = [
             "What is the average attendance rate by school?",
             "How many students had an absence rate above 10 percent?",
             "Which school has the lowest average attendance rate?",
+            "How has chronic absenteeism changed from 2021-22 to 2023-24?",
+            "What attendance rate puts a student in the bottom quartile in 2023-2024?",
         ],
     },
     {
@@ -39,6 +43,9 @@ DOMAIN_SECTIONS: list[dict] = [
             "How many discipline incidents happened by incident type?",
             "What are the total suspension days by school?",
             "Which incident types lead to the most suspensions?",
+            "What's the average attendance rate for students with at least one suspension in 2023-2024?",
+            "Which schools had zero suspensions in 2023-24?",
+            "Which schools reported physical restraints in 2023-24?",
         ],
     },
     {
@@ -47,6 +54,36 @@ DOMAIN_SECTIONS: list[dict] = [
             "Compare average GPA and attendance across race groups.",
             "What is the average attendance rate for English Learners?",
             "Show the percent suspended by race group.",
+            "What is the average GPA by race/ethnicity in 2023-2024?",
+            "Show the suspension rate gap between Black and White students",
+            "For English Learners, what's the relationship between attendance rate and GPA in 2023-2024?",
+        ],
+    },
+    {
+        "title": "Risk & performance bands",
+        "questions": [
+            "Categorize students by attendance rate: 'Severe' (<80%), 'At Risk' (80-90%), 'Satisfactory' (>90%) for 2023-2024",
+            "Group students by GPA: 'Honor Roll' (3.5+), 'On Track' (2.0-3.4), 'Below' (<2.0) for 2023-2024",
+            "Which students are both chronically absent AND failing (GPA below 2.0) in 2023-2024?",
+            "Which schools have the highest percentage of high-risk students?",
+            "What is the average GPA for students with 3 or more discipline incidents in 2023-2024?",
+        ],
+    },
+    {
+        "title": "School & county comparisons",
+        "questions": [
+            "Show enrollment for each school across the last 3 years",
+            "Top 3 schools with highest chronic absenteeism in each county for 2023-24",
+            "What is the average chronic absenteeism by county for 2023-24?",
+            "For All Students: chronic absent rate, suspension rate, and SBAC proficiency in one query for 2023-24",
+            "Show chronic absenteeism rates, excluding suppressed data, for 2023-24",
+            "Has average GPA improved from 2022-2023 to 2023-2024?",
+        ],
+    },
+    {
+        "title": "Big picture",
+        "questions": [
+            "How are our students doing?",
         ],
     },
 ]
@@ -117,7 +154,7 @@ ABOUT_MODAL_FAQ = [
     },
     {
         "q": "What model is running?",
-        "a": "A fine-tuned Qwen2.5-Coder-14B (QLoRA adapter on a bnb-4-bit base) via Transformers on GPU, or the same fine-tune as a GGUF in llama.cpp for fully local use.",
+        "a": "A fine-tuned Qwen2.5-Coder-14B (QLoRA). On CUDA GPUs it runs via transformers with a 4-bit base + LoRA adapter; on Apple Silicon it runs the same fine-tune as a GGUF (Q4_K_M) via llama.cpp with Metal acceleration. All inference is local.",
     },
     {
         "q": "Can I trust the SQL it writes?",

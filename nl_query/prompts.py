@@ -289,10 +289,125 @@ FEW_SHOT_EXAMPLES = [
 ]
 
 
+# ── Gap-filler few-shot examples (20 prompts, Categories A-G) ──────────
+#
+# These cover query patterns the original 15 few-shots miss:
+#   A. Multi-table joins (core ↔ core)
+#   B. Trend / year-over-year
+#   C. CASE WHEN / risk banding
+#   D. OBT advanced patterns (suppression, multi-indicator, county, restraint)
+#   E. Window functions / ranking
+#   F. Analytics marts (underused)
+#   G. Edge cases (ambiguous, negative results)
+#
+# They focus on exploratory questions a principal would ask that aren't
+# covered by the pre-computed Rill dashboard widgets, cross-domain joins
+# the CDE flat files can't answer, and student-level queries (the OBT is
+# school-level only). Gold SQL validated against the live warehouse.
+
+GAP_FEWSHOT_EXAMPLES = [
+    # ── Category A: Multi-Table Joins (Core ↔ Core) ──────────────────
+    {
+        "question": "What's the average attendance rate for students with at least one suspension in 2023-2024?",
+        "sql": "SELECT ROUND(AVG(a.attendance_rate), 4) AS avg_attendance_rate\nFROM main_core.fact_attendance a\nWHERE a.academic_year = '2023-2024'\n  AND a.student_id_hash IN (\n    SELECT DISTINCT student_id_hash\n    FROM main_core.fact_discipline\n    WHERE academic_year = '2023-2024'\n      AND suspension_days > 0\n  );",
+    },
+    {
+        "question": "What is the average GPA by race/ethnicity in 2023-2024?",
+        "sql": "SELECT s.primary_race, ROUND(AVG(ar.gpa_points), 2) AS avg_gpa\nFROM main_core.fact_academic_records ar\nJOIN main_core.dim_students s\n  ON ar.student_id_hash = s.student_id_hash\n  AND ar.school_year = s.academic_year\nWHERE ar.school_year = '2023-2024'\nGROUP BY s.primary_race\nORDER BY avg_gpa DESC;",
+    },
+    {
+        "question": "For English Learners, what's the relationship between attendance rate and GPA in 2023-2024?",
+        "sql": "SELECT\n  ROUND(AVG(a.attendance_rate), 4) AS avg_attendance_rate,\n  ROUND(AVG(ar.gpa_points), 2) AS avg_gpa\nFROM main_core.fact_attendance a\nJOIN main_core.dim_students s\n  ON a.student_id_hash = s.student_id_hash\n  AND a.academic_year = s.academic_year\nJOIN main_core.fact_academic_records ar\n  ON a.student_id_hash = ar.student_id_hash\n  AND a.academic_year = ar.school_year\nWHERE a.academic_year = '2023-2024'\n  AND s.ell_status = TRUE;",
+    },
+    {
+        "question": "What is the average GPA for students with 3 or more discipline incidents in 2023-2024?",
+        "sql": "SELECT ROUND(AVG(ar.gpa_points), 2) AS avg_gpa\nFROM main_core.fact_academic_records ar\nWHERE ar.school_year = '2023-2024'\n  AND ar.student_id_hash IN (\n    SELECT student_id_hash\n    FROM main_core.fact_discipline\n    WHERE academic_year = '2023-2024'\n    GROUP BY student_id_hash\n    HAVING COUNT(*) >= 3\n  );",
+    },
+    # ── Category B: Trend / Year-over-Year ───────────────────────────
+    {
+        "question": "How has chronic absenteeism changed from 2021-22 to 2023-24?",
+        "sql": "SELECT academic_year,\n       ROUND(AVG(chronic_absent_rate_pct), 2) AS avg_chronic_absent_rate\nFROM main_staging.stg_cde__chronic_absenteeism\nWHERE aggregate_level = 'T'\n  AND reporting_category = 'TA'\n  AND academic_year IN ('2021-22', '2022-23', '2023-24')\nGROUP BY academic_year\nORDER BY academic_year;",
+    },
+    {
+        "question": "Show enrollment for each school across the last 3 years",
+        "sql": "SELECT school_name, academic_year, SUM(cumulative_enrollment) AS total_enrollment\nFROM main_staging.stg_cde__enrollment\nWHERE aggregate_level = 'S'\n  AND reporting_category = 'TA'\n  AND academic_year IN ('2022-23', '2023-24', '2024-25')\nGROUP BY school_name, academic_year\nORDER BY school_name, academic_year;",
+    },
+    {
+        "question": "Has average GPA improved from 2022-2023 to 2023-2024?",
+        "sql": "SELECT school_year, ROUND(AVG(gpa_points), 2) AS avg_gpa\nFROM main_core.fact_academic_records\nWHERE school_year IN ('2022-2023', '2023-2024')\nGROUP BY school_year\nORDER BY school_year;",
+    },
+    # ── Category C: CASE WHEN / Risk Banding ──────────────────────────
+    {
+        "question": "Categorize students by attendance rate: 'Severe' (<80%), 'At Risk' (80-90%), 'Satisfactory' (>90%) for 2023-2024",
+        "sql": "SELECT\n  CASE\n    WHEN attendance_rate < 0.80 THEN 'Severe'\n    WHEN attendance_rate <= 0.90 THEN 'At Risk'\n    ELSE 'Satisfactory'\n  END AS attendance_band,\n  COUNT(DISTINCT student_id_hash) AS student_count\nFROM main_core.fact_attendance\nWHERE academic_year = '2023-2024'\nGROUP BY attendance_band\nORDER BY student_count DESC;",
+    },
+    {
+        "question": "Group students by GPA: 'Honor Roll' (3.5+), 'On Track' (2.0-3.4), 'Below' (<2.0) for 2023-2024",
+        "sql": "SELECT\n  CASE\n    WHEN gpa_points >= 3.5 THEN 'Honor Roll'\n    WHEN gpa_points >= 2.0 THEN 'On Track'\n    ELSE 'Below'\n  END AS performance_tier,\n  COUNT(DISTINCT student_id_hash) AS student_count\nFROM main_core.fact_academic_records\nWHERE school_year = '2023-2024'\nGROUP BY performance_tier\nORDER BY student_count DESC;",
+    },
+    {
+        "question": "Which students are both chronically absent AND failing (GPA below 2.0) in 2023-2024?",
+        "sql": "SELECT COUNT(DISTINCT a.student_id_hash) AS combined_risk_count\nFROM main_core.fact_attendance a\nJOIN main_core.fact_academic_records ar\n  ON a.student_id_hash = ar.student_id_hash\n  AND a.academic_year = ar.school_year\nWHERE a.academic_year = '2023-2024'\n  AND a.absence_rate >= 0.10\n  AND ar.gpa_points < 2.0;",
+    },
+    # ── Category D: OBT Advanced Patterns ───────────────────────────
+    {
+        "question": "Show chronic absenteeism rates, excluding suppressed data, for 2023-24",
+        "sql": "SELECT school_name, ca_chronic_absent_rate_pct\nFROM main_analytics.mart_cde_school_accountability\nWHERE academic_year = '2023-24'\n  AND reporting_category = 'TA'\n  AND is_suppressed = FALSE\n  AND ca_chronic_absent_rate_pct IS NOT NULL\nORDER BY ca_chronic_absent_rate_pct DESC\nLIMIT 20;",
+    },
+    {
+        "question": "For All Students: chronic absent rate, suspension rate, and SBAC proficiency in one query for 2023-24",
+        "sql": "SELECT school_name,\n       ca_chronic_absent_rate_pct,\n       su_suspension_rate_pct,\n       sbac_pct_standard_met_above\nFROM main_analytics.mart_cde_school_accountability\nWHERE academic_year = '2023-24'\n  AND reporting_category = 'TA'\n  AND aggregate_level = 'S'\nORDER BY school_name;",
+    },
+    {
+        "question": "What is the average chronic absenteeism by county for 2023-24?",
+        "sql": "SELECT county_name, ROUND(AVG(ca_chronic_absent_rate_pct), 2) AS avg_chronic_absent_rate\nFROM main_analytics.mart_cde_school_accountability\nWHERE academic_year = '2023-24'\n  AND reporting_category = 'TA'\n  AND aggregate_level = 'S'\n  AND ca_chronic_absent_rate_pct IS NOT NULL\nGROUP BY county_name\nORDER BY avg_chronic_absent_rate DESC;",
+    },
+    {
+        "question": "Which schools reported physical restraints in 2023-24?",
+        "sql": "SELECT DISTINCT school_name, county_name\nFROM main_staging.stg_cde__restraint_seclusion\nWHERE academic_year = '2023-24'\n  AND aggregate_level = 'S'\n  AND count_of_physical_restraints > 0\nORDER BY school_name;",
+    },
+    # ── Category E: Window Functions / Ranking ───────────────────────
+    {
+        "question": "Top 3 schools with highest chronic absenteeism in each county for 2023-24",
+        "sql": "WITH ranked AS (\n  SELECT county_name, school_name, ca_chronic_absent_rate_pct,\n    ROW_NUMBER() OVER (PARTITION BY county_name ORDER BY ca_chronic_absent_rate_pct DESC) AS rn\n  FROM main_analytics.mart_cde_school_accountability\n  WHERE academic_year = '2023-24'\n    AND reporting_category = 'TA'\n    AND aggregate_level = 'S'\n    AND ca_chronic_absent_rate_pct IS NOT NULL\n)\nSELECT county_name, school_name, ca_chronic_absent_rate_pct\nFROM ranked\nWHERE rn <= 3\nORDER BY county_name, rn;",
+    },
+    {
+        "question": "What attendance rate puts a student in the bottom quartile in 2023-2024?",
+        "sql": "SELECT QUANTILE_CONT(attendance_rate, 0.25) AS bottom_quartile_attendance\nFROM main_core.fact_attendance\nWHERE academic_year = '2023-2024';",
+    },
+    # ── Category F: Analytics Marts (Underused) ──────────────────────
+    {
+        "question": "Which schools have the highest percentage of high-risk students?",
+        "sql": "SELECT school_id, pct_high_risk\nFROM main_analytics.school_summary\nWHERE pct_high_risk IS NOT NULL\nORDER BY pct_high_risk DESC\nLIMIT 10;",
+    },
+    {
+        "question": "Show the suspension rate gap between Black and White students",
+        "sql": "SELECT\n  MAX(CASE WHEN primary_race = 'Black' THEN pct_suspended END) AS black_suspension_rate,\n  MAX(CASE WHEN primary_race = 'White' THEN pct_suspended END) AS white_suspension_rate,\n  MAX(CASE WHEN primary_race = 'Black' THEN pct_suspended END)\n    - MAX(CASE WHEN primary_race = 'White' THEN pct_suspended END) AS suspension_gap\nFROM main_analytics.equity_by_race\nWHERE primary_race IN ('Black', 'White');",
+    },
+    # ── Category G: Edge Cases ───────────────────────────────────────
+    {
+        "question": "How are our students doing?",
+        "sql": "SELECT COUNT(DISTINCT a.student_id_hash) AS total_students,\n       ROUND(AVG(a.attendance_rate), 4) AS avg_attendance_rate,\n       ROUND(AVG(ar.gpa_points), 2) AS avg_gpa\nFROM main_core.fact_attendance a\nLEFT JOIN main_core.fact_academic_records ar\n  ON a.student_id_hash = ar.student_id_hash\n  AND a.academic_year = ar.school_year\nWHERE a.academic_year = '2023-2024';",
+    },
+    {
+        "question": "Which schools had zero suspensions in 2023-24?",
+        "sql": "SELECT school_name\nFROM main_analytics.mart_cde_school_accountability\nWHERE academic_year = '2023-24'\n  AND reporting_category = 'TA'\n  AND aggregate_level = 'S'\n  AND COALESCE(su_total_suspensions, 0) = 0\nORDER BY school_name;",
+    },
+]
+
+
+def get_all_few_shot_examples() -> list[dict]:
+    """Return the combined base + gap-filler few-shot examples."""
+    return FEW_SHOT_EXAMPLES + GAP_FEWSHOT_EXAMPLES
+
+
 def build_few_shot_block(examples: list[dict] = None) -> str:
-    """Build the few-shot examples block for prompt injection."""
+    """Build the few-shot examples block for prompt injection.
+
+    Defaults to the combined base + gap-filler set (35 examples).
+    """
     if examples is None:
-        examples = FEW_SHOT_EXAMPLES
+        examples = get_all_few_shot_examples()
     lines = ["Examples:"]
     for ex in examples:
         lines.append(f"\nQuestion: {ex['question']}")
@@ -324,7 +439,7 @@ def build_prompt(
     if schema is None:
         schema = DEFAULT_SCHEMA
     if examples is None:
-        examples = FEW_SHOT_EXAMPLES
+        examples = get_all_few_shot_examples()
 
     system = SYSTEM_PROMPT + "\n\n" + build_schema_context(schema)
     if examples:

@@ -5,8 +5,6 @@ validation -> execution -> result formatting. The LLM is mocked so no GPU
 is needed. Requires the warehouse at oss_framework/data/analytics.duckdb.
 """
 
-import json
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,6 +14,7 @@ from conftest import warehouse_available
 
 try:
     import gradio  # noqa: F401
+
     GRADIO_AVAILABLE = True
 except ImportError:
     GRADIO_AVAILABLE = False
@@ -36,9 +35,7 @@ def mock_streaming_llm():
     return llm
 
 
-@pytest.mark.skipif(
-    not GRADIO_AVAILABLE, reason="gradio not installed"
-)
+@pytest.mark.skipif(not GRADIO_AVAILABLE, reason="gradio not installed")
 @pytest.mark.skipif(not warehouse_available(), reason="No warehouse available")
 class TestHandleQueryE2E:
     """Full end-to-end query flow with mocked LLM."""
@@ -47,9 +44,7 @@ class TestHandleQueryE2E:
         import app
 
         with patch("app.llm", mock_streaming_llm):
-            with patch(
-                "model_inference.get_model", return_value=mock_streaming_llm
-            ):
+            with patch("model_inference.get_model", return_value=mock_streaming_llm):
                 results = list(
                     app.handle_query(
                         "How many students were enrolled in 2023-2024?",
@@ -74,15 +69,13 @@ class TestHandleQueryE2E:
         last = results[-1]
         prior, sql, df, emoji, status, state = last
         assert emoji == "\U0001f916"
-        assert "ask a question" in status.lower() or "empty" in status.lower()
+        assert "question" in status.lower() or "empty" in status.lower()
 
     def test_invalid_sql_returns_error(self):
         import app
 
         bad_llm = MagicMock()
-        bad_llm.return_value = iter(
-            [{"choices": [{"text": "```sql\nDROP TABLE students\n```"}]}]
-        )
+        bad_llm.return_value = iter([{"choices": [{"text": "```sql\nDROP TABLE students\n```"}]}])
 
         with patch("app.llm", bad_llm):
             with patch("model_inference.get_model", return_value=bad_llm):
@@ -102,12 +95,8 @@ class TestHandleQueryE2E:
 class TestSchemaIntrospection:
     """Verify the warehouse schema is introspected correctly for prompts."""
 
-    @pytest.mark.skipif(
-        not GRADIO_AVAILABLE, reason="gradio not installed"
-    )
-    @pytest.mark.skipif(
-        not warehouse_available(), reason="No warehouse available"
-    )
+    @pytest.mark.skipif(not GRADIO_AVAILABLE, reason="gradio not installed")
+    @pytest.mark.skipif(not warehouse_available(), reason="No warehouse available")
     def test_get_warehouse_schema_returns_dict(self):
         import app
 

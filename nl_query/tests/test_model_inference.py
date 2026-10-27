@@ -175,14 +175,16 @@ class TestModelSingleton:
 
         original = model_inference._llm
         with patch("model_inference.TransformersLLM") as mock_class:
-            mock_llama = MagicMock()
-            mock_class.return_value = mock_llama
-            model_inference._llm = None
-            result = model_inference.load_model()
-            assert result is mock_llama
-            assert model_inference.get_model() is mock_llama
-            assert model_inference.load_model() is mock_llama
-            mock_class.assert_called_once()
+            with patch("model_inference.LlamaCppLLM"):
+                with patch("model_inference._resolve_backend", return_value="transformers"):
+                    mock_llama = MagicMock()
+                    mock_class.return_value = mock_llama
+                    model_inference._llm = None
+                    result = model_inference.load_model()
+                    assert result is mock_llama
+                    assert model_inference.get_model() is mock_llama
+                    assert model_inference.load_model() is mock_llama
+                    mock_class.assert_called_once()
         model_inference._llm = original
 
 
