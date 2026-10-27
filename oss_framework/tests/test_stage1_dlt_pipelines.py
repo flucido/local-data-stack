@@ -23,11 +23,38 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 from aeries_dlt_pipeline import run_aeries_pipeline
 from excel_imports_dlt_pipeline import run_excel_imports_pipeline
 
+# dlt filesystem destination writes under <bucket>/<dataset_name>/<layout>;
+# run_aeries_pipeline uses dataset "aeries_stage1" and layout
+# "{table_name}/load_date={curr_date}/{load_id}.{file_id}.{ext}".
+AERIES_DATASET = "aeries_stage1"
+
 
 @pytest.fixture(scope="module")
 def stage1_path():
     """Get Stage 1 data directory"""
     return Path(os.getenv("STAGE1_PATH", "./oss_framework/data/stage1"))
+
+
+def latest_load_dir(stage1_path: Path, table: str) -> Path | None:
+    """Most recent load_date=* partition dir for a dlt-managed Aeries table.
+
+    Globbing instead of computing today's date avoids local-vs-UTC drift in
+    dlt's {curr_date} placeholder.
+    """
+    base = stage1_path / "transactional" / "aeries" / AERIES_DATASET / table
+    if not base.exists():
+        return None
+    load_dirs = sorted(base.glob("load_date=*"))
+    return load_dirs[-1] if load_dirs else None
+
+
+def latest_parquet(stage1_path: Path, table: str) -> Path | None:
+    """Most recent Parquet file for a dlt-managed Aeries table."""
+    load_dir = latest_load_dir(stage1_path, table)
+    if load_dir is None:
+        return None
+    files = sorted(load_dir.glob("*.parquet"))
+    return files[-1] if files else None
 
 
 @pytest.fixture(scope="module")
@@ -53,9 +80,6 @@ class TestAeriesPipeline:
 
     def test_parquet_files_created(self, stage1_path):
         """Verify Parquet files exist for all Aeries tables"""
-        aeries_dir = stage1_path / "transactional" / "aeries"
-        today = date.today().isoformat()
-
         expected_tables = [
             "raw_students",
             "raw_attendance",
@@ -65,19 +89,18 @@ class TestAeriesPipeline:
         ]
 
         for table in expected_tables:
-            table_dir = aeries_dir / table / f"load_date={today}"
-            assert table_dir.exists(), f"Missing directory: {table_dir}"
+            load_dir = latest_load_dir(stage1_path, table)
+            assert load_dir is not None, f"Missing load_date partition for {table}"
+            assert load_dir.exists(), f"Missing directory: {load_dir}"
 
-            parquet_files = list(table_dir.glob("*.parquet"))
-            assert len(parquet_files) > 0, f"No Parquet files in {table_dir}"
+            parquet_files = list(load_dir.glob("*.parquet"))
+            assert len(parquet_files) > 0, f"No Parquet files in {load_dir}"
 
     def test_students_data_quality(self, stage1_path):
         """Validate students data quality"""
-        aeries_dir = stage1_path / "transactional" / "aeries"
-        today = date.today().isoformat()
-        parquet_file = aeries_dir / "raw_students" / f"load_date={today}" / "part-000.parquet"
+        parquet_file = latest_parquet(stage1_path, "raw_students")
 
-        if not parquet_file.exists():
+        if parquet_file is None:
             pytest.skip("Students Parquet file not found")
 
         df = pd.read_parquet(parquet_file)
@@ -89,11 +112,9 @@ class TestAeriesPipeline:
 
     def test_attendance_data_quality(self, stage1_path):
         """Validate attendance data quality"""
-        aeries_dir = stage1_path / "transactional" / "aeries"
-        today = date.today().isoformat()
-        parquet_file = aeries_dir / "raw_attendance" / f"load_date={today}" / "part-000.parquet"
+        parquet_file = latest_parquet(stage1_path, "raw_attendance")
 
-        if not parquet_file.exists():
+        if parquet_file is None:
             pytest.skip("Attendance Parquet file not found")
 
         df = pd.read_parquet(parquet_file)
@@ -106,13 +127,9 @@ class TestAeriesPipeline:
 
     def test_academic_records_data_quality(self, stage1_path):
         """Validate academic records data quality"""
-        aeries_dir = stage1_path / "transactional" / "aeries"
-        today = date.today().isoformat()
-        parquet_file = (
-            aeries_dir / "raw_academic_records" / f"load_date={today}" / "part-000.parquet"
-        )
+        parquet_file = latest_parquet(stage1_path, "raw_academic_records")
 
-        if not parquet_file.exists():
+        if parquet_file is None:
             pytest.skip("Academic records Parquet file not found")
 
         df = pd.read_parquet(parquet_file)
@@ -124,18 +141,15 @@ class TestAeriesPipeline:
 
     def test_record_counts_reasonable(self, stage1_path):
         """Verify record counts are within expected ranges"""
-        aeries_dir = stage1_path / "transactional" / "aeries"
-        today = date.today().isoformat()
-
-        students_file = aeries_dir / "raw_students" / f"load_date={today}" / "part-000.parquet"
-        if students_file.exists():
+        students_file = latest_parquet(stage1_path, "raw_students")
+        if students_file is not None:
             df_students = pd.read_parquet(students_file)
             assert (
                 1000 <= len(df_students) <= 10000
             ), f"Unexpected student count: {len(df_students)}"
 
-        attendance_file = aeries_dir / "raw_attendance" / f"load_date={today}" / "part-000.parquet"
-        if attendance_file.exists():
+        attendance_file = latest_parquet(stage1_path, "raw_attendance")
+        if attendance_file is not None:
             df_attendance = pd.read_parquet(attendance_file)
             assert (
                 10000 <= len(df_attendance) <= 1000000

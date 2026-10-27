@@ -124,16 +124,22 @@ def run_aeries_pipeline(
     else:
         print("🔌 Running in PRODUCTION MODE with real Aeries API")
 
+    # NOTE on write_disposition="merge": dlt only performs true merge loads on
+    # database destinations (duckdb) or Iceberg tables. The plain filesystem
+    # destination falls back to "append" (dlt logs a warning), keeping one
+    # immutable Parquet file per load under the date-partitioned layout below.
     if destination_type == "filesystem":
         stage1_path = os.getenv("STAGE1_PATH", "./oss_framework/data/stage1")
 
         pipeline = dlt.pipeline(
             pipeline_name="aeries_to_stage1",
             destination=dlt.destinations.filesystem(
-                bucket_url=f"{stage1_path}/transactional/aeries"
+                bucket_url=f"{stage1_path}/transactional/aeries",
+                layout="{table_name}/load_date={curr_date}/{load_id}.{file_id}.{ext}",
             ),
             dataset_name=dataset_name,
         )
+        loader_file_format = "parquet"
     else:
         db_path = os.getenv("DUCKDB_DATABASE_PATH", "./oss_framework/data/analytics.duckdb")
 
@@ -142,9 +148,10 @@ def run_aeries_pipeline(
             destination=dlt.destinations.duckdb(database=db_path),
             dataset_name=dataset_name,
         )
+        loader_file_format = None
 
     source = aeries_source(base_url=base_url or "", api_key=api_key or "", test_mode=test_mode)
-    info = pipeline.run(source)
+    info = pipeline.run(source, loader_file_format=loader_file_format)
 
     print("\n✅ Pipeline completed successfully")
     print(f"   Pipeline: {info.pipeline.pipeline_name}")
