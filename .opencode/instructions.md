@@ -1,4 +1,18 @@
+---
+id: lfed-docs-instructions
+type: architecture-design
+status: draft
+title: "Project instructions: BI-as-code gates and conventions"
+parent: lfed-architecture
+tags: [adopted, governance, rill]
+---
+
 # Local Data Stack — Project Instructions
+
+> **Adopted as a spec node.** This file is the project's governance rule set. It is
+> read as-is, with one exception: where a gate has drifted from the code, the drift is
+> called out inline under *Drift as read against the tree* at the bottom. Not yet
+> reviewed by the owner — `status: draft`.
 
 ## Project Identity
 
@@ -100,6 +114,27 @@ supplemental context, not as a substitute for SQL.
 [ ] rill validate passes (zero errors)
 [ ] rill start renders dashboards correctly
 [ ] No duplicated metric definitions
+```
+
+## Drift as read against the tree
+
+Unconfirmed until reviewed; each item was found by reading the files named, not by running
+`rill validate`.
+
+- **`rill_project/connectors/` does not exist.** The Project Structure block lists it; the
+  directory tree is `alerts/ apis/ dashboards/ metrics/ models/` only.
+- **Gate 5 is not fully met.** Several dimensions and measures carry no `description` —
+  `school_name`, `district_name`, `county_name`, `is_charter`, `is_dass`, and
+  `prior_status_value` in `rill_project/metrics/cde_chronic_absenteeism.yaml`, for example.
+  This matters to `lfed-app-architecture`, whose plane router matches questions against
+  exactly this metadata.
+- **No metrics view declares a timeseries.** The checklist requires a timeseries column;
+  none of the four `rill_project/metrics/*.yaml` files has one, which is why
+  `academic_year` is an ordinary dimension rather than a time axis.
+- **Gate 4 is violated by the existing client**, documented in
+  `lfed-docs-known-issues`. `lfed-app-architecture` resolves it with server-side plane
+  routing and structured metrics queries rather than by any of the three options that
+  document lists.
 
 ## Metrics SQL Constraints
 
