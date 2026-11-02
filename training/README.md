@@ -104,3 +104,16 @@ re-evaluation. It is not a turnkey district-deployment tool:
 
 See the case-study participation section of the repository README for how
 collaborators and supervised district partners can extend this work.
+
+## Phase 2 Roadmap: Sub-3B Two-Hop (DuckDB SQL + Generative UI) Modal Pipeline
+
+For the next-generation local-first desktop architecture (`1.2B–3B` SLMs executing two-hop `execute_duckdb_query` + `render_workspace_ui` tool calls), see:
+
+- **Product & Training Specification**: [`docs/Local First Generative Ui Product Spec.md`](../docs/Local%20First%20Generative%20Ui%20Product%20Spec.md) (Section 4)
+- **Step-by-Step Implementation Plan**: [`docs/superpowers/plans/2026-11-02-slm-two-hop-training-plan.md`](../docs/superpowers/plans/2026-11-02-slm-two-hop-training-plan.md)
+
+Key architectural upgrades over the v1/v2 14B pipeline:
+1. **Native `bfloat16` Full Fine-Tuning (FFT) / `r=64` DoRA on Modal (`A100-80GB` / `H100`)** via standard Hugging Face `transformers` + `trl` + `flash-attn` + `liger-kernel` (no Unsloth, no 4-bit QLoRA underfitting).
+2. **High-Bitrate Calibrated GGUF Export (`Q8_0` for 1.2B–1.7B; `Q6_K` + `llama-imatrix` for 3B)** preserving `99.5%+` of `bf16` SQL column accuracy in `~1.6–2.3 GB`.
+3. **Top-K Schema Pruning (`k=5` tables with hard-negative distractors)** in both training data synthesis and runtime inference prompts.
+4. **Seeded DuckDB Validation + Split B Self-Healing (`BinderError`) Trajectories + Dynamic Hop 2 Column-Enum GBNF**.
