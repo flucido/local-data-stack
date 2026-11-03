@@ -14,7 +14,7 @@ Dashboard Coverage:
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import pytest
 import requests
@@ -45,10 +45,10 @@ def execute_rill_query(
     base_url: str,
     dashboard_name: str,
     dimension_name: str,
-    measure_names: List[str],
+    measure_names: list[str],
     limit: int = 10,
     timeout: int = 10,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Execute a Rill toplist query against a dashboard.
 
@@ -75,7 +75,7 @@ def execute_rill_query(
     return response.json()
 
 
-def validate_response_schema(response: Dict[str, Any]) -> Tuple[bool, str]:
+def validate_response_schema(response: dict[str, Any]) -> tuple[bool, str]:
     """
     Validate that Rill API response has expected schema.
 
@@ -100,7 +100,7 @@ def validate_response_schema(response: Dict[str, Any]) -> Tuple[bool, str]:
     return True, ""
 
 
-def validate_data_types(response: Dict[str, Any], expected_dimensions: int) -> Tuple[bool, str]:
+def validate_data_types(response: dict[str, Any], expected_dimensions: int) -> tuple[bool, str]:
     """
     Validate data types in Rill response.
 
@@ -131,7 +131,7 @@ def validate_data_types(response: Dict[str, Any], expected_dimensions: int) -> T
     return True, ""
 
 
-def validate_row_counts(response: Dict[str, Any], min_rows: int = 1) -> Tuple[bool, str]:
+def validate_row_counts(response: dict[str, Any], min_rows: int = 1) -> tuple[bool, str]:
     """
     Validate that response contains expected number of rows.
 
@@ -247,7 +247,7 @@ class TestChronicAbsenteeismDashboard:
             # Validate total_students (should be positive integer)
             if "total_students" in row and row["total_students"] is not None:
                 assert isinstance(
-                    row["total_students"], (int, float)
+                    row["total_students"], int | float
                 ), f"total_students should be numeric, got {type(row['total_students'])}"
                 assert (
                     row["total_students"] >= 0
@@ -341,7 +341,7 @@ class TestEquityOutcomesDashboard:
             # Validate cohort_size
             if "cohort_size" in row and row["cohort_size"] is not None:
                 assert isinstance(
-                    row["cohort_size"], (int, float)
+                    row["cohort_size"], int | float
                 ), f"cohort_size should be numeric, got {type(row['cohort_size'])}"
                 assert (
                     row["cohort_size"] >= 0
@@ -593,7 +593,7 @@ class TestWellbeingRiskDashboard:
             # Validate student counts are non-negative
             if "total_students" in row and row["total_students"] is not None:
                 assert isinstance(
-                    row["total_students"], (int, float)
+                    row["total_students"], int | float
                 ), "total_students should be numeric"
                 assert row["total_students"] >= 0, "total_students should be non-negative"
 

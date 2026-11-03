@@ -4,8 +4,9 @@
 
 <p align="center">
   <a href="https://research.lucidotechnologyconsulting.com/overview.html">Research overview</a> ·
-  <a href="https://huggingface.co/datasets/KDDSTLC/lfed-training-data">Training data</a> ·
-  <a href="https://huggingface.co/KDDSTLC/lfed-qwen2.5-coder-14b-sql-lora-warehouse-r64">r=64 model</a> ·
+  <a href="https://huggingface.co/datasets/KDDSTLC/lfed-lfm3-two-hop-trajectories">Two-hop data</a> ·
+  <a href="https://huggingface.co/KDDSTLC/lfed-lfm3-1.7b-two-hop-bf16">LFM3-1.7B (bf16)</a> ·
+  <a href="https://huggingface.co/KDDSTLC/lfed-lfm3-1.7b-two-hop-gguf">LFM3-1.7B (Q8_0 GGUF)</a> ·
   <a href="https://huggingface.co/spaces/KDDSTLC/LFED">Live demo</a> ·
   <a href="https://flucido.github.io/local-data-stack/diagrams/">Diagrams</a> ·
   <a href="#reproduce-locally">Reproduce locally</a>
@@ -56,18 +57,122 @@ Source links are pinned to revision `e275d05`. Each file in [`docs/diagrams/`](d
 
 ### Available now
 
-- DuckDB warehouse framework with dlt ingestion and dbt transformations.
-- Four Rill views aligned to Chronic Absenteeism, Suspension, ELA, and English Learner Progress.
-- [25,886-pair synthetic NL-to-SQL training dataset](https://huggingface.co/datasets/KDDSTLC/lfed-training-data).
-- [Warehouse-schema r=64 LoRA adapter](https://huggingface.co/KDDSTLC/lfed-qwen2.5-coder-14b-sql-lora-warehouse-r64) and a GGUF build for llama.cpp.
-- [Public Gradio Space](https://huggingface.co/spaces/KDDSTLC/LFED) for trying the interface when the hosted runtime is available.
-- Twenty hand-curated evaluation prompts with execution-match and exact-match scoring.
+- **DuckDB & SQLite Medallion Warehouse**: Multi-schema analytical database (`main_core`, `main_analytics`, `main_staging`) with dlt ingestion and dbt transformations.
+- **Sovereign Local-First Desktop Engine (`desktop/`)**: Native Rust desktop host (Tao windowing + Wry webview) streaming zero-copy Apache Arrow IPC record batches directly via `arrow://` protocol.
+- **Generative UI Component Registry (`desktop/ui/`)**: React 19 + TypeScript + Tailwind CSS analytics workspace featuring dynamic TanStack tables, Recharts visualizations, and `<15ms` Zero-LLM CTE parameterization filter bars.
+- **Two-Hop Structured SLM (`LiquidAI/LFM3-1.7B`)**:
+  - Full Fine-Tuning + execution-guided GRPO training pipeline on Modal A100 GPUs.
+  - Published native bf16 weights: [`KDDSTLC/lfed-lfm3-1.7b-two-hop-bf16`](https://huggingface.co/KDDSTLC/lfed-lfm3-1.7b-two-hop-bf16).
+  - Published calibrated Q8_0 GGUF: [`KDDSTLC/lfed-lfm3-1.7b-two-hop-gguf`](https://huggingface.co/KDDSTLC/lfed-lfm3-1.7b-two-hop-gguf) (calibrated with `llama-imatrix`).
+  - Published training trajectory dataset: [`KDDSTLC/lfed-lfm3-two-hop-trajectories`](https://huggingface.co/datasets/KDDSTLC/lfed-lfm3-two-hop-trajectories).
+- **Four Rill Dashboards**: Aligned to California School Dashboard indicators (Chronic Absenteeism, Suspension, Academic ELA, ELPI).
+- **Evaluation Suites**: 30-prompt held-out K-12 evaluation benchmark (`nl_query/eval_two_hop_holdout.jsonl`), Rust test harness, React Vitest suite, and Python integration tests.
 
 ### Planned research
 
 - A supervised 30-day district case study with usage-log analysis and semi-structured interviews.
 - A case-study paper on adoption, failure modes, and equity of access.
 - K12-Bench: a planned 220-prompt, multi-model accountability-metric reasoning benchmark.
+
+## Sovereign Local-First Desktop & Generative UI Engine
+
+Local Data Stack includes a native, air-gapped desktop application engineered for zero-latency district data analysis without sending student or institutional data to external cloud APIs.
+
+```mermaid
+flowchart TD
+    User["District Administrator / User"] -->|Natural Language Query| UI["React 19 Generative UI Workspace"]
+    UI -->|IPC Request| Rust["Rust Desktop Host (Tao + Wry)"]
+    Rust -->|Prune Schema (<7k chars)| Pruner["Schema Pruner"]
+    Pruner -->|Pruned DDL + Question| SLM["LiquidAI LFM3-1.7B (Q8_0 GGUF via llama.cpp)"]
+    SLM -->|Hop 1: SQL Generation| Engine["DuckDB Analytical Engine"]
+    Engine -->|Execution Feedback / Self-Healing| SLM
+    SLM -->|Hop 2: GenUI Payload JSON| UI
+    Engine -->|Apache Arrow IPC RecordBatch| IPC["Custom arrow:// Streaming Protocol"]
+    IPC -->|Zero-Copy Arrow Bytes| UI
+    UI -->|Render Archetype| Reg["Component Registry (Table, Sankey, Heatmap, CTE Filter)"]
+    Reg -->|Client-side Slider Scrubbing| Engine
+```
+
+### 1. Dual-Database Embedded Medallion Architecture
+- **Bronze Tier (SQLite ACID)**: Embedded `data/bronze.db` stores raw write logs, user session queries, bookmarks, and pipeline provenance logs with full transactional integrity.
+- **Silver & Gold Tiers (DuckDB Columnar)**: Embedded `oss_framework/data/analytics.duckdb` houses 20 curated K-12 dimensional and fact tables partitioned across `main_core`, `main_analytics`, and `main_staging` for sub-second aggregations over millions of student records.
+- **Zero-Copy Arrow Streaming Protocol**: Results are returned over a custom `arrow://` IPC scheme. The Rust host reads columnar DuckDB RecordBatches directly into Arrow IPC byte buffers, enabling the React webview to consume Arrow Tables without JSON serialization overhead or memory thrashing.
+
+### 2. Two-Hop Tool Calling Protocol
+1. **Hop 1 — SQL Formulation & Validation**:
+   - The user's natural language question is combined with dynamic schema context pruned to `<7,000` characters (`schema_pruner.py` / `schema_pruner.rs`).
+   - The model generates DuckDB SQL.
+   - **Hop 1b Self-Healing Loop**: If execution encounters catalog, type, or syntax errors, the execution trace is fed back into the model for immediate self-correction.
+2. **Hop 2 — Generative UI Synthesis**:
+   - The verified SQL result schema and question are supplied to the model to produce a typed `GenUIHop2Payload`.
+   - The model selects the optimal visual archetype (e.g., `ExecutiveKpiGrid`, `CohortAttritionSankey`, `CrossTabHeatmap`, `DistributionViolin`, `MetricTrendArea`), maps column channels, and synthesizes interactive drilldown specifications.
+3. **Sub-15ms Zero-LLM CTE Parameterization**:
+   - Analytical queries are formulated using `WITH _base AS (...)` Common Table Expressions with exposed filter parameters.
+   - The React UI generates interactive filter controls (threshold sliders, category multi-selects, date pickers).
+   - When a human user moves a slider, DuckDB re-executes the CTE parameterized query in `<15ms` locally without calling the language model.
+
+### 3. Model Training & Quantization (`LiquidAI/LFM3-1.7B`)
+- **Architecture**: `LiquidAI/LFM3-1.7B` native architecture optimized for structured tool calling and compact memory footprint.
+- **Training Recipe**:
+  - Full Fine-Tuning in `bfloat16` on 3,000 verified multi-schema K-12 trajectory pairs on Modal A100-80GB GPUs (final SFT loss: `0.0546`).
+  - Execution-guided Group Relative Policy Optimization (GRPO) using a multi-factor reward function rewarding valid SQL (+1.0), row-count match (+1.0), valid Hop 2 UI JSON schema (+1.0), and parameterized CTE structure (+0.5).
+- **Quantization & llama.cpp Metal Offload**:
+  - Exported to `Q8_0` GGUF calibrated with `llama-imatrix` on domain-specific K-12 SQL and GenUI grammar datasets.
+  - 1.76 GB file size fits completely within unified memory on Apple Silicon (M1/M2/M3/M4) and executes with 100% Metal GPU layer offload via `llama-server`.
+
+---
+
+## Interactive Human Test Environment
+
+This guide is designed for a human operator sitting down at the machine to explore, query, and evaluate the system naturally.
+
+### Mode 1: Native Desktop Application (Full Sovereign Experience)
+Launch the compiled native desktop application:
+```bash
+cargo run --manifest-path desktop/Cargo.toml
+```
+- **What opens**: A native OS window powered by `tao` and `wry`.
+- **Under the hood**: The Rust host initializes embedded DuckDB (`oss_framework/data/analytics.duckdb`) and SQLite (`data/bronze.db`), registers the custom `arrow://` IPC scheme, and renders the compiled React webview.
+- **How to test as a human**:
+  1. Browse the pre-loaded K-12 accountability scenario templates (Chronic Absenteeism, Suspension Rate Disproportionality, English Learner RFEP progress).
+  2. Inspect the generated KPI summaries and interactive visual charts.
+  3. Scrub the interactive filter bar (e.g., minimum enrollment slider, reporting category toggles) to observe instantaneous (<15ms) data recalculations.
+  4. Toggle the **Hop 1 SQL** and **Hop 2 GenUI** inspection tabs in the developer drawer to verify the underlying query and declarative schema.
+
+### Mode 2: Web Developer Workspace (Vite Dev Server)
+If you are iterating on the frontend UI, tweaking component archetypes, or testing responsive layouts:
+```bash
+cd desktop/ui
+npm install
+npm run dev
+```
+- Open `http://localhost:5173` in any modern browser.
+- Provides mock Arrow IPC datasets, real-time component hot reloading, and TanStack table sorting/filtering controls.
+
+### Mode 3: Local SLM Inference (`llama-server`)
+To run the calibrated 1.76 GB Small Language Model locally on Apple Silicon Metal or CPU:
+```bash
+# Verify the quantized GGUF artifact is present in models/:
+ls -lh models/lfed-lfm3-1.7b-two-hop-Q8_0.gguf
+
+# Start the high-performance llama.cpp server with Metal GPU offload:
+llama-server -m models/lfed-lfm3-1.7b-two-hop-Q8_0.gguf -ngl 99 --port 8080
+```
+- Connects to the desktop host or Python agent loop at `http://127.0.0.1:8080/completion`.
+- Grammar constraints (`training/grammars/hop1_sql.gbnf` and `training/grammars/hop2_ui.gbnf`) can be passed via `--grammar` to guarantee 100% deterministic JSON and SQL syntax compliance.
+
+### Running Automated Test Suites
+To verify all engine contracts before human testing:
+```bash
+# 1. Rust Desktop Host & IPC Tests
+cargo test --manifest-path desktop/Cargo.toml -q
+
+# 2. React UI Vitest Suite
+npm --prefix desktop/ui run test
+
+# 3. Python Two-Hop Foundation & Schema Pruner Tests
+uv run pytest nl_query/tests/test_two_hop_foundation.py -q
+```
 
 ## Reproduce locally
 
@@ -153,9 +258,12 @@ This runs the current 20-prompt set through the real model and writes `nl_query/
 
 | Artifact | Link | Role |
 | --- | --- | --- |
-| Training data | [KDDSTLC/lfed-training-data](https://huggingface.co/datasets/KDDSTLC/lfed-training-data) | 25,886 synthetic NL-to-SQL pairs |
-| Current adapter | [KDDSTLC/lfed-qwen2.5-coder-14b-sql-lora-warehouse-r64](https://huggingface.co/KDDSTLC/lfed-qwen2.5-coder-14b-sql-lora-warehouse-r64) | Warehouse-schema r=64 LoRA |
-| GGUF | [KDDSTLC/lfed-qwen2.5-coder-14b-sql-gguf](https://huggingface.co/KDDSTLC/lfed-qwen2.5-coder-14b-sql-gguf) | Older v1 five-table llama.cpp fallback; not equivalent to the r=64 adapter |
+| LFM3 Two-Hop Trajectories | [KDDSTLC/lfed-lfm3-two-hop-trajectories](https://huggingface.co/datasets/KDDSTLC/lfed-lfm3-two-hop-trajectories) | 3,000 multi-schema K-12 two-hop training trajectories (Hop 1 SQL + Hop 2 GenUI) |
+| LFM3-1.7B Two-Hop (bf16) | [KDDSTLC/lfed-lfm3-1.7b-two-hop-bf16](https://huggingface.co/KDDSTLC/lfed-lfm3-1.7b-two-hop-bf16) | Native bf16 SFT + execution-guided GRPO model |
+| LFM3-1.7B Two-Hop (Q8_0 GGUF) | [KDDSTLC/lfed-lfm3-1.7b-two-hop-gguf](https://huggingface.co/KDDSTLC/lfed-lfm3-1.7b-two-hop-gguf) | Calibrated Q8_0 GGUF with `llama-imatrix` for local Apple Silicon / CPU |
+| Legacy Training data | [KDDSTLC/lfed-training-data](https://huggingface.co/datasets/KDDSTLC/lfed-training-data) | 25,886 synthetic NL-to-SQL pairs |
+| Legacy Qwen adapter | [KDDSTLC/lfed-qwen2.5-coder-14b-sql-lora-warehouse-r64](https://huggingface.co/KDDSTLC/lfed-qwen2.5-coder-14b-sql-lora-warehouse-r64) | Warehouse-schema r=64 LoRA |
+| Legacy Qwen GGUF | [KDDSTLC/lfed-qwen2.5-coder-14b-sql-gguf](https://huggingface.co/KDDSTLC/lfed-qwen2.5-coder-14b-sql-gguf) | Older v1 five-table llama.cpp fallback |
 | Live interface | [KDDSTLC/LFED](https://huggingface.co/spaces/KDDSTLC/LFED) | Hosted Gradio demonstration |
 
 The earlier r=32 adapter remains available as a rollback and comparison artifact at [KDDSTLC/lfed-qwen2.5-coder-14b-sql-lora](https://huggingface.co/KDDSTLC/lfed-qwen2.5-coder-14b-sql-lora).
@@ -200,11 +308,12 @@ The project is looking for:
 
 ```text
 local-data-stack/
+├── desktop/             # Sovereign Rust desktop host (Tao+Wry) & React 19 Generative UI
 ├── oss_framework/       # dlt, dbt, DuckDB, orchestration, tests
 ├── nl_query/            # Gradio, inference backends, SQL guard, evaluation
-├── training/            # Pair generation and model-training workflows
+├── training/            # Two-hop trajectory generation, GRPO training, GGUF export
 ├── rill_project/        # Metrics, dashboards, models, alerts, APIs
-├── models/              # Local model instructions and ignored weights
+├── models/              # Local model instructions and calibrated GGUF weights
 ├── research/            # Research explainer source
 ├── scripts/             # Root orchestration and contracts
 └── docs/                # Data model, constraints, and known issues

@@ -1,0 +1,40 @@
+# Hop 2 GBNF Grammar: render_workspace_ui
+# Dynamically constrains component schemas and DuckDB output column bindings
+
+root ::= ws "{" ws "\"tool\"" ws ":" ws "\"render_workspace_ui\"" ws "," ws "\"arguments\"" ws ":" ws arguments ws "}" ws
+
+arguments ::= "{" ws "\"title\"" ws ":" ws string ws "," ws "\"narrative_summary\"" ws ":" ws string ws "," ws "\"components\"" ws ":" ws component-list ws "}"
+
+component-list ::= "[" ws component (ws "," ws component){0,3} ws "]"
+
+component ::= kpi-grid | time-series-chart | category-bar-chart | budget-variance-chart | data-table | filter-bar
+
+kpi-grid ::= "{" ws "\"component\"" ws ":" ws "\"KPIGrid\"" ws "," ws "\"metrics\"" ws ":" ws "[" ws kpi-metric (ws "," ws kpi-metric){0,3} ws "]" ws "}"
+kpi-metric ::= "{" ws "\"label\"" ws ":" ws string ws "," ws "\"value_column\"" ws ":" ws column-name ws "," ws "\"value_format\"" ws ":" ws value-format (ws "," ws "\"delta_column\"" ws ":" ws column-name)? ws "}"
+
+time-series-chart ::= "{" ws "\"component\"" ws ":" ws "\"TimeSeriesChart\"" ws "," ws "\"chart_variant\"" ws ":" ws ts-variant ws "," ws "\"x_column\"" ws ":" ws column-name ws "," ws "\"y_columns\"" ws ":" ws col-list-1-3 (ws "," ws "\"series_column\"" ws ":" ws column-name)? ws "," ws "\"value_format\"" ws ":" ws value-format ws "}"
+ts-variant ::= "\"line\"" | "\"area\"" | "\"stacked_bar\"" | "\"bar\""
+
+category-bar-chart ::= "{" ws "\"component\"" ws ":" ws "\"CategoryBarChart\"" ws "," ws "\"chart_variant\"" ws ":" ws cat-variant ws "," ws "\"category_column\"" ws ":" ws column-name ws "," ws "\"value_columns\"" ws ":" ws col-list-1-3 (ws "," ws "\"series_column\"" ws ":" ws column-name)? ws "," ws "\"value_format\"" ws ":" ws value-format ws "}"
+cat-variant ::= "\"horizontal\"" | "\"vertical\"" | "\"grouped\"" | "\"stacked\""
+
+budget-variance-chart ::= "{" ws "\"component\"" ws ":" ws "\"BudgetVarianceChart\"" ws "," ws "\"category_column\"" ws ":" ws column-name ws "," ws "\"actual_column\"" ws ":" ws column-name ws "," ws "\"budget_column\"" ws ":" ws column-name (ws "," ws "\"variance_column\"" ws ":" ws column-name)? ws "," ws "\"value_format\"" ws ":" ws value-format ws "}"
+
+data-table ::= "{" ws "\"component\"" ws ":" ws "\"DataTable\"" ws "," ws "\"columns\"" ws ":" ws col-list-any (ws "," ws "\"default_sort\"" ws ":" ws sort-spec)? ws "}"
+sort-spec ::= "{" ws "\"column\"" ws ":" ws column-name ws "," ws "\"direction\"" ws ":" ws ("\"asc\"" | "\"desc\"") ws "}"
+
+filter-bar ::= "{" ws "\"component\"" ws ":" ws "\"FilterBar\"" ws "," ws "\"controls\"" ws ":" ws "[" ws filter-control (ws "," ws filter-control){0,3} ws "]" ws "}"
+filter-control ::= "{" ws "\"column\"" ws ":" ws column-name ws "," ws "\"control_type\"" ws ":" ws control-type ws "," ws "\"label\"" ws ":" ws string ws "}"
+control-type ::= "\"date_range\"" | "\"multi_select\"" | "\"single_select\"" | "\"numeric_range\"" | "\"search\""
+
+value-format ::= "\"currency\"" | "\"percent\"" | "\"integer\"" | "\"decimal\"" | "\"raw\""
+
+col-list-1-3 ::= "[" ws column-name (ws "," ws column-name){0,2} ws "]"
+col-list-any ::= "[" ws column-name (ws "," ws column-name)* ws "]"
+
+column-name ::= "\"spend_month\"" | "\"category\"" | "\"total_spend\""
+
+string ::= "\"" char* "\""
+char ::= [^"\\\x7F\x00-\x1F] | "\\" (["\\bfnrt] | "u" [0-9a-fA-F]{4})
+
+ws ::= [ \t\n\r]*

@@ -1,0 +1,15 @@
+# Hop 1 GBNF Grammar: execute_duckdb_query
+# Enforces valid JSON tool call and read-only SELECT / WITH prefix
+
+root ::= ws "{" ws "\"tool\"" ws ":" ws "\"execute_duckdb_query\"" ws "," ws "\"arguments\"" ws ":" ws arguments ws "}" ws
+
+arguments ::= "{" ws "\"explanation\"" ws ":" ws string ws "," ws "\"sql\"" ws ":" ws sql-string ws "}"
+
+sql-string ::= "\"" sql-prefix sql-char* "\""
+sql-prefix ::= ("SELECT" | "select" | "WITH" | "with") " "
+sql-char ::= [^"\\\x7F\x00-\x1F] | "\\" (["\\bfnrt] | "u" [0-9a-fA-F]{4})
+
+string ::= "\"" char* "\""
+char ::= [^"\\\x7F\x00-\x1F] | "\\" (["\\bfnrt] | "u" [0-9a-fA-F]{4})
+
+ws ::= [ \t\n\r]*

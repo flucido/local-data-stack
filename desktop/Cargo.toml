@@ -1,0 +1,33 @@
+[package]
+name = "local-data-stack-desktop"
+version = "0.1.0"
+edition = "2021"
+description = "Sovereign Local-First Analytics & Generative UI Engine (Tao + Wry + SQLite + DuckDB + Apache Arrow IPC)"
+
+[lib]
+name = "local_data_stack_desktop"
+path = "src/lib.rs"
+
+[[bin]]
+name = "local-data-stack-desktop"
+path = "src/main.rs"
+
+[features]
+default = []
+bundled-duckdb = ["duckdb/bundled"]
+
+[dependencies]
+anyhow = "1.0"
+arrow = { version = "60", default-features = false, features = ["ipc", "json"] }
+arrow-ipc = "60"
+arrow-schema = "60"
+duckdb = { version = "1.4", default-features = false }
+ http = "1.1"
+regex = "1.11"
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tao = "0.30"
+thiserror = "2.0"
+uuid = { version = "1.11", features = ["v4"] }
+wry = "0.47"

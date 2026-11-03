@@ -327,10 +327,25 @@ def get_schema_info(
 
 def _try_parse_json_envelope(text: str) -> str | None:
     """
-    Try to parse the LLM output as a JSON envelope like:
-      {"sql": "SELECT ...", "explanation": "..."}
+    Try to parse the LLM output as either:
+      1. Canonical Hop 1 tool call:
+         {"tool": "execute_duckdb_query", "arguments": {"explanation": "...", "sql": "SELECT ..."}}
+      2. Legacy JSON envelope:
+         {"sql": "SELECT ...", "explanation": "..."}
     Returns the SQL string if found, or None.
     """
+    stripped = text.strip()
+    if stripped.startswith("{") and stripped.endswith("}"):
+        try:
+            obj = json.loads(stripped)
+            if isinstance(obj, dict):
+                if isinstance(obj.get("arguments"), dict) and "sql" in obj["arguments"]:
+                    return str(obj["arguments"]["sql"])
+                if "sql" in obj:
+                    return str(obj["sql"])
+        except (json.JSONDecodeError, KeyError, TypeError):
+            pass
+
     json_match = re.search(r'\{[^{}]*"sql"\s*:\s*"[^"]+"[^{}]*\}', text, re.DOTALL)
     if not json_match:
         return None
@@ -525,3 +540,215 @@ def execute_safe(
     df = _execute_with_timeout(conn, safe_sql, timeout_sec)
 
     return sql, df
+
+
+# ── Two-Hop Protocol Primitives (Self-Healing Errors, Result Summary, Filter CTEs) ──
+
+
+def format_duckdb_error(exc: Exception) -> dict:
+    """Format a DuckDB or SQL validation exception into the canonical Hop 1b `duckdb_execution_error` payload.
+
+    Preserves DuckDB's `Candidate bindings` hints so a 1.5B-3B model can self-heal column/table mistakes.
+    """
+    raw_msg = str(exc.__cause__ if exc.__cause__ else exc).strip()
+    error_type = "ExecutionError"
+    for prefix, label in (
+        ("Binder Error:", "BinderError"),
+        ("Catalog Error:", "CatalogError"),
+        ("Parser Error:", "ParserError"),
+        ("Conversion Error:", "ConversionError"),
+    ):
+        if raw_msg.startswith(prefix):
+            error_type = label
+            raw_msg = raw_msg[len(prefix) :].strip()
+            break
+    else:
+        if isinstance(exc, ValueError):
+            error_type = "ValidationError"
+            if raw_msg.startswith("SQL validation failed:"):
+                raw_msg = raw_msg[len("SQL validation failed:") :].strip()
+
+    return {
+        "status": "error",
+        "error_type": error_type,
+        "message": raw_msg,
+    }
+
+
+def _json_safe_scalar(val):
+    """Convert dates, timestamps, decimals, numpy scalars, and NaNs into JSON-safe primitives."""
+    if val is None:
+        return None
+    if hasattr(val, "item") and callable(val.item):
+        try:
+            val = val.item()
+        except Exception:
+            pass
+    if hasattr(val, "isoformat"):
+        return val.isoformat()
+    try:
+        import math
+
+        if isinstance(val, float) and (math.isnan(val) or math.isinf(val)):
+            return None
+    except Exception:
+        pass
+    if isinstance(val, int | float | str | bool):
+        return val
+    return str(val)
+
+
+def compute_result_summary(
+    conn: duckdb.DuckDBPyConnection,
+    raw_llm_output: str,
+    query_id: str = "q_default",
+    max_sample_rows: int = 3,
+    timeout_sec: int = QUERY_TIMEOUT_SEC,
+) -> tuple[str, pd.DataFrame, dict]:
+    """Execute a Hop 1 SQL query and compute the compact ~150-token `duckdb_result_summary` for Hop 2.
+
+    Returns:
+        `(cleaned_sql, df, result_summary_dict)`
+    """
+    sql, df = execute_safe(conn, raw_llm_output, timeout_sec=timeout_sec)
+
+    # Describe logical DuckDB column types
+    desc_rows = conn.execute(f"DESCRIBE SELECT * FROM (\n{sql}\n) AS _desc").fetchall()
+    col_types = {row[0]: str(row[1]) for row in desc_rows}
+
+    row_count = int(len(df))
+    columns_meta: list[dict] = []
+
+    for col_name in df.columns:
+        series = df[col_name]
+        logical_type = col_types.get(col_name, str(series.dtype).upper())
+        null_count = int(series.isna().sum())
+        non_null = series.dropna()
+        distinct_count = int(non_null.nunique()) if len(non_null) > 0 else 0
+
+        col_entry: dict = {
+            "name": str(col_name),
+            "type": logical_type,
+            "distinct_count": distinct_count,
+            "null_count": null_count,
+        }
+
+        upper_t = logical_type.upper()
+        is_num_or_date = any(
+            k in upper_t
+            for k in ("INT", "DOUBLE", "FLOAT", "DECIMAL", "NUMERIC", "REAL", "DATE", "TIME")
+        )
+        if is_num_or_date and len(non_null) > 0:
+            col_entry["min"] = _json_safe_scalar(non_null.min())
+            col_entry["max"] = _json_safe_scalar(non_null.max())
+        elif len(non_null) > 0:
+            unique_vals = [_json_safe_scalar(v) for v in non_null.unique()[:3]]
+            col_entry["sample_values"] = unique_vals
+
+        columns_meta.append(col_entry)
+
+    sample_rows: list[list] = []
+    for _, row in df.head(max_sample_rows).iterrows():
+        sample_rows.append([_json_safe_scalar(v) for v in row.tolist()])
+
+    summary = {
+        "status": "ok",
+        "query_id": query_id,
+        "row_count": row_count,
+        "columns": columns_meta,
+        "sample_rows": sample_rows,
+    }
+    return sql, df, summary
+
+
+def apply_query_filters(
+    conn: duckdb.DuckDBPyConnection,
+    base_sql: str,
+    filters: list[dict],
+    timeout_sec: int = QUERY_TIMEOUT_SEC,
+) -> pd.DataFrame:
+    """Zero-LLM `FilterBar` execution: wrap `base_sql` in a parameterized outer CTE (`WITH _base AS (...)`).
+
+    Supported filter items in `filters`:
+      - `{"column": "spend_month", "control_type": "date_range", "min": "2026-06-01", "max": "2026-09-01"}`
+      - `{"column": "category", "control_type": "multi_select", "values": ["Groceries", "Utilities"]}`
+      - `{"column": "category", "control_type": "single_select", "value": "Groceries"}`
+      - `{"column": "total_spend", "control_type": "numeric_range", "min": 100.0, "max": 900.0}`
+      - `{"column": "merchant_name", "control_type": "search", "query": "Trader"}`
+    """
+    cleaned_base = extract_sql(base_sql)
+    validate_sql(cleaned_base, conn=conn)
+
+    # Introspect valid output column names from the base query to prevent SQL injection via column names
+    desc_rows = conn.execute(f"DESCRIBE SELECT * FROM (\n{cleaned_base}\n) AS _desc").fetchall()
+    valid_cols = {str(r[0]) for r in desc_rows}
+
+    where_clauses: list[str] = []
+    params: list = []
+
+    for f in filters or []:
+        col = f.get("column")
+        if not isinstance(col, str) or col not in valid_cols:
+            raise ValueError(
+                f"Invalid filter column '{col}'. Allowed columns: {sorted(valid_cols)}"
+            )
+
+        quoted_col = f'"{col}"'
+        ctrl_type = f.get("control_type")
+
+        if ctrl_type in ("date_range", "numeric_range"):
+            if f.get("min") is not None:
+                where_clauses.append(f"{quoted_col} >= ?")
+                params.append(f["min"])
+            if f.get("max") is not None:
+                where_clauses.append(f"{quoted_col} <= ?")
+                params.append(f["max"])
+        elif ctrl_type == "multi_select":
+            vals = f.get("values") or []
+            if vals:
+                placeholders = ", ".join("?" for _ in vals)
+                where_clauses.append(f"{quoted_col} IN ({placeholders})")
+                params.extend(vals)
+        elif ctrl_type == "single_select":
+            if f.get("value") is not None:
+                where_clauses.append(f"{quoted_col} = ?")
+                params.append(f["value"])
+        elif ctrl_type == "search":
+            q = f.get("query")
+            if isinstance(q, str) and q.strip():
+                where_clauses.append(f"CAST({quoted_col} AS VARCHAR) ILIKE ?")
+                params.append(f"%{q.strip()}%")
+        else:
+            raise ValueError(f"Unsupported filter control_type: {ctrl_type!r}")
+
+    where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+    wrapped_sql = (
+        f"WITH _base AS (\n{cleaned_base}\n)\n"
+        f"SELECT * FROM _base\n"
+        f"{where_sql}\n"
+        f"LIMIT {MAX_RESULT_ROWS}"
+    )
+
+    result = {"df": None, "error": None}
+    done = threading.Event()
+
+    def run():
+        try:
+            result["df"] = conn.execute(wrapped_sql, params).fetchdf()
+        except Exception as e:
+            result["error"] = e
+        finally:
+            done.set()
+
+    thread = threading.Thread(target=run, daemon=True)
+    thread.start()
+
+    if not done.wait(timeout=timeout_sec):
+        conn.interrupt()
+        thread.join(timeout=2)
+        raise QueryTimeoutError(f"Filtered query timed out after {timeout_sec}s.")
+
+    if result["error"]:
+        raise result["error"]
+
+    return result["df"]

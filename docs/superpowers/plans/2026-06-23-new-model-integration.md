@@ -241,7 +241,7 @@ tokenizer = AutoTokenizer.from_pretrained(adapter)
 
 - Trained on synthetic data against the real schema; may hallucinate columns
 - Does not know about Rill metrics views (see project docs for the known gap)
-- Requires CUDA for 4-bit inference (bnb); CPU/MPS needs a different base model
+- Requires CUDA for 4-bit inference (bnb); CPU/MPS uses the fp16 base (`Qwen/Qwen2.5-Coder-14B-Instruct`) automatically — see `model_inference.py:_resolve_base_model()`
 ```
 
 Upload it:

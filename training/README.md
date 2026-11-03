@@ -105,15 +105,22 @@ re-evaluation. It is not a turnkey district-deployment tool:
 See the case-study participation section of the repository README for how
 collaborators and supervised district partners can extend this work.
 
-## Phase 2 Roadmap: Sub-3B Two-Hop (DuckDB SQL + Generative UI) Modal Pipeline
+## Phase 2: Sovereign Two-Hop SLM Pipeline (`LiquidAI/LFM3-1.7B`)
 
-For the next-generation local-first desktop architecture (`1.2B–3B` SLMs executing two-hop `execute_duckdb_query` + `render_workspace_ui` tool calls), see:
+The next-generation local-first desktop architecture executes a two-hop tool-calling protocol (`execute_duckdb_query` → in-process DuckDB execution + `Candidate bindings` self-healing → `render_workspace_ui`):
 
-- **Product & Training Specification**: [`docs/Local First Generative Ui Product Spec.md`](../docs/Local%20First%20Generative%20Ui%20Product%20Spec.md) (Section 4)
-- **Step-by-Step Implementation Plan**: [`docs/superpowers/plans/2026-11-02-slm-two-hop-training-plan.md`](../docs/superpowers/plans/2026-11-02-slm-two-hop-training-plan.md)
+- **Model Checkpoint**: [`KDDSTLC/lfed-lfm3-1.7b-two-hop-bf16`](https://huggingface.co/KDDSTLC/lfed-lfm3-1.7b-two-hop-bf16) (Native `bfloat16` 100% Full Fine-Tuning + execution-guided GRPO on Modal A100-80GB).
+- **Quantized GGUF**: [`KDDSTLC/lfed-lfm3-1.7b-two-hop-gguf`](https://huggingface.co/KDDSTLC/lfed-lfm3-1.7b-two-hop-gguf) (`lfed-lfm3-1.7b-two-hop-Q8_0.gguf`, 1.76 GB, calibrated via `llama-imatrix`).
+- **Dataset**: [`KDDSTLC/lfed-lfm3-two-hop-trajectories`](https://huggingface.co/datasets/KDDSTLC/lfed-lfm3-two-hop-trajectories) (3,000 multi-turn K-12 trajectories: 2,100 Golden, 450 Self-Healing SQL Recovery, 450 2-Turn Refinement).
 
-Key architectural upgrades over the v1/v2 14B pipeline:
-1. **Native `bfloat16` Full Fine-Tuning (FFT) / `r=64` DoRA on Modal (`A100-80GB` / `H100`)** via standard Hugging Face `transformers` + `trl` + `flash-attn` + `liger-kernel` (no Unsloth, no 4-bit QLoRA underfitting).
-2. **High-Bitrate Calibrated GGUF Export (`Q8_0` for 1.2B–1.7B; `Q6_K` + `llama-imatrix` for 3B)** preserving `99.5%+` of `bf16` SQL column accuracy in `~1.6–2.3 GB`.
-3. **Top-K Schema Pruning (`k=5` tables with hard-negative distractors)** in both training data synthesis and runtime inference prompts.
-4. **Seeded DuckDB Validation + Split B Self-Healing (`BinderError`) Trajectories + Dynamic Hop 2 Column-Enum GBNF**.
+### Pipeline Modules
+
+| File | Purpose |
+| :--- | :--- |
+| `schema_pruner.py` | Deterministic BM25 + 1-hop FK join pruner selecting the top-5 K-12 warehouse tables (<800 tokens). |
+| `gbnf_compiler.py` | Static `hop1_sql.gbnf` grammar and dynamic `compile_hop2_gbnf(columns)` schema compiler. |
+| `modal_generate.py` | Multi-turn Two-Hop dataset generator with seeded DuckDB execution and self-healing error injection. |
+| `modal_train_slm.py` | Modal A100 training script running 3 epochs SFT with completion-only loss masking + execution-guided GRPO. |
+| `modal_export_gguf.py` | Isolated Modal job converting bf16 to f16 GGUF, computing `llama-imatrix`, and quantizing to `Q8_0`. |
+| `reward_fn.py` | Verifiable DuckDB execution-guided reward function (+2.0 execution hit, -1.0 syntax error). |
+| `eval_holdout_local.py` | Local private evaluation runner for testing the fine-tuned model against held-out K-12 questions. |

@@ -8,7 +8,6 @@ import os
 import statistics
 import threading
 import time
-from typing import Dict
 
 import duckdb
 
@@ -37,7 +36,7 @@ class PerformanceTest:
             print(f"✗ Query '{name}' failed: {e}")
             return None
 
-    def benchmark_query(self, name: str, query: str, iterations: int = 10) -> Dict:
+    def benchmark_query(self, name: str, query: str, iterations: int = 10) -> dict:
         """Benchmark a query with multiple iterations"""
         print(f"\nBenchmarking: {name}")
         print(f"  Query: {query[:80]}...")

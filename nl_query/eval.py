@@ -37,6 +37,9 @@ class EvalResult:
     total: int = 0
     execution_hits: int = 0
     exact_hits: int = 0
+    first_pass_hits: int = 0
+    self_healed_hits: int = 0
+    hop2_ui_valid_hits: int = 0
     errors: int = 0
     timeouts: int = 0
     per_question: list[dict] = dataclasses.field(default_factory=list)
@@ -48,6 +51,18 @@ class EvalResult:
     @property
     def exact_accuracy(self) -> float:
         return self.exact_hits / self.total if self.total > 0 else 0.0
+
+    @property
+    def ex_at_1(self) -> float:
+        return self.first_pass_hits / self.total if self.total > 0 else 0.0
+
+    @property
+    def ex_at_3(self) -> float:
+        return self.execution_hits / self.total if self.total > 0 else 0.0
+
+    @property
+    def hop2_semantic_accuracy(self) -> float:
+        return self.hop2_ui_valid_hits / self.total if self.total > 0 else 0.0
 
 
 def _detect_device() -> str:
@@ -104,6 +119,9 @@ def run_eval(
     max_tokens: int = 256,
     timeout_sec: int = 30,
     traces_path: str | None = None,
+    two_hop: bool = False,
+    prune_k: int = 5,
+    max_retries: int = 2,
 ) -> EvalResult:
     """Run the eval harness against a test set with a specified adapter.
 
@@ -158,12 +176,36 @@ def run_eval(
 
         t0 = time.time()
         try:
-            raw_output, prompt = generate_sql(question, max_tokens=max_tokens)
-            pred_sql = extract_sql(raw_output)
-            entry["pred_sql"] = pred_sql
-            entry["raw_output"] = raw_output
-            entry["prompt_len"] = len(prompt)
-            entry["generation_sec"] = round(time.time() - t0, 2)
+            if two_hop:
+                from model_inference import generate_two_hop_turn
+
+                turn = generate_two_hop_turn(
+                    question,
+                    conn=conn,
+                    k_tables=prune_k,
+                    max_retries=max_retries,
+                    max_tokens=max_tokens,
+                )
+                pred_sql = turn["pred_sql"]
+                raw_output = turn["raw_hop1"]
+                retries_used = int(turn["retries_used"])
+                entry["pred_sql"] = pred_sql
+                entry["raw_output"] = raw_output
+                entry["pruned_tables"] = turn["pruned_tables"]
+                entry["retries_used"] = retries_used
+                entry["hop2_valid"] = bool(turn["hop2_valid"])
+                entry["hop2_call"] = turn["hop2_call"]
+                entry["generation_sec"] = round(time.time() - t0, 2)
+                if turn["hop2_valid"]:
+                    result.hop2_ui_valid_hits += 1
+            else:
+                raw_output, prompt = generate_sql(question, max_tokens=max_tokens)
+                pred_sql = extract_sql(raw_output)
+                retries_used = 0
+                entry["pred_sql"] = pred_sql
+                entry["raw_output"] = raw_output
+                entry["prompt_len"] = len(prompt)
+                entry["generation_sec"] = round(time.time() - t0, 2)
 
             # Execute gold
             gold_rows = conn.execute(gold_sql).fetchall()
@@ -176,6 +218,10 @@ def run_eval(
 
             if execution_match(gold_rows, pred_rows):
                 result.execution_hits += 1
+                if retries_used == 0:
+                    result.first_pass_hits += 1
+                else:
+                    result.self_healed_hits += 1
                 entry["execution_match"] = True
             else:
                 entry["execution_match"] = False
@@ -251,6 +297,13 @@ def main():
         help="Write per-question traces (raw output, SQL, match, latency, device) as JSONL",
     )
     parser.add_argument("--max-tokens", type=int, default=256, help="Max new tokens per generation")
+    parser.add_argument(
+        "--two-hop",
+        action="store_true",
+        help="Enable Two-Hop GBNF + Top-K Schema Pruning + Self-Healing SQL + Hop 2 UI evaluation",
+    )
+    parser.add_argument("--prune-k", type=int, default=5, help="Top-K tables to prune per prompt")
+    parser.add_argument("--max-retries", type=int, default=2, help="Max self-healing SQL retries")
     args = parser.parse_args()
 
     adapter = args.adapter or str(
@@ -272,6 +325,9 @@ def main():
         args.warehouse,
         max_tokens=args.max_tokens,
         traces_path=traces,
+        two_hop=args.two_hop,
+        prune_k=args.prune_k,
+        max_retries=args.max_retries,
     )
 
     if args.output:

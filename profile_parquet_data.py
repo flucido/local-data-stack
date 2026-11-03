@@ -7,7 +7,7 @@ Uses DuckDB for efficient querying without loading entire files into memory.
 import json
 import os
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any
 
 import duckdb
 
@@ -65,7 +65,7 @@ class ParquetQualityProfiler:
         self.con = duckdb.connect(":memory:")
         self.results = {}
 
-    def profile_domain(self, domain: str, parquet_path: str) -> Dict[str, Any]:
+    def profile_domain(self, domain: str, parquet_path: str) -> dict[str, Any]:
         """Profile a single domain's Parquet file"""
         print(f"\n📊 Profiling {domain}...", flush=True)
 
@@ -129,17 +129,17 @@ class ParquetQualityProfiler:
         result = self.con.execute(f"DESCRIBE '{parquet_path}'").fetchall()
         return len(result)
 
-    def _get_column_names(self, parquet_path: str) -> List[str]:
+    def _get_column_names(self, parquet_path: str) -> list[str]:
         """Get all column names"""
         result = self.con.execute(f"DESCRIBE '{parquet_path}'").fetchall()
         return [row[0] for row in result]
 
-    def _get_schema(self, parquet_path: str) -> Dict[str, str]:
+    def _get_schema(self, parquet_path: str) -> dict[str, str]:
         """Get schema (column -> type mapping)"""
         result = self.con.execute(f"DESCRIBE '{parquet_path}'").fetchall()
         return {row[0]: row[1] for row in result}
 
-    def _analyze_missing_values(self, domain: str, parquet_path: str) -> Dict[str, Any]:
+    def _analyze_missing_values(self, domain: str, parquet_path: str) -> dict[str, Any]:
         """Analyze null/missing values across all columns"""
         columns = self._get_column_names(parquet_path)
         total_rows = self._get_row_count(parquet_path)
@@ -178,7 +178,7 @@ class ParquetQualityProfiler:
 
         return missing_analysis
 
-    def _analyze_critical_fields(self, domain: str, parquet_path: str) -> Dict[str, Any]:
+    def _analyze_critical_fields(self, domain: str, parquet_path: str) -> dict[str, Any]:
         """Deep analysis of critical business fields"""
         critical_fields = CRITICAL_FIELDS.get(domain, [])
         columns = self._get_column_names(parquet_path)
@@ -227,7 +227,7 @@ class ParquetQualityProfiler:
 
         return analysis
 
-    def _analyze_pii_fields(self, domain: str, parquet_path: str) -> Dict[str, Any]:
+    def _analyze_pii_fields(self, domain: str, parquet_path: str) -> dict[str, Any]:
         """Analyze PII fields for completeness and patterns"""
         pii_fields = PII_FIELDS.get(domain, [])
         columns = self._get_column_names(parquet_path)
@@ -271,7 +271,7 @@ class ParquetQualityProfiler:
 
         return pii_analysis
 
-    def _check_duplicates(self, parquet_path: str) -> Dict[str, Any]:
+    def _check_duplicates(self, parquet_path: str) -> dict[str, Any]:
         """Check for duplicate StudentIDs"""
         try:
             total_rows = self._get_row_count(parquet_path)
@@ -292,7 +292,7 @@ class ParquetQualityProfiler:
         except Exception as e:
             return {"error": str(e)}
 
-    def _analyze_distributions(self, domain: str, parquet_path: str) -> Dict[str, Any]:
+    def _analyze_distributions(self, domain: str, parquet_path: str) -> dict[str, Any]:
         """Analyze value distributions for key categorical fields"""
         distributions = {}
         columns = self._get_column_names(parquet_path)
@@ -327,7 +327,7 @@ class ParquetQualityProfiler:
 
         return distributions
 
-    def profile_all(self) -> Dict[str, Any]:
+    def profile_all(self) -> dict[str, Any]:
         """Profile all domains"""
         print("\n" + "=" * 70)
         print("🔍 DATA QUALITY PROFILING - AeRIES 2025-2026")

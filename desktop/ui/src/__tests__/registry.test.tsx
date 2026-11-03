@@ -1,0 +1,144 @@
+import React from "react";
+import { describe, expect, it, vi } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
+import {
+  ExecuteDuckDBQuerySchema,
+  RenderWorkspaceUISchema,
+  validateWorkspaceUISemantics,
+} from "../schemas/workspace-ui";
+import { decodeArrowIPCStream, encodeRowsToArrowIPC } from "../lib/arrow-client";
+import { PRESET_SCENARIOS } from "../lib/local-ai-provider";
+import { WorkspaceRenderer } from "../components/registry/WorkspaceRenderer";
+
+describe("Generative UI Canonical Registry & Arrow IPC Client", () => {
+  it("validates Hop 1 execute_duckdb_query and rejects mutating SQL", () => {
+    const valid = ExecuteDuckDBQuerySchema.safeParse({
+      tool: "execute_duckdb_query",
+      arguments: {
+        explanation: "Count students",
+        sql: "SELECT COUNT(*) FROM main_core.dim_students",
+      },
+    });
+    expect(valid.success).toBe(true);
+
+    const invalid = ExecuteDuckDBQuerySchema.safeParse({
+      tool: "execute_duckdb_query",
+      arguments: {
+        explanation: "Drop table",
+        sql: "DROP TABLE main_core.dim_students",
+      },
+    });
+    expect(invalid.success).toBe(false);
+  });
+
+  it("round-trips rows through Apache Arrow IPC binary stream via tableFromIPC", () => {
+    const sampleRows = [
+      { academic_year: "2023-2024", school_name: "Lincoln High School", avg_gpa: 2.92 },
+      { academic_year: "2024-2025", school_name: "Roosevelt Middle School", avg_gpa: 3.09 },
+    ];
+    const ipcBytes = encodeRowsToArrowIPC(sampleRows, [
+      "academic_year",
+      "school_name",
+      "avg_gpa",
+    ]);
+    expect(ipcBytes.byteLength).toBeGreaterThan(64);
+
+    const decoded = decodeArrowIPCStream(ipcBytes, "q_test_ipc");
+    expect(decoded.queryId).toBe("q_test_ipc");
+    expect(decoded.columns).toEqual(["academic_year", "school_name", "avg_gpa"]);
+    expect(decoded.rows).toHaveLength(2);
+    expect(decoded.rows[0].school_name).toBe("Lincoln High School");
+    expect(Number(decoded.rows[0].avg_gpa)).toBeCloseTo(2.92, 2);
+  });
+
+  it("enforces Hop 2 column binding integrity and KPIGrid row_count semantics", () => {
+    const scenario = PRESET_SCENARIOS[0];
+    const validRes = validateWorkspaceUISemantics(
+      scenario.hop2Call,
+      scenario.summary
+    );
+    expect(validRes.valid).toBe(true);
+
+    const badColCall = structuredClone(scenario.hop2Call);
+    if (badColCall.arguments.components[1].component === "TimeSeriesChart") {
+      badColCall.arguments.components[1].y_columns = ["hallucinated_column"];
+    }
+    const badRes = validateWorkspaceUISemantics(badColCall, scenario.summary);
+    expect(badRes.valid).toBe(false);
+    expect(badRes.errors.join(" ")).toContain("hallucinated_column");
+  });
+
+  it("mounts FilterBar, TimeSeriesChart, BudgetVarianceChart, CategoryBarChart, KPIGrid, and DataTable", () => {
+    const onApplyFilters = vi.fn();
+
+    // 1. Render Multi-Year School Enrollment Trend (FilterBar + TimeSeriesChart + DataTable)
+    const enrollmentScen = PRESET_SCENARIOS[0];
+    const { unmount } = render(
+      <WorkspaceRenderer
+        uiPayload={enrollmentScen.hop2Call}
+        resultSummary={enrollmentScen.summary}
+        rows={enrollmentScen.seedRows}
+        baseRows={enrollmentScen.seedRows}
+        onApplyFilters={onApplyFilters}
+        filterLatencyMs={4.2}
+      />
+    );
+    expect(screen.getByTestId("filter-bar")).toBeInTheDocument();
+    expect(screen.getByTestId("timeseries-chart")).toBeInTheDocument();
+    expect(screen.getByTestId("data-table")).toBeInTheDocument();
+
+    // Click a school pill in FilterBar and verify Zero-LLM callback fires
+    const lincolnPill = screen.getByRole("button", { name: "Lincoln High School" });
+    fireEvent.click(lincolnPill);
+    expect(onApplyFilters).toHaveBeenCalledWith([
+      {
+        column: "school_name",
+        control_type: "multi_select",
+        values: ["Lincoln High School"],
+      },
+    ]);
+    unmount();
+
+    // 2. Render KPIGrid + CategoryBarChart on Equity Outcomes by Race
+    const multiCompPayload = RenderWorkspaceUISchema.parse({
+      tool: "render_workspace_ui",
+      arguments: {
+        title: "District Equity Overview",
+        narrative_summary: "Subgroup GPA and attendance rate comparison.",
+        components: [
+          {
+            component: "KPIGrid",
+            metrics: [
+              {
+                label: "Subgroup Average GPA",
+                value_column: "avg_gpa",
+                value_format: "decimal",
+                delta_column: "avg_attendance_rate",
+              },
+            ],
+          },
+          {
+            component: "CategoryBarChart",
+            chart_variant: "horizontal",
+            category_column: "primary_race",
+            value_columns: ["avg_gpa", "avg_attendance_rate"],
+            value_format: "decimal",
+          },
+        ],
+      },
+    });
+
+    const equityScen = PRESET_SCENARIOS[1];
+    render(
+      <WorkspaceRenderer
+        uiPayload={multiCompPayload}
+        rows={equityScen.seedRows}
+        baseRows={equityScen.seedRows}
+        onApplyFilters={onApplyFilters}
+      />
+    );
+    expect(screen.getByTestId("kpi-value-avg_gpa")).toBeInTheDocument();
+    expect(screen.getByTestId("category-bar-chart")).toBeInTheDocument();
+  });
+});

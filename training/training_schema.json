@@ -2005,6 +2005,104 @@
         "name": "dbt_loaded_at",
         "type": "TIMESTAMP WITH TIME ZONE"
       }
+    ],
+    "main_staging.stg_cde__restraint_seclusion": [
+      {
+        "name": "cds_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "county_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "district_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_code",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "county_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "district_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "school_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "academic_year",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "aggregate_level",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "nps",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "reporting_category",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "reporting_category_label",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "count_of_mechanical_restraints",
+        "type": "INTEGER"
+      },
+      {
+        "name": "unduplicated_count_of_students_mechanical",
+        "type": "INTEGER"
+      },
+      {
+        "name": "count_of_physical_restraints",
+        "type": "INTEGER"
+      },
+      {
+        "name": "unduplicated_count_of_students_physical",
+        "type": "INTEGER"
+      },
+      {
+        "name": "count_of_seclusions",
+        "type": "INTEGER"
+      },
+      {
+        "name": "dlt_loaded_at",
+        "type": "TIMESTAMP WITH TIME ZONE"
+      },
+      {
+        "name": "source_filename",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "aggregate_level_label",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "is_race_ethnicity_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_gender_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_atrisk_subgroup",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "is_grade_level_subgroup",
+        "type": "BOOLEAN"
+      }
     ]
   },
   "key_values": {

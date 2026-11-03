@@ -50,7 +50,12 @@ htmlcov/
 *.swo
 
 # Internal tool artifacts
+# NOTE: `Docs/` was removed here. On macOS's case-insensitive filesystem it
+# matched the real tracked `docs/` tree and silently hid planning docs from git.
 .reasonix/
+.opencode/
+.superpowers/
+/local-data-stack/
 
 # Security scan outputs
 gitleaks_output*
@@ -67,14 +72,33 @@ logs/
 models/lora-warehouse-r64/
 models/*/adapter_model.safetensors
 models/*/adapter_model.bin
+*.gguf
+*.safetensors
 
 # Training artifacts
 training/__pycache__/
 training/pairs.jsonl
 training/pairs_*.jsonl
+training/lfm3_two_hop_3k.jsonl
+training/_*.jsonl
+training/holdout_traces.jsonl
+training/holdout_results.json
+
+# Rust & Desktop UI artifacts
+desktop/target/
+desktop/ui/node_modules/
+desktop/ui/dist/
+desktop/ui/tsconfig.tsbuildinfo
 
 # Tooling artifacts
 .understand-anything/
+.openhands/
+.vibeweaver/
 
 # Eval results (generated, not committed)
 nl_query/eval_results_*.json
+nl_query/traces_*.jsonl
+
+# REAL STUDENT DATA — public repo, never commit. CalPADS/SENR/SINF/SPRG
+# extracts contain names and dates of birth. Keep out of git entirely.
+research/

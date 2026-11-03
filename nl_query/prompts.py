@@ -451,3 +451,34 @@ def build_prompt(
         f"<|im_start|>assistant\n"
     )
     return prompt
+
+
+# ── Two-Hop Protocol ChatML Prompt Builders (Milestone 4) ──────────────
+
+TWO_HOP_SYSTEM_PROMPT = """You are a sovereign local-first analytical SQL and Generative UI agent.
+Operate in a strict Two-Hop Tool-Calling Protocol:
+1. Hop 1: Emit a JSON tool call to `execute_duckdb_query` with `explanation` and a valid read-only DuckDB `sql` query (`SELECT` or `WITH`).
+2. Hop 1b (if `duckdb_execution_error` is returned): Read the `Candidate bindings` hint carefully and emit a corrected `execute_duckdb_query` tool call.
+3. Hop 2 (after `duckdb_result_summary` is returned): Emit a JSON tool call to `render_workspace_ui` selecting 1 to 4 canonical components (`KPIGrid`, `TimeSeriesChart`, `CategoryBarChart`, `BudgetVarianceChart`, `DataTable`, `FilterBar`) bound strictly to the returned column names."""
+
+
+def build_two_hop_prompt(user_question: str, pruned_ddl: str) -> str:
+    """Assemble the initial ChatML prefix for Hop 1 with Top-K pruned DDL (<800 tokens)."""
+    system_block = f"{TWO_HOP_SYSTEM_PROMPT}\n\n{pruned_ddl}"
+    return (
+        f"<|im_start|>system\n{system_block}<|im_end|>\n"
+        f"<|im_start|>user\n{user_question}<|im_end|>\n"
+        f"<|im_start|>assistant\n"
+    )
+
+
+def append_tool_turn(active_prompt: str, assistant_output: str, tool_payload: dict) -> str:
+    """Append an assistant completion and `<|im_start|>tool` response onto the ChatML buffer."""
+    import json
+
+    tool_json = json.dumps(tool_payload, separators=(",", ":"))
+    return (
+        f"{active_prompt}{assistant_output.strip()}<|im_end|>\n"
+        f"<|im_start|>tool\n{tool_json}<|im_end|>\n"
+        f"<|im_start|>assistant\n"
+    )

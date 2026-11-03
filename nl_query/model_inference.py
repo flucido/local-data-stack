@@ -484,3 +484,253 @@ def generate_sql_streaming(
 
         if truncated:
             return
+
+
+# ── Two-Hop + Self-Healing Agent Loop (Milestone 4) ────────────────────
+
+
+def synthesize_semantic_hop2_ui(user_question: str, result_summary: dict) -> dict:
+    """Synthesize a canonical `render_workspace_ui` tool call matching `result_summary` shape rules.
+
+    Used as the reference Hop 2 policy when evaluating SQL-only checkpoints or generating
+    golden Split A / Split B Hop 2 targets.
+    """
+    columns = result_summary.get("columns", [])
+    row_count = int(result_summary.get("row_count", 0))
+    col_names = [c["name"] for c in columns if isinstance(c, dict) and "name" in c]
+
+    if not col_names:
+        return {
+            "tool": "render_workspace_ui",
+            "arguments": {
+                "title": "Query Result",
+                "narrative_summary": f"Completed analysis for: {user_question}",
+                "components": [],
+            },
+        }
+
+    numeric_cols = [
+        c["name"]
+        for c in columns
+        if any(
+            k in str(c.get("type", "")).upper()
+            for k in ("INT", "DOUBLE", "FLOAT", "DECIMAL", "NUMERIC", "REAL")
+        )
+    ]
+    temporal_cols = [
+        c["name"]
+        for c in columns
+        if any(k in str(c.get("type", "")).upper() for k in ("DATE", "TIME"))
+        or any(
+            tok in c["name"].lower()
+            for tok in ("date", "month", "year", "week", "quarter", "term", "period")
+        )
+    ]
+
+    val_col = numeric_cols[-1] if numeric_cols else col_names[-1]
+    val_fmt = (
+        "currency"
+        if any(k in val_col.lower() for k in ("spend", "amount", "balance", "budget", "cashflow"))
+        else (
+            "percent"
+            if any(k in val_col.lower() for k in ("pct", "rate"))
+            else "integer" if "count" in val_col.lower() else "decimal"
+        )
+    )
+
+    # Archetype 1: Single-row scalar KPI result
+    if row_count == 1 and numeric_cols:
+        metrics = [
+            {
+                "label": c.replace("_", " ").title(),
+                "value_column": c,
+                "value_format": val_fmt,
+            }
+            for c in numeric_cols[:4]
+        ]
+        return {
+            "tool": "render_workspace_ui",
+            "arguments": {
+                "title": "Key Metric Summary",
+                "narrative_summary": f"Scalar summary for {user_question}",
+                "components": [{"component": "KPIGrid", "metrics": metrics}],
+            },
+        }
+
+    components: list[dict] = []
+    dim_col = col_names[0]
+
+    # Include FilterBar when multi-row
+    if row_count >= 2:
+        ctrl_type = "date_range" if dim_col in temporal_cols else "multi_select"
+        components.append(
+            {
+                "component": "FilterBar",
+                "controls": [
+                    {
+                        "column": dim_col,
+                        "control_type": ctrl_type,
+                        "label": dim_col.replace("_", " ").title(),
+                    }
+                ],
+            }
+        )
+
+    # Archetype 2: Budget vs Actual Variance
+    if "actual_amount" in col_names and "budget_amount" in col_names:
+        components.append(
+            {
+                "component": "BudgetVarianceChart",
+                "category_column": dim_col,
+                "actual_column": "actual_amount",
+                "budget_column": "budget_amount",
+                "value_format": "currency",
+            }
+        )
+    # Archetype 3: Temporal TimeSeriesChart
+    elif row_count >= 2 and temporal_cols and numeric_cols:
+        x_col = temporal_cols[0]
+        non_x_non_num = [c for c in col_names if c != x_col and c not in numeric_cols]
+        ts_comp: dict = {
+            "component": "TimeSeriesChart",
+            "chart_variant": "stacked_bar" if non_x_non_num else "line",
+            "x_column": x_col,
+            "y_columns": [val_col],
+            "value_format": val_fmt,
+        }
+        if non_x_non_num:
+            ts_comp["series_column"] = non_x_non_num[0]
+        components.append(ts_comp)
+    # Archetype 4: Categorical Breakdown
+    elif row_count >= 2 and numeric_cols:
+        dim_meta = next((c for c in columns if c["name"] == dim_col), {})
+        distinct_cnt = int(dim_meta.get("distinct_count", row_count))
+        if 2 <= distinct_cnt <= 25:
+            components.append(
+                {
+                    "component": "CategoryBarChart",
+                    "chart_variant": "horizontal",
+                    "category_column": dim_col,
+                    "value_columns": numeric_cols[:2],
+                    "value_format": val_fmt,
+                }
+            )
+
+    # Always include DataTable for multi-row inspection
+    components.append(
+        {
+            "component": "DataTable",
+            "columns": col_names,
+            "default_sort": {"column": col_names[0], "direction": "desc"},
+        }
+    )
+
+    return {
+        "tool": "render_workspace_ui",
+        "arguments": {
+            "title": "Analytical Workspace",
+            "narrative_summary": f"Returned {row_count} rows across {len(col_names)} columns.",
+            "components": components[:4],
+        },
+    }
+
+
+def generate_two_hop_turn(
+    user_question: str,
+    conn,
+    llm=None,
+    schema: dict | None = None,
+    k_tables: int = 5,
+    max_retries: int = 2,
+    max_tokens: int = DEFAULT_MAX_TOKENS,
+) -> dict:
+    """Run the Two-Hop + Self-Healing SQL & Generative UI loop in Python.
+
+    Steps:
+      1. Top-K Schema Pruning (`select_top_k_tables(user_question, schema, k=k_tables)`).
+      2. Hop 1 SQL generation + in-process DuckDB `compute_result_summary`.
+      3. Up to `max_retries` (default 2) Hop 1b self-healing retries on `BinderError`/`CatalogError`,
+         appending DuckDB's `Candidate bindings` error hint onto the ChatML prompt.
+      4. Dynamic `compile_hop2_gbnf(output_columns)` compilation and Hop 2 `render_workspace_ui`
+         generation + `validate_hop2_call` verification.
+    """
+    import sys
+
+    repo_root = Path(__file__).resolve().parent.parent
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+
+    from data_engine import compute_result_summary, extract_sql, format_duckdb_error
+    from prompts import append_tool_turn, build_two_hop_prompt
+
+    from training.gbnf_compiler import (
+        compile_hop1_gbnf,
+        compile_hop2_gbnf,
+        validate_hop2_call,
+    )
+    from training.schema_pruner import (
+        format_pruned_ddl,
+        load_unified_schema,
+        select_top_k_tables,
+    )
+
+    if llm is None:
+        llm = get_model()
+        if llm is None:
+            llm = load_model()
+
+    full_schema = schema if schema is not None else load_unified_schema(include_finance=True)
+    pruned_schema = select_top_k_tables(user_question, full_schema, k=k_tables)
+    pruned_ddl = format_pruned_ddl(pruned_schema)
+    chatml_prompt = build_two_hop_prompt(user_question, pruned_ddl)
+    hop1_gbnf = compile_hop1_gbnf()
+
+    self_healing_errors: list[dict] = []
+    final_sql = ""
+    raw_hop1 = ""
+    result_summary: dict | None = None
+
+    for attempt in range(max_retries + 1):
+        resp = llm(
+            chatml_prompt,
+            max_tokens=max_tokens,
+            stop=STOP_SEQUENCES,
+            temperature=0.0,
+            echo=False,
+        )
+        raw_hop1 = resp["choices"][0]["text"]
+        try:
+            final_sql, _df, result_summary = compute_result_summary(
+                conn,
+                raw_hop1,
+                query_id=f"q_attempt_{attempt}",
+            )
+            chatml_prompt = append_tool_turn(chatml_prompt, raw_hop1, result_summary)
+            break
+        except Exception as exc:
+            err_payload = format_duckdb_error(exc)
+            self_healing_errors.append(err_payload)
+            if attempt >= max_retries:
+                raise
+            chatml_prompt = append_tool_turn(chatml_prompt, raw_hop1, err_payload)
+
+    assert result_summary is not None
+    output_cols = [c["name"] for c in result_summary.get("columns", [])]
+    hop2_gbnf = compile_hop2_gbnf(output_cols)
+    hop2_call = synthesize_semantic_hop2_ui(user_question, result_summary)
+    hop2_valid, hop2_errors = validate_hop2_call(hop2_call, result_summary=result_summary)
+
+    return {
+        "question": user_question,
+        "pruned_tables": list(pruned_schema.keys()),
+        "raw_hop1": raw_hop1,
+        "pred_sql": final_sql or extract_sql(raw_hop1),
+        "retries_used": len(self_healing_errors),
+        "self_healing_errors": self_healing_errors,
+        "result_summary": result_summary,
+        "hop1_gbnf": hop1_gbnf,
+        "hop2_gbnf": hop2_gbnf,
+        "hop2_call": hop2_call,
+        "hop2_valid": hop2_valid,
+        "hop2_errors": hop2_errors,
+    }
