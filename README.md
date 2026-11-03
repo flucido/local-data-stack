@@ -278,7 +278,7 @@ Research-relevant failure modes include:
 - **Suppression:** accountability rows marked `is_suppressed` must not be treated as ordinary observations.
 - **Reporting categories:** natural-language group names do not always map directly to CDE category codes.
 - **Plausible SQL:** a query can execute and return a credible chart while still answering the wrong question.
-- **Rill semantics:** the model currently generates raw DuckDB SQL, not Metrics SQL against Rill metrics views. See [the documented gap](docs/known-issues-rill-metrics-gap.md).
+- **Rill semantics:** the model generates raw DuckDB SQL directly against the analytical tables rather than Metrics SQL against Rill metrics views.
 
 ## California School Dashboard coverage
 
@@ -352,5 +352,4 @@ uv run mypy oss_framework
 
 ## License
 
-- Source code: [MIT License (Microsoft)](LICENSE-CODE)
-- Documentation and other content: [Creative Commons Attribution 4.0](LICENSE)
+- Source code and materials: [MIT License](LICENSE)

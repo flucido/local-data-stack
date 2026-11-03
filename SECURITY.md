@@ -14,7 +14,7 @@ The local-data-stack handles sensitive student data and must be deployed with ap
 
 To report a security vulnerability:
 
-1. **Email**: Send details to `security@openedDataEstate.org` (if available) or open a private security advisory on GitHub
+1. **Email**: Send details to `frank@flucido.com` or open a private security advisory on GitHub
 2. **GitHub Security Advisory**: Use [GitHub's private vulnerability reporting](https://github.com/flucido/local-data-stack/security/advisories/new)
 3. **Response Time**: We aim to respond within 72 hours
 
@@ -596,5 +596,5 @@ Use this checklist before production deployment:
 For security concerns or questions:
 
 - **GitHub Issues**: https://github.com/flucido/local-data-stack/issues (non-sensitive only)
-- **Security Email**: security@openedDataEstate.org
+- **Security Email**: frank@flucido.com
 - **Private Advisory**: https://github.com/flucido/local-data-stack/security/advisories/new
