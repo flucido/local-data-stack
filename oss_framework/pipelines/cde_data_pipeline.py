@@ -32,6 +32,8 @@ import polars as pl
 from dlt.common.pipeline import LoadInfo
 from dlt.sources import DltResource
 
+from oss_framework.pipelines.dlt_state import pipeline_kwargs
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -665,8 +667,9 @@ def run_cde_pipeline(
         db_path = os.path.abspath(db_path)
         pipeline = dlt.pipeline(
             pipeline_name="cde_to_duckdb",
-            destination=dlt.destinations.duckdb(db_path),
+            destination=dlt.destinations.duckdb(credentials=db_path),
             dataset_name=dataset_name,
+            **pipeline_kwargs(),
         )
     else:
         stage1_path = os.getenv("STAGE1_PATH", "./oss_framework/data/stage1")
@@ -674,6 +677,7 @@ def run_cde_pipeline(
             pipeline_name="cde_to_stage1",
             destination=dlt.destinations.filesystem(bucket_url=f"{stage1_path}/transactional/cde"),
             dataset_name=dataset_name,
+            **pipeline_kwargs(),
         )
 
     source = cde_source(data_dir=data_dir, academic_year=academic_year, domains=domains)
