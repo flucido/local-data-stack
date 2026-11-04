@@ -46,16 +46,11 @@ dependencies = [
     "tenacity>=8.2.0",
     "structlog>=23.0.0",
 
-    # Database Connectors
-    "sqlalchemy>=2.0.0",
-    "psycopg2-binary>=2.9.0",
+    # Note: no sqlalchemy/psycopg2/flask/fastapi/passlib here. All were declared
+    # but never imported by this package. sqlalchemy is used only by the example
+    # SIS package template's setup notebook, which ships its own
+    # requirements.txt.
 
-    # Web Framework (for API endpoints)
-    "flask>=2.3.0",
-    "fastapi>=0.100.0",
-
-    # Orchestration
-    # Orchestration (removed - using simple Python scripts)
     # Utilities
     "python-dotenv>=1.2.2",
     "pydantic>=2.0.0",
@@ -64,7 +59,6 @@ dependencies = [
 
     # Security
     "cryptography>=48.0.1",
-    "passlib>=1.7.0",
     # Constrain transitive urllib3 (via requests/dbt) to fix GHSA-qccp-gfcp-xxvc,
     # GHSA-mf9v-mfxr-j63j (header leak on redirect, decompression bomb).
     "urllib3>=2.7.0",
