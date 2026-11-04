@@ -161,7 +161,35 @@ impl MedallionEngine {
                 let _ = engine.attach_education_warehouse(edu_path);
             }
         }
+        // Must come after the ATTACH above: attaching reads the warehouse file
+        // from disk, which ``enable_external_access = false`` forbids. Doing it
+        // last also means the engine never runs a query with disk/network
+        // access available.
+        engine.lock_down_duckdb()?;
         Ok(engine)
+    }
+
+    /// Close off DuckDB's external surface, then freeze the configuration.
+    ///
+    /// ``FORBIDDEN_TOKENS``/``FORBIDDEN_FUNCTIONS`` are a blocklist, so any
+    /// read/write function missing from them (``read_blob``, ``read_text``,
+    /// ``COPY ... TO``, extension installs) would otherwise still reach the
+    /// filesystem or network with LLM-authored SQL. This is the engine-level
+    /// counterpart of ``_apply_sandbox_settings`` in nl_query/data_engine.py.
+    ///
+    /// The order matters: ``enable_external_access`` is itself a configuration
+    /// option, so it cannot be changed once ``lock_configuration`` is set.
+    ///
+    /// Every connection opened on this database instance shares the setting,
+    /// and a failure here is fatal — serving queries behind a blocklist alone
+    /// is exactly what this method exists to stop.
+    fn lock_down_duckdb(&self) -> Result<()> {
+        let duck = self
+            .duck_conn
+            .lock()
+            .map_err(|_| anyhow!("DuckDB mutex poisoned"))?;
+        duck.execute_batch("SET enable_external_access = false;\nSET lock_configuration = true;")?;
+        Ok(())
     }
 
     fn init_bronze_sqlite(bronze_path: &Path) -> Result<()> {

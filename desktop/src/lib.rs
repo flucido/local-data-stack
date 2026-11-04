@@ -31,6 +31,48 @@ mod tests {
     }
 
     #[test]
+    fn test_engine_denies_filesystem_reads_missing_from_blocklist() {
+        // ``parquet_metadata`` is deliberately absent from FORBIDDEN_FUNCTIONS,
+        // so the SQL blocklist alone lets this through — it stats an arbitrary
+        // Parquet file and leaks its row counts and schema. It must be refused
+        // by the DuckDB-level lock instead (enable_external_access = false).
+        let secret = std::env::temp_dir().join(format!(
+            "medallion_sandbox_probe_{}.parquet",
+            Uuid::new_v4().simple()
+        ));
+        let secret_escaped = secret.to_string_lossy().replace('\'', "''");
+        {
+            let conn = duckdb::Connection::open_in_memory().unwrap();
+            conn.execute_batch(&format!(
+                "COPY (SELECT 42 AS leaked_col) TO '{secret_escaped}' (FORMAT parquet);"
+            ))
+            .unwrap();
+        }
+
+        let bronze_path = temp_bronze_db();
+        let engine = MedallionEngine::new(&bronze_path, None).unwrap();
+        let read_sql = format!("SELECT * FROM parquet_metadata('{secret_escaped}')");
+
+        let result = engine.execute_and_cache_arrow(&read_sql, None);
+        match result {
+            Ok(entry) => panic!(
+                "engine read a file outside the warehouse (status={}): {}",
+                entry.summary.status, read_sql
+            ),
+            Err(err) => assert!(
+                err.message.to_lowercase().contains("permission")
+                    || err.message.to_lowercase().contains("external access"),
+                "expected a permission failure from the DuckDB sandbox, got: {} ({})",
+                err.error_type,
+                err.message
+            ),
+        }
+
+        let _ = std::fs::remove_file(&secret);
+        let _ = std::fs::remove_file(&bronze_path);
+    }
+
+    #[test]
     fn test_rust_top_k_schema_pruner_and_gbnf_compiler() {
         let catalog = load_unified_schema(&repo_root());
         assert_eq!(catalog.len(), 20);
