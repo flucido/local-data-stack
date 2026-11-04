@@ -89,9 +89,6 @@ def _resolve_adapter() -> str:
     return _HF_ADAPTER
 
 
-ADAPTER_REPO = _resolve_adapter()
-
-
 def _resolve_base_model() -> str:
     """Pick the base model appropriate for the available accelerator.
 
@@ -172,13 +169,20 @@ class TransformersLLM:
     """Callable wrapper around transformers generate() that mimics the
     llama_cpp.Llama response schema used by the rest of the app."""
 
-    def __init__(self, base_model: str | None = None, adapter: str = ADAPTER_REPO):
+    def __init__(self, base_model: str | None = None, adapter: str | None = None):
         import torch
         from peft import PeftModel
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
         if base_model is None:
             base_model = _resolve_base_model()
+        # Resolved at call time, not as a default argument. A default binds once
+        # at class-definition time, so setting LFED_ADAPTER_REPO after import
+        # (as eval.run_eval does before clearing the model singleton) would be
+        # silently ignored and the eval would run against the import-time
+        # adapter. Passing adapter="" still means "base model only, no LoRA".
+        if adapter is None:
+            adapter = _resolve_adapter()
 
         self.torch = torch
         use_cuda = torch.cuda.is_available()
