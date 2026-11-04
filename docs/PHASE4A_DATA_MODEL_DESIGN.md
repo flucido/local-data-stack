@@ -1,4 +1,35 @@
+---
+id: lfed-docs-phase4a
+type: architecture-design
+status: draft
+title: "Option C data model: directly-queryable CDE staging plus the accountability OBT"
+parent: lfed-architecture
+depends-on: [lfed-mod-data-framework, lfed-mod-metrics-bi]
+tags: [adopted, data-model, cde]
+---
+
 # Phase 4a: Option C Data Model Design
+
+> **Adopted as a spec node** — this is the owning record for the warehouse's two-path data
+> model. Original content is untouched except the header note below and the status
+> corrections marked *(drift)*. `status: draft` until the owner reviews it: the document's own
+> header still says "DRAFT — awaiting Frank's approval before implementation", while its
+> "Resolved Design Decisions (approved by Frank 2026-06-17)" section and the shipped
+> `mart_cde_school_accountability.sql` say parts of it were approved and built.
+
+*(drift)* Two statements here no longer match the tree, and `lfed-app-architecture` depends on
+the correction:
+
+1. "The NL→SQL router (future Phase 5) decides which path to use" — routing is now specced at
+   the app layer and is **deterministic, not model-chosen**: a plane router resolves a question
+   against metrics-view metadata, and only unresolved questions reach these raw paths.
+2. "The NL→SQL model will see both the OBT and the standalone staging tables" — the staging
+   tables are **not** visible today. `DEFAULT_EXPOSED_SCHEMAS` in `nl_query/data_engine.py:63-70`
+   lists `core, main_core, analytics, main_analytics, cde, main_cde`; `main_staging` is absent,
+   yet `nl_query/prompts.py:66-223` still advertises `main_staging.stg_cde__*` in its fallback
+   schema and its system prompt tells the model to use the two CDE query paths. So either the
+   allowlist needs `main_staging` or the prompts should stop offering tables the guard will
+   reject. Unresolved; recorded in `lfed-mod-nl-query`.
 
 > Date: 2026-06-17
 > Status: DRAFT — awaiting Frank's approval before implementation
