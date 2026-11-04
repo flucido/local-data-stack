@@ -385,9 +385,8 @@ Contributors are recognized in:
 
 ## License
 
-By contributing to this project, you agree that your contributions will be licensed under:
-- **Code**: [MIT License](LICENSE-CODE)
-- **Documentation**: [Creative Commons Attribution 4.0](LICENSE)
+By contributing to this project, you agree that your contributions will be licensed under the
+[MIT License](LICENSE). This covers code and documentation alike.
 
 ---
 
