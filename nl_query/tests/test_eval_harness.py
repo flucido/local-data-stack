@@ -78,6 +78,39 @@ class TestExecutionMatch:
 
         assert execution_match([(1,), (2,)], [(1,)]) is False
 
+    def test_duplicate_rows_disqualify_a_match(self):
+        """A prediction that lost a duplicate row must not score as a match.
+
+        This is the dropped-GROUP-BY case: the aggregated gold returns one row
+        per key, the ungrouped prediction returns the key once per source row.
+        Set comparison collapsed the repeats and scored it EX.
+        """
+        from eval import execution_match
+
+        gold_rows = [(1,)]
+        pred_rows = [(1,), (1,)]
+        assert execution_match(gold_rows, pred_rows) is False
+        assert execution_match(pred_rows, gold_rows) is False
+
+    def test_repeated_rows_match_when_counts_agree(self):
+        from eval import execution_match
+
+        gold_rows = [(1,), (1,), (2,)]
+        pred_rows = [(2,), (1,), (1,)]
+        assert execution_match(gold_rows, pred_rows) is True
+
+    def test_duplicate_counts_must_be_exact(self):
+        from eval import execution_match
+
+        assert execution_match([(1,), (1,)], [(1,), (1,), (1,)]) is False
+
+    def test_multi_column_duplicates_disqualify_a_match(self):
+        from eval import execution_match
+
+        gold_rows = [("A", 10), ("B", 20)]
+        pred_rows = [("A", 10), ("B", 20), ("A", 10)]
+        assert execution_match(gold_rows, pred_rows) is False
+
 
 class TestExactMatch:
     def test_identical_sql_matches(self):

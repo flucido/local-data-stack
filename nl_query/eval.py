@@ -25,6 +25,7 @@ import os
 import platform
 import re
 import time
+from collections import Counter
 from pathlib import Path
 
 import duckdb
@@ -95,10 +96,14 @@ def load_test_set(path: str) -> list[dict]:
 
 
 def execution_match(gold_rows: list, pred_rows: list) -> bool:
-    """Compare result sets as unordered collections of tuples."""
-    gold_set = {tuple(r) for r in gold_rows}
-    pred_set = {tuple(r) for r in pred_rows}
-    return gold_set == pred_set
+    """Compare result sets as unordered multisets of tuples.
+
+    Row order is ignored but row *counts* are not: a prediction returning one
+    row must not match a gold query returning that row twice. Set comparison
+    silently collapsed duplicates, so a dropped GROUP BY or a fan-out join
+    could score as an exact match.
+    """
+    return Counter(tuple(r) for r in gold_rows) == Counter(tuple(r) for r in pred_rows)
 
 
 def exact_match(gold_sql: str, pred_sql: str) -> bool:

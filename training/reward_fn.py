@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -85,7 +86,10 @@ def score_hop1_completion(
             gold_rows = db.execute(
                 f"SELECT * FROM (\n{gold_clean}\n) AS _gold LIMIT 500"
             ).fetchall()
-            if {tuple(r) for r in pred_rows} == {tuple(r) for r in gold_rows}:
+            # Multiset, not set: duplicate rows and row counts are part of the
+            # result. Collapsing to a set let a lost GROUP BY or a fan-out join
+            # collect the full execution-match reward.
+            if Counter(tuple(r) for r in pred_rows) == Counter(tuple(r) for r in gold_rows):
                 reward += 1.5
         except Exception:
             pass
