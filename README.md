@@ -42,16 +42,17 @@ Read the [60-second overview](https://research.lucidotechnologyconsulting.com/ov
 
 ## Architecture diagrams
 
-Four interactive views of the same system, generated from the code with every node and edge linked to the file and line it came from. Open the [diagram index](https://flucido.github.io/local-data-stack/diagrams/) in a browser.
+Five interactive views of the same system, generated from the code with every node and edge linked to the file and line it came from. Open the [diagram index](https://flucido.github.io/local-data-stack/diagrams/) in a browser.
 
 | View | What it answers |
 | --- | --- |
 | [End-to-end data flow](https://flucido.github.io/local-data-stack/diagrams/dataflow-end-to-end.html) | How Aeries and CDE data become warehouse tables, dashboards, and answers |
 | [NL-to-SQL query sequence](https://flucido.github.io/local-data-stack/diagrams/sequence-nl-sql-query.html) | What happens between a question and a result table, guard by guard |
+| [Desktop two-hop hot path](https://flucido.github.io/local-data-stack/diagrams/sequence-desktop-two-hop.html) | How a typed question in the desktop app travels the Wry bridge, the two-hop agent loop, and zero-copy `arrow://` render |
 | [Trust boundaries](https://flucido.github.io/local-data-stack/diagrams/architecture-trust-boundaries.html) | What stays on local hardware versus what crosses to Modal or the Hub |
 | [Model and eval lifecycle](https://flucido.github.io/local-data-stack/diagrams/lifecycle-model-artifacts.html) | How validated pairs become a dataset, an adapter, device builds, and a rollback |
 
-Source links are pinned to revision `e275d05`. Each file in [`docs/diagrams/`](docs/diagrams) is standalone HTML with bundled fonts, so the diagrams also open offline without a server.
+Source links are pinned to revision `e275d05` (desktop two-hop hot path: `b47fda2`). Each file in [`docs/diagrams/`](docs/diagrams) is standalone HTML with bundled fonts, so the diagrams also open offline without a server.
 
 ## Built now; studied next
 

@@ -39,6 +39,8 @@ flowchart TD
     Edu_DuckDB -.->|ATTACH READ_ONLY| Silver_Gold_DuckDB
 ```
 
+An interactive, source-linked version of this hot path (question → `run_prompt` IPC → two-hop agent loop → DuckDB → `arrow://` render) is available as the [desktop two-hop sequence diagram](../docs/diagrams/sequence-desktop-two-hop.html), also listed in the [diagram index](https://flucido.github.io/local-data-stack/diagrams/).
+
 1. **Native Host (`desktop/src/`)**:
    - **Tao + Wry**: Native macOS windowing with cross-platform WebKit integration.
    - **Medallion Engine (`medallion.rs`)**: Synchronizes Bronze SQLite ACID writes (`bronze_k12.db`) into in-memory DuckDB analytical tables (`main_core`, `main_analytics`) and attaches the K-12 education warehouse (`analytics.duckdb`).
