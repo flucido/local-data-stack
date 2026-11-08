@@ -441,3 +441,33 @@ def test_reward_fn_scores_hop1_and_hop2_accurately():
     )
     assert score_hop2_completion(good_hop2, output_columns=output_cols, row_count=6) == 2.0
     assert score_hop2_completion(hallucinated_hop2, output_columns=output_cols, row_count=6) == -1.0
+
+
+def test_reward_fn_withholds_execution_match_for_duplicate_rows():
+    """A fan-out prediction must not collect the execution-match reward.
+
+    The gold query returns each school once; the predicted query returns the
+    same six school_ids once per attendance record. The *sets* are identical
+    and only the multiplicity differs, which is what the old set comparison
+    collapsed — it awarded the full execution match to a 360-row result
+    whose gold shape is 6 rows.
+    """
+    from training.reward_fn import score_hop1_completion
+
+    gold_sql = "SELECT DISTINCT school_id FROM main_core.fact_attendance"
+    fan_out_sql = "SELECT school_id FROM main_core.fact_attendance"
+
+    def envelope(sql: str) -> str:
+        return json.dumps(
+            {
+                "tool": "execute_duckdb_query",
+                "arguments": {"explanation": "List schools with attendance.", "sql": sql},
+            }
+        )
+
+    # 0.5 envelope + 1.0 non-empty rows + 1.5 execution match
+    assert score_hop1_completion(envelope(gold_sql), gold_sql=gold_sql) == 3.0
+
+    # Same envelope and non-empty rows, but no execution match: repeated rows
+    # are a different result, not a reordering of the same one.
+    assert score_hop1_completion(envelope(fan_out_sql), gold_sql=gold_sql) == 1.5

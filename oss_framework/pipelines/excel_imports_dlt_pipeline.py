@@ -22,6 +22,8 @@ import pandas as pd
 from dlt.common.pipeline import LoadInfo
 from dlt.sources import DltResource
 
+from oss_framework.pipelines.dlt_state import pipeline_kwargs
+
 
 class ExcelImporter:
     """Import Excel files for Stage 1 landing"""
@@ -130,14 +132,16 @@ def run_excel_imports_pipeline(
             pipeline_name="excel_to_stage1",
             destination=dlt.destinations.filesystem(bucket_url=f"{stage1_path}/reference/excel"),
             dataset_name=dataset_name,
+            **pipeline_kwargs(),
         )
     else:
         db_path = os.getenv("DUCKDB_DATABASE_PATH", "./oss_framework/data/analytics.duckdb")
 
         pipeline = dlt.pipeline(
             pipeline_name="excel_to_duckdb",
-            destination=dlt.destinations.duckdb(database=db_path),
+            destination=dlt.destinations.duckdb(credentials=db_path),
             dataset_name=dataset_name,
+            **pipeline_kwargs(),
         )
 
     source = excel_imports_source()

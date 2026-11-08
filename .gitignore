@@ -102,3 +102,20 @@ nl_query/traces_*.jsonl
 # REAL STUDENT DATA — public repo, never commit. CalPADS/SENR/SINF/SPRG
 # extracts contain names and dates of birth. Keep out of git entirely.
 research/
+
+# Docs: ignore everything except interactive diagrams and GitHub Pages config
+docs/*
+!docs/diagrams/
+!docs/diagrams/**
+!docs/.nojekyll
+
+# Hackathon and internal working notes
+hackathonDocs/
+
+# Root-level legacy test and profiling scripts
+test_uat.py
+test_rill_integration.py
+test_rbac.py
+test_performance.py
+profile_parquet_data.py
+requirements.txt

@@ -23,6 +23,7 @@ from dlt.common.pipeline import LoadInfo
 from dlt.sources import DltResource
 
 from oss_framework.connectors import get_sis_connector
+from oss_framework.pipelines.dlt_state import pipeline_kwargs
 
 
 # dlt source definition
@@ -151,6 +152,7 @@ def run_aeries_pipeline(
             pipeline_name="aeries_to_stage1",
             destination=dlt.destinations.filesystem(**destination_kwargs),
             dataset_name=dataset_name,
+            **pipeline_kwargs(),
         )
         loader_file_format = "parquet"
     else:
@@ -158,8 +160,9 @@ def run_aeries_pipeline(
 
         pipeline = dlt.pipeline(
             pipeline_name="aeries_to_duckdb",
-            destination=dlt.destinations.duckdb(database=db_path),
+            destination=dlt.destinations.duckdb(credentials=db_path),
             dataset_name=dataset_name,
+            **pipeline_kwargs(),
         )
         loader_file_format = None
 

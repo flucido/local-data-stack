@@ -1,5 +1,0 @@
-duckdb>=0.9.0
-pandas
-deltalake
-numpy
-pyarrow

@@ -160,6 +160,103 @@ class TestAdapterResolution:
         assert "KDDSTLC" in result
 
 
+def _stub_transformers_llm_loading(monkeypatch, captured: dict):
+    """Let TransformersLLM.__init__ run without torch/peft/transformers.
+
+    Records the adapter the constructor resolved and the adapter it passed to
+    AutoTokenizer, so a test can assert on the value that actually reaches
+    model loading rather than on internal attributes.
+    """
+    import sys
+    import types
+
+    import model_inference
+
+    fake_tokenizer_cls = MagicMock()
+    fake_tokenizer_cls.from_pretrained.side_effect = lambda name, *a, **k: captured.setdefault(
+        "tokenizer_source", name
+    )
+
+    fake_torch = types.SimpleNamespace(
+        cuda=types.SimpleNamespace(is_available=lambda: False),
+        backends=types.SimpleNamespace(mps=None),
+        float32="float32",
+        float16="float16",
+        bfloat16="bfloat16",
+    )
+    fake_transformers = types.SimpleNamespace(
+        AutoTokenizer=fake_tokenizer_cls,
+        AutoModelForCausalLM=MagicMock(),
+    )
+    fake_peft = types.SimpleNamespace(PeftModel=MagicMock())
+
+    monkeypatch.setitem(sys.modules, "torch", fake_torch)
+    monkeypatch.setitem(sys.modules, "transformers", fake_transformers)
+    monkeypatch.setitem(sys.modules, "peft", fake_peft)
+
+    original_init = model_inference.TransformersLLM.__init__
+
+    def recording_init(self, base_model=None, adapter=None):
+        captured["ctor_adapter_arg"] = adapter
+        return original_init(self, base_model=base_model, adapter=adapter)
+
+    monkeypatch.setattr(model_inference.TransformersLLM, "__init__", recording_init)
+
+
+class TestAdapterResolvedAtCallTime:
+    """The adapter must be resolved when the model loads, not at import.
+
+    A default argument (``adapter: str = ADAPTER_REPO``) binds once at class
+    definition, so ``eval.run_eval`` setting LFED_ADAPTER_REPO after import had
+    no effect and the eval silently ran against the import-time adapter.
+    """
+
+    def test_adapter_set_after_import_is_picked_up(self, monkeypatch, tmp_path):
+        import model_inference
+
+        monkeypatch.delenv("LFED_ADAPTER_REPO", raising=False)
+        monkeypatch.setattr(model_inference, "_LOCAL_ADAPTER", "/nonexistent/path")
+
+        later_adapter = str(tmp_path / "exported-for-this-eval")
+        monkeypatch.setenv("LFED_ADAPTER_REPO", later_adapter)
+
+        captured: dict = {}
+        _stub_transformers_llm_loading(monkeypatch, captured)
+        model_inference.TransformersLLM(base_model="fake/base")
+
+        assert captured["tokenizer_source"] == later_adapter, (
+            "TransformersLLM ignored LFED_ADAPTER_REPO set after import — the "
+            "adapter default is still bound at class-definition time"
+        )
+
+    def test_default_argument_is_not_the_import_time_value(self):
+        import inspect
+
+        import model_inference
+
+        default = (
+            inspect.signature(model_inference.TransformersLLM.__init__)
+            .parameters["adapter"]
+            .default
+        )
+        assert default is None, (
+            f"adapter default is {default!r}; it must be None so the value is "
+            "resolved per instantiation"
+        )
+
+    def test_explicit_adapter_still_wins(self, monkeypatch, tmp_path):
+        import model_inference
+
+        monkeypatch.setenv("LFED_ADAPTER_REPO", str(tmp_path / "from-env"))
+
+        captured: dict = {}
+        _stub_transformers_llm_loading(monkeypatch, captured)
+        explicit = str(tmp_path / "explicit")
+        model_inference.TransformersLLM(base_model="fake/base", adapter=explicit)
+
+        assert captured["tokenizer_source"] == explicit
+
+
 # ── Model singleton ────────────────────────────────────────────────────
 
 

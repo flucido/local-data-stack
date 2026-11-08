@@ -37,6 +37,9 @@ jobs:
       - name: Run gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
+          # Required by gitleaks-action v2.3+ to scan pull requests
+          # (fetches PR comments for leak-ignore directives).
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: .gitleaks.toml
 
   contract-tests:
@@ -56,6 +59,9 @@ jobs:
         python -m pip install --upgrade pip
         pip install duckdb
 
+    # analytics.duckdb is a gitignored dbt build product, so a clean checkout has
+    # no database to query. contract_tests.py seeds empty fixtures for the marts
+    # the manifest references when the file is missing (see contract_seed.sql).
     - name: Run dashboard contract tests
       env:
         DUCKDB_DATABASE_PATH: oss_framework/data/analytics.duckdb

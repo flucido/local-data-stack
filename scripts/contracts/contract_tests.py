@@ -9,7 +9,15 @@ import duckdb
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DB = ROOT / "oss_framework" / "data" / "analytics.duckdb"
 DB_PATH = Path(os.getenv("DUCKDB_DATABASE_PATH", str(DEFAULT_DB)))
-MANIFEST_PATH = Path(__file__).resolve().with_name("contract_query_manifest.json")
+CONTRACTS_DIR = Path(__file__).resolve().parent
+MANIFEST_PATH = CONTRACTS_DIR / "contract_query_manifest.json"
+SEED_PATH = CONTRACTS_DIR / "contract_seed.sql"
+
+# analytics.duckdb is a dbt build product and is gitignored, so a clean CI
+# checkout never has one. The seed script creates empty fixtures for the marts
+# the manifest queries, which keeps this check meaningful (column/table drift
+# still fails) without requiring a full pipeline run first.
+SEED_IF_MISSING = os.getenv("CONTRACT_SEED_IF_MISSING", "1") == "1"
 
 JSON_FILES = [
     ROOT / "schema" / "chronic_absenteeism_definition.json",
@@ -59,20 +67,45 @@ def validate_json_files() -> list[str]:
     return errors
 
 
+def seed_database() -> list[str]:
+    """Create empty mart fixtures so the contract queries have a schema to hit."""
+    errors: list[str] = []
+    if not SEED_PATH.exists():
+        return [f"Missing seed script: {SEED_PATH}"]
+
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = duckdb.connect(str(DB_PATH))
+    try:
+        conn.execute(SEED_PATH.read_text(encoding="utf-8"))
+    except Exception as exc:
+        errors.append(f"Failed to seed {DB_PATH}: {exc}")
+    finally:
+        conn.close()
+    return errors
+
+
 def run_queries() -> tuple[list[str], int]:
     errors: list[str] = []
-    if not DB_PATH.exists():
-        return [f"DuckDB file not found: {DB_PATH}"], 0
 
     try:
         queries = load_query_manifest()
     except Exception as exc:
         return [f"Failed to load query manifest: {exc}"], 0
 
+    if not DB_PATH.exists():
+        if not SEED_IF_MISSING:
+            return [f"DuckDB file not found: {DB_PATH}"], 0
+        seed_errors = seed_database()
+        if seed_errors:
+            return seed_errors, 0
+        print(f"Seeded contract fixtures (database was missing): {DB_PATH}")
+
     conn = duckdb.connect(str(DB_PATH), read_only=True)
     try:
         for name, query in queries:
             try:
+                # Empty fixtures execute without error; the assertion is that
+                # each dashboard query still resolves against the mart schema.
                 conn.execute(query).fetchall()
             except Exception as exc:
                 errors.append(f"{name}: {exc}")
