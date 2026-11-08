@@ -1,5 +1,5 @@
 import React from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import {
@@ -8,10 +8,16 @@ import {
   validateWorkspaceUISemantics,
 } from "../schemas/workspace-ui";
 import { decodeArrowIPCStream, encodeRowsToArrowIPC } from "../lib/arrow-client";
-import { PRESET_SCENARIOS } from "../lib/local-ai-provider";
+import { PRESET_SCENARIOS, runPromptScenario } from "../lib/local-ai-provider";
+import { App } from "../App";
 import { WorkspaceRenderer } from "../components/registry/WorkspaceRenderer";
 
 describe("Generative UI Canonical Registry & Arrow IPC Client", () => {
+  afterEach(() => {
+    // @ts-ignore ensure a mocked Wry bridge never leaks between tests
+    delete window.sendRustRpc;
+  });
+
   it("validates Hop 1 execute_duckdb_query and rejects mutating SQL", () => {
     const valid = ExecuteDuckDBQuerySchema.safeParse({
       tool: "execute_duckdb_query",
@@ -140,5 +146,41 @@ describe("Generative UI Canonical Registry & Arrow IPC Client", () => {
     );
     expect(screen.getByTestId("kpi-value-avg_gpa")).toBeInTheDocument();
     expect(screen.getByTestId("category-bar-chart")).toBeInTheDocument();
+  });
+
+  it("maps a run_prompt trace into a TwoHopTurnState", async () => {
+    const scenario = PRESET_SCENARIOS[0];
+    window.sendRustRpc = vi.fn(async () => ({
+      question: "What is enrollment?",
+      hop1_call: scenario.hop1Call,
+      hop2_call: scenario.hop2Call,
+      result_summary: scenario.summary,
+      arrow_uri: `arrow://${scenario.summary.query_id}`,
+      retries_used: 0,
+      total_latency_ms: 12.5,
+    }));
+    const state = await runPromptScenario("What is enrollment?");
+    expect(state.prompt).toBe("What is enrollment?");
+    expect(state.hop1Call.tool).toBe("execute_duckdb_query");
+    expect(state.resultSummary.query_id).toBe(scenario.summary.query_id);
+    expect(state.selfHealedRetries).toBe(0);
+    expect(window.sendRustRpc).toHaveBeenCalledWith(
+      expect.objectContaining({ cmd: "run_prompt", prompt: "What is enrollment?" })
+    );
+  });
+
+  it("rejects empty prompt and missing bridge", async () => {
+    await expect(runPromptScenario("   ")).rejects.toThrowError("Type a question");
+    // @ts-ignore test cleanup of any leaked mock
+    delete window.sendRustRpc;
+    await expect(runPromptScenario("What is enrollment?")).rejects.toThrowError(
+      "requires the native desktop host"
+    );
+  });
+
+  it("renders the question input box in App", () => {
+    render(<App />);
+    expect(document.getElementById("ask-question")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Ask in plain English/)).toBeInTheDocument();
   });
 });

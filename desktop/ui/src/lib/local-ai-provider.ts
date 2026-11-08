@@ -258,6 +258,36 @@ function isWryBridgeAvailable(): boolean {
   return typeof window !== "undefined" && typeof window.sendRustRpc === "function";
 }
 
+export function isWryBridgeEnabled(): boolean {
+  return isWryBridgeAvailable();
+}
+
+interface TwoHopTraceResponse {
+  status?: string;
+  message?: string;
+  error_type?: string;
+  question?: string;
+  hop1_call?: ExecuteDuckDBQueryCall;
+  hop2_call?: RenderWorkspaceUICall;
+  result_summary?: DuckDBResultSummary;
+  arrow_uri?: string;
+  arrow_byte_len?: number;
+  retries_used?: number;
+  total_latency_ms?: number;
+  pruned_tables?: string[];
+}
+
+function queryIdFromArrowUri(arrowUri: string | undefined): string | undefined {
+  if (!arrowUri) return undefined;
+  const trimmed = arrowUri
+    .trim()
+    .replace(/^arrow:\/\//, "")
+    .replace(/^http:\/\//, "")
+    .replace(/^https:\/\//, "");
+  const tail = trimmed.split("/").pop() ?? "";
+  return tail.split("?")[0] || undefined;
+}
+
 function applyClientFallbackFilters(
   rows: Record<string, unknown>[],
   filters: FilterMutation[]
@@ -335,6 +365,63 @@ export async function runPresetOrPromptScenario(
     latencyMs: Number((performance.now() - start).toFixed(1)),
     selfHealedRetries: 0,
   };
+}
+
+export async function runPromptScenario(
+  promptText: string
+): Promise<TwoHopTurnState> {
+  const prompt = promptText.trim();
+  if (!prompt) {
+    throw new Error("Type a question to ask.");
+  }
+
+  const start = performance.now();
+
+  if (isWryBridgeAvailable() && window.sendRustRpc) {
+    const resp = (await window.sendRustRpc({
+      cmd: "run_prompt",
+      prompt,
+    })) as TwoHopTraceResponse;
+
+    if (!resp) {
+      throw new Error("Desktop host returned an empty response.");
+    }
+
+    if (resp.status === "error") {
+      throw new Error(resp.message || resp.error_type || "Query failed.");
+    }
+
+    const summary = resp.result_summary;
+    const hop1Call = resp.hop1_call;
+    const hop2Call = resp.hop2_call;
+
+    if (!summary || !hop1Call || !hop2Call) {
+      throw new Error("Desktop host returned an incomplete trace.");
+    }
+
+    const queryId =
+      summary.query_id ?? queryIdFromArrowUri(resp.arrow_uri) ?? `q_prompt_${Date.now()}`;
+    const dataset = await fetchArrowDataset(queryId);
+
+    return {
+      id: queryId,
+      domain: "education",
+      prompt: resp.question ?? prompt,
+      hop1Call,
+      resultSummary: summary,
+      hop2Call,
+      dataset,
+      latencyMs:
+        typeof resp.total_latency_ms === "number"
+          ? resp.total_latency_ms
+          : Number((performance.now() - start).toFixed(1)),
+      selfHealedRetries: resp.retries_used ?? 0,
+    };
+  }
+
+  throw new Error(
+    "Asking questions requires the native desktop host. Launch with `cargo run --manifest-path desktop/Cargo.toml` or pick a preset scenario."
+  );
 }
 
 export async function applyZeroLlmFilterBarMutation(

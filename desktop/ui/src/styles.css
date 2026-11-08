@@ -121,6 +121,88 @@ body {
   margin-inline-start: auto;
 }
 
+.ask-block {
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  padding: 0.9rem 1rem;
+}
+
+.ask-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.ask-input-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.ask-textarea {
+  flex: 1;
+  min-inline-size: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-accent);
+  color: var(--text-primary);
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  font: inherit;
+  font-size: 0.88rem;
+  resize: vertical;
+}
+
+.ask-textarea::placeholder {
+  color: var(--text-secondary);
+}
+
+.ask-textarea:focus {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 1px;
+}
+
+.ask-submit {
+  background: var(--accent-blue);
+  border: 1px solid var(--accent-blue);
+  color: #0b0f19;
+  font-weight: 700;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  align-self: center;
+  white-space: nowrap;
+}
+
+.ask-submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ask-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.ask-error {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--accent-red);
+}
+
+.preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: safe center;
+  gap: 0.5rem;
+  flex: 1 1 100%;
+}
+
 /* Workspace panels with CSS containment (interactions-in-complex-layouts) */
 .workspace-panels-stack {
   display: flex;
