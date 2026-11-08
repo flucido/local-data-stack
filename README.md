@@ -59,7 +59,7 @@ Source links are pinned to revision `e275d05`. Each file in [`docs/diagrams/`](d
 
 - **DuckDB & SQLite Medallion Warehouse**: Multi-schema analytical database (`main_core`, `main_analytics`, `main_staging`) with dlt ingestion and dbt transformations.
 - **Sovereign Local-First Desktop Engine (`desktop/`)**: Native Rust desktop host (Tao windowing + Wry webview) streaming zero-copy Apache Arrow IPC record batches directly via `arrow://` protocol.
-- **Generative UI Component Registry (`desktop/ui/`)**: React 19 + TypeScript + Tailwind CSS analytics workspace featuring dynamic TanStack tables, Recharts visualizations, and `<15ms` Zero-LLM CTE parameterization filter bars.
+- **Generative UI Component Registry (`desktop/ui/`)**: React 19 + TypeScript + Tailwind CSS analytics workspace with a natural-language question box driving the two-hop agent loop (`run_prompt` IPC), dynamic TanStack tables, Recharts visualizations, and `<15ms` Zero-LLM CTE parameterization filter bars.
 - **Two-Hop Structured SLM (`LiquidAI/LFM3-1.7B`)**:
   - Full Fine-Tuning + execution-guided GRPO training pipeline on Modal A100 GPUs.
   - Published native bf16 weights: [`KDDSTLC/lfed-lfm3-1.7b-two-hop-bf16`](https://huggingface.co/KDDSTLC/lfed-lfm3-1.7b-two-hop-bf16).
@@ -134,10 +134,11 @@ cargo run --manifest-path desktop/Cargo.toml
 - **What opens**: A native OS window powered by `tao` and `wry`.
 - **Under the hood**: The Rust host initializes embedded DuckDB (`oss_framework/data/analytics.duckdb`) and SQLite (`data/bronze.db`), registers the custom `arrow://` IPC scheme, and renders the compiled React webview.
 - **How to test as a human**:
-  1. Browse the pre-loaded K-12 accountability scenario templates (Chronic Absenteeism, Suspension Rate Disproportionality, English Learner RFEP progress).
-  2. Inspect the generated KPI summaries and interactive visual charts.
-  3. Scrub the interactive filter bar (e.g., minimum enrollment slider, reporting category toggles) to observe instantaneous (<15ms) data recalculations.
-  4. Toggle the **Hop 1 SQL** and **Hop 2 GenUI** inspection tabs in the developer drawer to verify the underlying query and declarative schema.
+  1. Type a plain-English question in the **Ask a question** box and press **Get answer** (⌘/Ctrl+Enter also works). The question travels over the Wry IPC bridge (`run_prompt`) into the two-hop agent loop; results render through the same Generative UI registry as the presets. Free-text asking requires the native host — in the Vite dev server it reports that and falls back to presets.
+  2. Browse the pre-loaded K-12 accountability scenario templates (Chronic Absenteeism, Suspension Rate Disproportionality, English Learner RFEP progress).
+  3. Inspect the generated KPI summaries and interactive visual charts.
+  4. Scrub the interactive filter bar (e.g., minimum enrollment slider, reporting category toggles) to observe instantaneous (<15ms) data recalculations.
+  5. Toggle the **Hop 1 SQL** and **Hop 2 GenUI** inspection tabs in the developer drawer to verify the underlying query and declarative schema.
 
 ### Mode 2: Web Developer Workspace (Vite Dev Server)
 If you are iterating on the frontend UI, tweaking component archetypes, or testing responsive layouts:
