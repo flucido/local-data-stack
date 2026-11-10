@@ -188,3 +188,49 @@ def test_anonymize_aeries_security_and_streaming(tmp_path: Path, monkeypatch) ->
     assert str(evil_dir) not in calls[0][2]
     assert "on run argv" in calls[0][2]
     assert "POSIX file (item 1 of argv)" in calls[0][2]
+
+
+def test_k_anonymity_suppression_across_marts_and_exports() -> None:
+    rill_export = (
+        REPO_ROOT / "oss_framework/dbt/models/exports/rill_chronic_absenteeism.sql"
+    ).read_text()
+    assert "SELECT * FROM" not in rill_export
+    assert "HAVING COUNT(*) >= 5" in rill_export
+
+    hex_model = (
+        REPO_ROOT / "oss_framework/dbt/models/mart_analytics/hex_ready/analytics_for_hex.sql"
+    ).read_text()
+    assert "schema='features'" in hex_model
+    assert "materialized='view'" in hex_model
+
+    cohort_models = [
+        "oss_framework/dbt/models/mart_analytics/analytics/v_equity_outcomes_by_demographics.sql",
+        "oss_framework/dbt/models/mart_analytics/hex_ready/math_8_cohort_tracking.sql",
+        "oss_framework/dbt/models/mart_analytics/hex_ready/algebra_1_outcomes.sql",
+        "oss_framework/dbt/models/mart_analytics/hex_ready/lead_program_enrollment.sql",
+        "oss_framework/dbt/models/mart_analytics/hex_ready/math_pathways_7th_grade.sql",
+        "oss_framework/dbt/models/mart_analytics/hex_ready/equity_by_race.sql",
+    ]
+    for rel in cohort_models:
+        sql = (REPO_ROOT / rel).read_text()
+        assert "HAVING COUNT(" in sql and ">= 5" in sql, f"Missing HAVING k>=5 suppression in {rel}"
+
+    equity_race = (
+        REPO_ROOT / "oss_framework/dbt/models/mart_analytics/hex_ready/equity_by_race.sql"
+    ).read_text()
+    assert "WHEN SUM(CASE WHEN homeless_flag THEN 1 ELSE 0 END) >= 5" in equity_race
+    assert "WHEN SUM(CASE WHEN special_education_flag THEN 1 ELSE 0 END) >= 5" in equity_race
+
+    class_eff = (
+        REPO_ROOT
+        / "oss_framework/dbt/models/mart_analytics/aggregations/fact_class_effectiveness.sql"
+    ).read_text()
+    assert "WHEN SUM(CASE WHEN english_learner THEN 1 ELSE 0 END) >= 5" in class_eff
+    assert "WHEN SUM(CASE WHEN special_education THEN 1 ELSE 0 END) >= 5" in class_eff
+    assert "WHEN SUM(CASE WHEN free_reduced_lunch THEN 1 ELSE 0 END) >= 5" in class_eff
+
+    models_yml = REPO_ROOT / "oss_framework/dbt/models/mart_analytics/_analytics__models.yml"
+    assert models_yml.exists()
+    yml_text = models_yml.read_text()
+    assert "test_k_anonymity" in yml_text
+    assert "min_k: 5" in yml_text

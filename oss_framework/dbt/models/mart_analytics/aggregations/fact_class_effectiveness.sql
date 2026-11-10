@@ -56,6 +56,7 @@ SELECT
     school_id,
     grade_level,
     COUNT(DISTINCT student_id_hash) AS enrollment_count,
+    COUNT(DISTINCT student_id_hash) AS student_count,
     ROUND(AVG(grade_numeric), 2) AS avg_grade_numeric,
     ROUND(
         100.0 * SUM(passed) / NULLIF(COUNT(*), 0),
@@ -65,23 +66,33 @@ SELECT
         100.0 * SUM(grade_a_or_b) / NULLIF(COUNT(*), 0),
         2
     ) AS pct_a_b_grades,
-    -- Disaggregated by subgroup
-    ROUND(
-        100.0 * SUM(CASE WHEN english_learner THEN passed ELSE 0 END) /
-        NULLIF(SUM(CASE WHEN english_learner THEN 1 ELSE 0 END), 0),
-        2
-    ) AS pct_passed_ell,
-    ROUND(
-        100.0 * SUM(CASE WHEN special_education THEN passed ELSE 0 END) /
-        NULLIF(SUM(CASE WHEN special_education THEN 1 ELSE 0 END), 0),
-        2
-    ) AS pct_passed_sped,
-    ROUND(
-        100.0 * SUM(CASE WHEN free_reduced_lunch THEN passed ELSE 0 END) /
-        NULLIF(SUM(CASE WHEN free_reduced_lunch THEN 1 ELSE 0 END), 0),
-        2
-    ) AS pct_passed_frl,
+    -- Disaggregated by subgroup (k >= 5 suppression)
+    CASE
+        WHEN SUM(CASE WHEN english_learner THEN 1 ELSE 0 END) >= 5 THEN ROUND(
+            100.0 * SUM(CASE WHEN english_learner THEN passed ELSE 0 END) /
+            NULLIF(SUM(CASE WHEN english_learner THEN 1 ELSE 0 END), 0),
+            2
+        )
+        ELSE NULL
+    END AS pct_passed_ell,
+    CASE
+        WHEN SUM(CASE WHEN special_education THEN 1 ELSE 0 END) >= 5 THEN ROUND(
+            100.0 * SUM(CASE WHEN special_education THEN passed ELSE 0 END) /
+            NULLIF(SUM(CASE WHEN special_education THEN 1 ELSE 0 END), 0),
+            2
+        )
+        ELSE NULL
+    END AS pct_passed_sped,
+    CASE
+        WHEN SUM(CASE WHEN free_reduced_lunch THEN 1 ELSE 0 END) >= 5 THEN ROUND(
+            100.0 * SUM(CASE WHEN free_reduced_lunch THEN passed ELSE 0 END) /
+            NULLIF(SUM(CASE WHEN free_reduced_lunch THEN 1 ELSE 0 END), 0),
+            2
+        )
+        ELSE NULL
+    END AS pct_passed_frl,
     term,
     CURRENT_TIMESTAMP AS _loaded_at
 FROM enrollment_with_grades
 GROUP BY 1, 2, 3, term
+HAVING COUNT(DISTINCT student_id_hash) >= 5

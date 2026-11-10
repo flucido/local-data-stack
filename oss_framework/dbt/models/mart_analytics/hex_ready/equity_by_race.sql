@@ -16,11 +16,19 @@ SELECT
     -- Group sizes
     COUNT(DISTINCT student_id_hash) as student_count,
 
-    -- Demographics breakdown
-    SUM(CASE WHEN special_education_flag THEN 1 ELSE 0 END) as special_ed_count,
-    SUM(CASE WHEN free_reduced_lunch_flag THEN 1 ELSE 0 END) as frl_count,
-    SUM(CASE WHEN ell_status THEN 1 ELSE 0 END) as ell_count,
-    SUM(CASE WHEN homeless_flag THEN 1 ELSE 0 END) as homeless_count,
+    -- Demographics breakdown (suppress subgroup counts < 5)
+    CASE WHEN SUM(CASE WHEN special_education_flag THEN 1 ELSE 0 END) >= 5
+         THEN SUM(CASE WHEN special_education_flag THEN 1 ELSE 0 END)
+         ELSE NULL END as special_ed_count,
+    CASE WHEN SUM(CASE WHEN free_reduced_lunch_flag THEN 1 ELSE 0 END) >= 5
+         THEN SUM(CASE WHEN free_reduced_lunch_flag THEN 1 ELSE 0 END)
+         ELSE NULL END as frl_count,
+    CASE WHEN SUM(CASE WHEN ell_status THEN 1 ELSE 0 END) >= 5
+         THEN SUM(CASE WHEN ell_status THEN 1 ELSE 0 END)
+         ELSE NULL END as ell_count,
+    CASE WHEN SUM(CASE WHEN homeless_flag THEN 1 ELSE 0 END) >= 5
+         THEN SUM(CASE WHEN homeless_flag THEN 1 ELSE 0 END)
+         ELSE NULL END as homeless_count,
 
     -- Attendance outcomes
     ROUND(AVG(attendance_rate), 1) as avg_attendance_rate,
@@ -46,4 +54,5 @@ SELECT
 
 FROM {{ ref('analytics_for_hex') }}
 GROUP BY primary_race, is_multi_racial
+HAVING COUNT(DISTINCT student_id_hash) >= 5
 ORDER BY student_count DESC

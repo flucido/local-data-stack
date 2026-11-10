@@ -3,9 +3,9 @@
 -- Includes race_code_1 (primary race) for equity analysis
 
 {{ config(
-    materialized='table',
-    schema='analytics',
-    tags=['analytics', 'hex', 'motherduck']
+    schema='features',
+    materialized='view',
+    tags=['features', 'hex', 'motherduck']
 ) }}
 
 -- Main student analytics with race breakdown

@@ -90,7 +90,7 @@ models:
       +materialized: table
       +tags: ['analytics']
       +schema: 'analytics'
-      +post-hook: "ANALYZE {{ this }}"
+      +post-hook: "{% if config.get('materialized') == 'table' %}ANALYZE {{ this }}{% else %}SELECT 1{% endif %}"
 
     # Export layer - Rill Parquet exports
     exports:

@@ -114,4 +114,5 @@ FROM cohort_tracking
 GROUP BY
     year_7th_grade, pathway_7th_grade, primary_race, gender, is_multi_racial,
     took_algebra_1_in_8th, algebra_1_grade, algebra_1_gpa, algebra_1_passing, algebra_1_term
+HAVING COUNT(DISTINCT student_id_hash) >= 5
 ORDER BY year_7th_grade, pathway_7th_grade, primary_race, gender

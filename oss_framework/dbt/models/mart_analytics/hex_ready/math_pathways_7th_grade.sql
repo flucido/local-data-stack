@@ -50,4 +50,5 @@ SELECT
     CURRENT_TIMESTAMP as _loaded_at
 FROM combined
 GROUP BY school_year, pathway, primary_race, gender, is_multi_racial
+HAVING COUNT(DISTINCT student_id_hash) >= 5
 ORDER BY school_year, pathway, student_count DESC

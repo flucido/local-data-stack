@@ -24,4 +24,5 @@ JOIN {{ ref('dim_students') }} d ON ar.student_id_hash = d.student_id_hash
 WHERE ar.course_id = '308'  -- Algebra 1
   AND d.grade_level = 8
 GROUP BY ar.school_year, ar.term, d.primary_race, d.gender, d.is_multi_racial, ar.grade, ar.gpa_points, ar.is_passing
+HAVING COUNT(DISTINCT ar.student_id_hash) >= 5
 ORDER BY ar.school_year, ar.term, student_count DESC

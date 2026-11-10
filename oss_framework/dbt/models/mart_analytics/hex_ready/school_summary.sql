@@ -41,4 +41,5 @@ SELECT
 
 FROM {{ ref('analytics_for_hex') }}
 GROUP BY school_id
+HAVING COUNT(DISTINCT student_id_hash) >= 5
 ORDER BY student_count DESC

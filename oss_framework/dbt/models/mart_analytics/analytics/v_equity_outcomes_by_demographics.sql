@@ -14,6 +14,7 @@ SELECT
     COALESCE(d.free_reduced_lunch_flag, false) AS economically_disadvantaged,
 
     COUNT(DISTINCT d.student_id_hash) AS cohort_size,
+    COUNT(DISTINCT d.student_id_hash) AS student_count,
 
     -- Attendance outcomes
     ROUND(100.0 * SUM(CASE WHEN COALESCE(a.attendance_rate, 0) > 90 THEN 1 ELSE 0 END) /
@@ -43,4 +44,5 @@ LEFT JOIN {{ ref('fact_academic_performance') }} acad
     ON d.student_id_hash = acad.student_key
 
 GROUP BY 1, 2, 3, 4
+HAVING COUNT(DISTINCT d.student_id_hash) >= 5
 ORDER BY race_ethnicity, english_learner, special_education, economically_disadvantaged
