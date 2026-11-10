@@ -83,7 +83,7 @@ mart_core (Analytics)
 **File:** `macros/hash_pii_secure.sql`
 
 ```sql
-{%- macro hash_pii_secure(column_name, salt=var('salt_pii', 'oea_2026')) -%}
+{%- macro hash_pii_secure(column_name, salt=var('salt_pii')) -%}
     -- SHA256 implementation for DuckDB (native function)
     -- More secure than MD5, follows FERPA best practices
     --
@@ -450,7 +450,7 @@ models:
 
 ### 7.1 Salt Management
 
-**Current:** `var('salt_pii', 'oea_2026')`
+**Current:** `var('salt_pii')` (sourced from `env_var('PII_SALT')`)
 
 **Production Requirements:**
 - Store salt in environment variable

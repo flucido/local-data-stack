@@ -16,10 +16,7 @@ WITH latest AS (
 
 attendance_30d AS (
     SELECT
-        sha256(CONCAT(
-            COALESCE(ra.student_id::VARCHAR, ''),
-            'oea_2026'
-        ))                         AS student_id_hash,
+        {{ hash_pii_secure('ra.student_id') }} AS student_id_hash,
         COUNT(*)                   AS days_enrolled,
         SUM(CASE WHEN CAST(ra.absent_flag AS BOOLEAN)    THEN 1 ELSE 0 END) AS days_absent,
         SUM(CASE WHEN CAST(ra.unexcused_flag AS BOOLEAN) THEN 1 ELSE 0 END) AS days_unexcused,
@@ -38,10 +35,7 @@ attendance_30d AS (
 
 attendance_90d AS (
     SELECT
-        sha256(CONCAT(
-            COALESCE(ra.student_id::VARCHAR, ''),
-            'oea_2026'
-        ))                         AS student_id_hash,
+        {{ hash_pii_secure('ra.student_id') }} AS student_id_hash,
         COUNT(*)                   AS days_enrolled,
         SUM(CASE WHEN CAST(ra.absent_flag AS BOOLEAN)    THEN 1 ELSE 0 END) AS days_absent
     FROM {{ source('raw', 'raw_attendance') }} ra
@@ -53,10 +47,7 @@ attendance_90d AS (
 
 attendance_annual AS (
     SELECT
-        sha256(CONCAT(
-            COALESCE(ra.student_id::VARCHAR, ''),
-            'oea_2026'
-        ))                         AS student_id_hash,
+        {{ hash_pii_secure('ra.student_id') }} AS student_id_hash,
         COUNT(*)                   AS days_enrolled,
         SUM(CASE WHEN CAST(ra.absent_flag AS BOOLEAN) THEN 1 ELSE 0 END) AS days_absent,
         SUM(CASE WHEN CAST(ra.unexcused_flag AS BOOLEAN) THEN 1 ELSE 0 END) AS days_unexcused,

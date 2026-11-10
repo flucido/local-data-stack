@@ -11,7 +11,7 @@
 
 SELECT
     -- Composite primary key (no record_id in source)
-    {{ dbt_utils.generate_surrogate_key(['sar.student_id_raw', 'sar.course_id', 'sar.section_id', 'sar.term', 'sar.school_year']) }} as academic_record_sk,
+    {{ dbt_utils.generate_surrogate_key([hash_pii_secure('sar.student_id_raw'), 'sar.course_id', 'sar.section_id', 'sar.term', 'sar.school_year']) }} as academic_record_sk,
     -- Foreign keys
     {{ hash_pii_secure('sar.student_id_raw') }} as student_id_hash,
     {{ hash_pii_secure('sar.teacher_id') }} as teacher_id_hash,

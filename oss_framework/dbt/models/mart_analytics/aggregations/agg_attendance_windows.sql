@@ -24,10 +24,7 @@ window_defs AS (
 
 daily AS (
     SELECT
-        sha256(CONCAT(
-            COALESCE(ra.student_id::VARCHAR, ''),
-            'oea_2026'
-        )) AS student_key,
+        {{ hash_pii_secure('ra.student_id') }} AS student_key,
         CAST(ra.attendance_date AS DATE) AS attendance_date,
         CAST(ra.present_flag   AS BOOLEAN) AS present_flag,
         CAST(ra.absent_flag    AS BOOLEAN) AS absent_flag,

@@ -13,7 +13,7 @@
 
   Args:
     column_name: The column to hash (e.g., 'student_id_raw')
-    salt: Salt value from dbt var (defaults to 'oea_2026')
+    salt: Salt value from dbt var (defaults to var('salt_pii'))
 
   Returns:
     VARCHAR - SHA256 hash as lowercase hexadecimal string (64 chars)

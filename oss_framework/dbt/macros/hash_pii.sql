@@ -24,5 +24,5 @@
 #}
 
 {%- macro hash_pii(column_name, salt=var('salt_pii')) -%}
-    sha256(CONCAT(COALESCE({{ column_name }}::VARCHAR, ''), '{{ salt }}'))
+    {{ hash_pii_secure(column_name, salt) }}
 {%- endmacro -%}

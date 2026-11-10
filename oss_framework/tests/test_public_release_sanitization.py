@@ -64,3 +64,42 @@ def test_synthetic_sample_data_has_expected_shape() -> None:
     assert all(
         student_id.startswith("SYN") for student_id in table.column("student_id").to_pylist()
     )
+
+
+def test_dbt_pii_hashing_unification_and_no_hardcoded_salts() -> None:
+    for rel in [
+        "oss_framework/dbt/macros/hash_pii_secure.sql",
+        "oss_framework/dbt/macros/hash_pii.sql",
+        "oss_framework/dbt/STAGE2B_PRIVACY_DESIGN.md",
+        "oss_framework/dbt/models/mart_features/features/fct_chronic_absence_features.sql",
+        "oss_framework/dbt/models/mart_analytics/aggregations/agg_attendance_windows.sql",
+    ]:
+        text = (REPO_ROOT / rel).read_text()
+        assert "oea_2026" not in text, f"Found hardcoded salt oea_2026 in {rel}"
+
+    hash_pii_text = (REPO_ROOT / "oss_framework/dbt/macros/hash_pii.sql").read_text()
+    assert "hash_pii_secure(" in hash_pii_text
+
+    chronic_text = (
+        REPO_ROOT
+        / "oss_framework/dbt/models/mart_features/features/fct_chronic_absence_features.sql"
+    ).read_text()
+    assert chronic_text.count("hash_pii_secure('ra.student_id')") == 3
+
+    windows_text = (
+        REPO_ROOT
+        / "oss_framework/dbt/models/mart_analytics/aggregations/agg_attendance_windows.sql"
+    ).read_text()
+    assert "hash_pii_secure('ra.student_id')" in windows_text
+
+    fact_enrollment = (
+        REPO_ROOT / "oss_framework/dbt/models/mart_core/core/fact_enrollment.sql"
+    ).read_text()
+    assert "['se.student_id_raw'" not in fact_enrollment.splitlines()[13]
+    assert "[hash_pii_secure('se.student_id_raw')" in fact_enrollment.splitlines()[13]
+
+    fact_academics = (
+        REPO_ROOT / "oss_framework/dbt/models/mart_core/core/fact_academic_records.sql"
+    ).read_text()
+    assert "['sar.student_id_raw'" not in fact_academics.splitlines()[13]
+    assert "[hash_pii_secure('sar.student_id_raw')" in fact_academics.splitlines()[13]

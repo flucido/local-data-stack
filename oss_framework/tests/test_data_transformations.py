@@ -176,6 +176,16 @@ class TestPseudonymizer:
         for idx in range(len(sample_students_df)):
             assert result1.loc[idx, "student_id"] == result2.loc[idx, "student_id"]
 
+    def test_requires_explicit_salt_minimum_length(self):
+        """Test that missing or short salt raises ValueError"""
+        from oss_framework import Pseudonymizer
+
+        with pytest.raises(ValueError, match="Explicit non-empty salt is required"):
+            Pseudonymizer()
+
+        with pytest.raises(ValueError, match="Explicit non-empty salt is required"):
+            Pseudonymizer(salt="short_salt")
+
 
 @pytest.mark.unit
 class TestSchemaValidator:
