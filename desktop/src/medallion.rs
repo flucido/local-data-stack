@@ -425,7 +425,9 @@ impl MedallionEngine {
                 primary_race VARCHAR,
                 sed_status BOOLEAN,
                 ell_status BOOLEAN,
-                sped_status BOOLEAN
+                sped_status BOOLEAN,
+                free_reduced_lunch_flag BOOLEAN,
+                special_education_flag BOOLEAN
             );
 
             CREATE OR REPLACE TABLE main_core.fact_attendance (
@@ -445,6 +447,7 @@ impl MedallionEngine {
                 school_name VARCHAR,
                 school_type VARCHAR,
                 total_students BIGINT,
+                student_count BIGINT,
                 avg_gpa DOUBLE,
                 avg_attendance_rate DOUBLE,
                 total_incidents BIGINT,
@@ -526,8 +529,8 @@ impl MedallionEngine {
             for row in rows {
                 let (sid, yr, gr, gen, eth, race, sed, ell, sped) = row?;
                 duck.execute(
-                    "INSERT INTO main_core.dim_students VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    duckdb::params![sid, yr, gr, gen, eth, race, sed, ell, sped],
+                    "INSERT INTO main_core.dim_students VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    duckdb::params![sid, yr, gr, gen, eth, race, sed, ell, sped, sed, sped],
                 )?;
             }
         }
@@ -596,8 +599,8 @@ impl MedallionEngine {
             for row in rows {
                 let (id, yr, name, stype, tot, gpa, att, inc, st_inc) = row?;
                 duck.execute(
-                    "INSERT INTO main_analytics.school_summary VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    duckdb::params![id, yr, name, stype, tot, gpa, att, inc, st_inc],
+                    "INSERT INTO main_analytics.school_summary VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    duckdb::params![id, yr, name, stype, tot, tot, gpa, att, inc, st_inc],
                 )?;
             }
         }

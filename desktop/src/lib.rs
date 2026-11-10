@@ -164,6 +164,30 @@ mod tests {
     }
 
     #[test]
+    fn test_dim_students_and_school_summary_dual_column_contracts() {
+        let bronze_path = temp_bronze_db();
+        let engine = MedallionEngine::new(&bronze_path, None).unwrap();
+
+        let stu_res = engine
+            .execute_and_cache_arrow(
+                "SELECT student_id_hash, sed_status, sped_status, free_reduced_lunch_flag, special_education_flag FROM main_core.dim_students LIMIT 5",
+                None,
+            )
+            .unwrap();
+        assert!(stu_res.summary.row_count >= 1);
+
+        let sum_res = engine
+            .execute_and_cache_arrow(
+                "SELECT academic_year, school_id, school_name, total_students, student_count, avg_attendance_rate, avg_gpa FROM main_analytics.school_summary LIMIT 5",
+                None,
+            )
+            .unwrap();
+        assert!(sum_res.summary.row_count >= 1);
+
+        let _ = std::fs::remove_file(&bronze_path);
+    }
+
+    #[test]
     fn test_rust_top_k_schema_pruner_and_gbnf_compiler() {
         let catalog = load_unified_schema(&repo_root());
         assert_eq!(catalog.len(), 20);

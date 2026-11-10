@@ -234,3 +234,34 @@ def test_k_anonymity_suppression_across_marts_and_exports() -> None:
     yml_text = models_yml.read_text()
     assert "test_k_anonymity" in yml_text
     assert "min_k: 5" in yml_text
+
+
+def test_schema_contract_alignment_across_dbt_and_prompts() -> None:
+    school_summary = (
+        REPO_ROOT / "oss_framework/dbt/models/mart_analytics/hex_ready/school_summary.sql"
+    ).read_text()
+    for required in (
+        "academic_year",
+        "school_name",
+        "total_students",
+        "student_count",
+        "avg_attendance_rate",
+        "avg_gpa",
+    ):
+        assert required in school_summary, f"Missing {required} in school_summary.sql"
+    assert "dim_schools" in school_summary
+
+    equity_by_race = (
+        REPO_ROOT / "oss_framework/dbt/models/mart_analytics/hex_ready/equity_by_race.sql"
+    ).read_text()
+    for required in (
+        "academic_year",
+        "primary_race",
+        "is_multi_racial",
+        "incident_count",
+        "avg_discipline_incidents",
+    ):
+        assert required in equity_by_race, f"Missing {required} in equity_by_race.sql"
+
+    prompts_text = (REPO_ROOT / "nl_query/prompts.py").read_text()
+    assert "SED=Socioeconomically Disadvantaged" in prompts_text

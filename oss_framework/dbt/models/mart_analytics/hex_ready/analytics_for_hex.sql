@@ -12,6 +12,7 @@
 SELECT
     -- Identifiers
     d.student_id_hash,
+    d.academic_year,
 
     -- Demographics
     d.gender,
@@ -49,10 +50,12 @@ SELECT
 
     -- Discipline metrics (from fact_discipline)
     COALESCE(dis.incident_count, 0) as discipline_incidents,
+    COALESCE(dis.incident_count, 0) as discipline_incident_count,
     COALESCE(dis.suspension_count, 0) as suspension_count,
 
     -- Academic metrics (from fact_academic_records)
     COALESCE(acad.avg_gpa_points, 0) as avg_gpa,
+    COALESCE(acad.avg_gpa_points, 0) as gpa_unweighted,
     COALESCE(acad.total_credits, 0) as credits_earned,
     COALESCE(acad.course_count, 0) as course_count,
 
@@ -75,27 +78,30 @@ FROM {{ ref('dim_students') }} d
 LEFT JOIN (
     SELECT
         student_id_hash,
+        academic_year,
         AVG(attendance_rate) as attendance_rate,
         SUM(days_absent) as days_absent,
         SUM(days_present) as days_present,
         SUM(days_tardy) as days_tardy
     FROM {{ ref('fact_attendance') }}
-    GROUP BY student_id_hash
-) a ON d.student_id_hash = a.student_id_hash
+    GROUP BY student_id_hash, academic_year
+) a ON d.student_id_hash = a.student_id_hash AND d.academic_year = a.academic_year
 LEFT JOIN (
     SELECT
         student_id_hash,
+        academic_year,
         COUNT(*) as incident_count,
         SUM(suspension_flag) as suspension_count
     FROM {{ ref('fact_discipline') }}
-    GROUP BY student_id_hash
-) dis ON d.student_id_hash = dis.student_id_hash
+    GROUP BY student_id_hash, academic_year
+) dis ON d.student_id_hash = dis.student_id_hash AND d.academic_year = dis.academic_year
 LEFT JOIN (
     SELECT
         student_id_hash,
+        school_year,
         AVG(COALESCE(gpa_points, 0)) as avg_gpa_points,
         SUM(COALESCE(credit_earned, 0)) as total_credits,
         COUNT(DISTINCT course_id) as course_count
     FROM {{ ref('fact_academic_records') }}
-    GROUP BY student_id_hash
-) acad ON d.student_id_hash = acad.student_id_hash
+    GROUP BY student_id_hash, school_year
+) acad ON d.student_id_hash = acad.student_id_hash AND d.academic_year = acad.school_year

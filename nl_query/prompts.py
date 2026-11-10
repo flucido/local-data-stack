@@ -24,7 +24,7 @@ Follow these rules strictly:
 5. Join on the columns that logically connect the tables — student-grain tables join on student_id_hash; school-grain tables join on cds_code or school_id.
 6. Student identity is pseudonymized: student identities are represented by student_id_hash only. Direct PII columns (names, dates of birth, raw student IDs) are not available.
 7. For CDE school accountability metrics (chronic absenteeism, enrollment, suspensions, expulsions, homeless counts, FRPM, SBAC, ELPAC, restraints), use main_analytics.mart_cde_school_accountability.
-8. CDE reporting_category codes: TA=All Students, RA=Asian, RB=Black, RH=Hispanic, GM=Male, GF=Female, SE=Socioeconomically Disadvantaged, EL=English Learners, SWD=Students with Disabilities, HOM=Homeless, FOS=Foster Youth.
+8. CDE reporting_category codes: TA=All Students, RA=Asian, RB=Black, RH=Hispanic, GM=Male, GF=Female, SED=Socioeconomically Disadvantaged (also SE in legacy CDE extracts), EL=English Learners, SWD=Students with Disabilities, HOM=Homeless, FOS=Foster Youth.
 9. If the question is ambiguous, make a reasonable assumption and generate the query.
 10. Do NOT include any explanation outside the ```sql ``` block."""
 
@@ -201,17 +201,23 @@ DEFAULT_SCHEMA = {
     ],
     # ── Existing analytics marts ────────────────────────────────────
     "main_analytics.school_summary": [
+        ("academic_year", "VARCHAR", "School year (format 'YYYY-YYYY')"),
         ("school_id", "VARCHAR", "School identifier"),
+        ("school_name", "VARCHAR", "School name"),
+        ("total_students", "BIGINT", "Number of students"),
         ("student_count", "BIGINT", "Number of students"),
         ("avg_attendance_rate", "DOUBLE", "Average attendance rate"),
         ("avg_gpa", "DOUBLE", "Average GPA"),
         ("pct_high_risk", "DOUBLE", "Percent of students at high risk"),
     ],
     "main_analytics.equity_by_race": [
+        ("academic_year", "VARCHAR", "School year (format 'YYYY-YYYY')"),
         ("primary_race", "VARCHAR", "Primary race/ethnicity category"),
+        ("is_multi_racial", "BOOLEAN", "TRUE if multi-racial"),
         ("student_count", "BIGINT", "Number of students in group"),
         ("avg_attendance_rate", "DOUBLE", "Average attendance rate"),
         ("avg_gpa", "DOUBLE", "Average GPA"),
+        ("incident_count", "BIGINT", "Total discipline incidents"),
         ("pct_suspended", "DOUBLE", "Percent suspended"),
     ],
 }
