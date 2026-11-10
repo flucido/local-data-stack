@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -34,6 +35,12 @@ logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).parent.parent
 DUCKDB_PATH = PROJECT_ROOT / "oss_framework" / "data" / "analytics.duckdb"
 RILL_DATA_DIR = PROJECT_ROOT / "rill_project" / "data"
+
+
+def resolve_duckdb_path() -> Path:
+    env_db = os.getenv("DUCKDB_DATABASE_PATH")
+    return Path(env_db).resolve() if env_db else DUCKDB_PATH
+
 
 # Analytics views to export
 # Format: {view_name: output_parquet_filename}
@@ -170,10 +177,11 @@ def export_all_views(dry_run: bool = False, filter_view: str | None = None) -> d
     Returns:
         Summary dictionary with export results
     """
+    db_path = resolve_duckdb_path()
     logger.info("=" * 80)
     logger.info("DuckDB → Parquet Export for Rill Dashboards")
     logger.info("=" * 80)
-    logger.info(f"DuckDB Database: {DUCKDB_PATH}")
+    logger.info(f"DuckDB Database: {db_path}")
     logger.info(f"Rill Data Directory: {RILL_DATA_DIR}")
     logger.info(f"Views to Export: {len(ANALYTICS_VIEWS)}")
 
@@ -184,14 +192,14 @@ def export_all_views(dry_run: bool = False, filter_view: str | None = None) -> d
         logger.info(f"📌 Filter: Only exporting views matching '{filter_view}'")
 
     # Validate DuckDB exists
-    if not DUCKDB_PATH.exists():
-        error_msg = f"DuckDB database not found: {DUCKDB_PATH}"
+    if not db_path.exists():
+        error_msg = f"DuckDB database not found: {db_path}"
         logger.error(error_msg)
         return {"status": "error", "error": error_msg}
 
     # Connect to DuckDB
     logger.info("\n📊 Connecting to DuckDB...")
-    con = duckdb.connect(str(DUCKDB_PATH), read_only=True)
+    con = duckdb.connect(str(db_path), read_only=True)
 
     # Export each view
     results = {}

@@ -140,7 +140,23 @@ impl ArrowCache {
 pub struct MedallionEngine {
     bronze_path: PathBuf,
     duck_conn: Mutex<DuckConnection>,
+    edu_snapshot_path: Mutex<Option<PathBuf>>,
     pub arrow_cache: ArrowCache,
+}
+
+impl Drop for MedallionEngine {
+    fn drop(&mut self) {
+        if let Ok(duck) = self.duck_conn.lock() {
+            let _ = duck.execute("DETACH IF EXISTS \"edu_wh\"", []);
+        }
+        if let Ok(mut guard) = self.edu_snapshot_path.lock() {
+            if let Some(snap) = guard.take() {
+                let _ = std::fs::remove_file(&snap);
+                let wal = PathBuf::from(format!("{}.wal", snap.display()));
+                let _ = std::fs::remove_file(wal);
+            }
+        }
+    }
 }
 
 impl MedallionEngine {
@@ -152,6 +168,7 @@ impl MedallionEngine {
         let engine = Self {
             bronze_path,
             duck_conn: Mutex::new(duck_conn),
+            edu_snapshot_path: Mutex::new(None),
             arrow_cache: ArrowCache::new(),
         };
 
@@ -645,14 +662,31 @@ impl MedallionEngine {
         Ok(())
     }
 
-    /// Attach the K-12 Education warehouse (`analytics.duckdb`) in read-only mode and expose
-    /// its `main_core`, `main_analytics`, and `main_staging` views in the unified session.
+    /// Copy the K-12 Education warehouse (`analytics.duckdb`) to an isolated session snapshot,
+    /// attach it in read-only mode, and expose its `main_core` and `main_analytics` views
+    /// without holding an OS file lock on the production DuckDB file.
     pub fn attach_education_warehouse(&self, edu_path: &Path) -> Result<()> {
+        let snapshot_path = std::env::temp_dir().join(format!(
+            "lfed_edu_snapshot_{}.duckdb",
+            Uuid::new_v4().simple()
+        ));
+        std::fs::copy(edu_path, &snapshot_path)?;
+        let src_wal = PathBuf::from(format!("{}.wal", edu_path.display()));
+        if src_wal.exists() {
+            let dst_wal = PathBuf::from(format!("{}.wal", snapshot_path.display()));
+            let _ = std::fs::copy(&src_wal, &dst_wal);
+        }
+        if let Ok(mut guard) = self.edu_snapshot_path.lock() {
+            if let Some(prev) = guard.replace(snapshot_path.clone()) {
+                let _ = std::fs::remove_file(prev);
+            }
+        }
+
         let duck = self
             .duck_conn
             .lock()
             .map_err(|_| anyhow!("DuckDB mutex poisoned"))?;
-        let escaped = edu_path.to_string_lossy().replace('\'', "''");
+        let escaped = snapshot_path.to_string_lossy().replace('\'', "''");
         duck.execute_batch(&format!(
             "ATTACH IF NOT EXISTS '{escaped}' AS edu_wh (READ_ONLY);"
         ))?;

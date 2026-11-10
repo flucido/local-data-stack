@@ -103,6 +103,67 @@ mod tests {
     }
 
     #[test]
+    fn test_education_warehouse_snapshot_releases_lock_on_source_db() {
+        let bronze_path = temp_bronze_db();
+        let src_edu = std::env::temp_dir().join(format!(
+            "edu_lock_test_{}.duckdb",
+            Uuid::new_v4().simple()
+        ));
+        let py = repo_root().join(".venv").join("bin").join("python");
+        if py.exists() {
+            let init_status = std::process::Command::new(&py)
+                .args([
+                    "-c",
+                    &format!(
+                        "import duckdb; c = duckdb.connect(r'{}'); c.execute(\"CREATE SCHEMA main_analytics; CREATE TABLE main_analytics.custom_cohort (cohort_name VARCHAR, student_count BIGINT); INSERT INTO main_analytics.custom_cohort VALUES ('Cohort A', 12);\"); c.close()",
+                        src_edu.display()
+                    ),
+                ])
+                .status()
+                .unwrap();
+            assert!(init_status.success());
+        } else {
+            let c = duckdb::Connection::open(&src_edu).unwrap();
+            c.execute_batch(
+                "CREATE SCHEMA main_analytics; CREATE TABLE main_analytics.custom_cohort (cohort_name VARCHAR, student_count BIGINT); INSERT INTO main_analytics.custom_cohort VALUES ('Cohort A', 12);",
+            )
+            .unwrap();
+        }
+
+        let engine = MedallionEngine::new(&bronze_path, Some(&src_edu)).unwrap();
+
+        // Cross-process RW open + write on src_edu must succeed without DuckDB fcntl lock contention
+        if py.exists() {
+            let status = std::process::Command::new(&py)
+                .args([
+                    "-c",
+                    &format!(
+                        "import duckdb; c = duckdb.connect(r'{}', read_only=False); c.execute(\"INSERT INTO main_analytics.custom_cohort VALUES ('Cohort B', 18)\"); c.close()",
+                        src_edu.display()
+                    ),
+                ])
+                .status()
+                .unwrap();
+            assert!(
+                status.success(),
+                "Child process failed to acquire RW DuckDB lock on source warehouse while desktop engine was running"
+            );
+        }
+
+        let res = engine
+            .execute_and_cache_arrow(
+                "SELECT cohort_name, student_count FROM main_analytics.custom_cohort",
+                None,
+            )
+            .unwrap();
+        assert_eq!(res.summary.row_count, 1);
+
+        drop(engine);
+        let _ = std::fs::remove_file(&src_edu);
+        let _ = std::fs::remove_file(&bronze_path);
+    }
+
+    #[test]
     fn test_rust_top_k_schema_pruner_and_gbnf_compiler() {
         let catalog = load_unified_schema(&repo_root());
         assert_eq!(catalog.len(), 20);

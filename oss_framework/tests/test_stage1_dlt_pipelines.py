@@ -339,3 +339,34 @@ class TestStage1ToStage2Contract:
         assert 'cat > "$SCRIPTS_DIR/' not in setup_script
         assert ".venv" in setup_script
         assert 'pip install -e ".[dev,nl-query]"' in setup_script
+
+    def test_blue_green_atomic_duckdb_build_and_swap(self, tmp_path, monkeypatch):
+        from scripts.run_pipeline import PipelineOrchestrator
+
+        prod_db = tmp_path / "analytics.duckdb"
+        prod_db.write_bytes(b"prod_v1")
+
+        orch = PipelineOrchestrator(db_path=prod_db)
+        observed_env_paths: list[str] = []
+
+        def fake_stage1() -> bool:
+            observed_env_paths.append(orch.active_db_path_str())
+            Path(orch.active_db_path_str()).write_bytes(b"building_v2")
+            return True
+
+        monkeypatch.setattr(orch, "stage1_ingestion", fake_stage1)
+        monkeypatch.setattr(orch, "stage2_refinement", lambda: True)
+        monkeypatch.setattr(orch, "stage3_analytics", lambda: True)
+        monkeypatch.setattr(orch, "stage4_export", lambda: True)
+
+        # Failed test run must NOT swap building -> prod
+        monkeypatch.setattr(orch, "run_tests", lambda: False)
+        assert orch.run_full_pipeline(skip_tests=False) is False
+        assert prod_db.read_bytes() == b"prod_v1"
+
+        # Passing run must build against .building and atomically swap into prod_db
+        monkeypatch.setattr(orch, "run_tests", lambda: True)
+        assert orch.run_full_pipeline(skip_tests=False) is True
+        assert observed_env_paths[-1].endswith(".duckdb.building")
+        assert prod_db.read_bytes() == b"building_v2"
+        assert not Path(f"{prod_db}.building").exists()
