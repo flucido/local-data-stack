@@ -205,11 +205,39 @@ _FORBIDDEN_FUNCTION_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Wildcard projections: `SELECT *`, `SELECT DISTINCT *`, or `alias.*`.
+# Wildcard projections: `SELECT *`, `SELECT ALL *`, `SELECT DISTINCT *`, or `alias.*`.
 _WILDCARD_SELECT_RE = re.compile(
-    r"\bselect\s+(?:distinct\s+)?\*|\bselect\b[^;]*?\w+\.\s*\*",
+    r"\bselect\s+(?:all\s+|distinct\s+)?\*|\bselect\b[^;]*?\w+\.\s*\*",
     re.IGNORECASE | re.DOTALL,
 )
+
+_SINGLE_QUOTED_LITERAL_RE = re.compile(r"'(?:''|[^'])*'")
+_FORBIDDEN_PII_TOKEN_RE = re.compile(
+    r"\bstg_aeries__|\bstg_cde__schools\b|\w+_raw\b|\bfirst_name\b|\blast_name\b|\bdate_of_birth\b|\bstudent_id_raw\b|\bcolumns\s*\(",
+    re.IGNORECASE,
+)
+_SQL_CLAUSE_KEYWORDS = {
+    "where",
+    "group",
+    "order",
+    "limit",
+    "having",
+    "qualify",
+    "window",
+    "union",
+    "intersect",
+    "except",
+    "join",
+    "inner",
+    "left",
+    "right",
+    "full",
+    "cross",
+    "natural",
+    "on",
+    "using",
+    "as",
+}
 
 # ── Execution limits ───────────────────────────────────────────────────
 
@@ -450,6 +478,66 @@ def validate_sql(sql: str, conn: duckdb.DuckDBPyConnection | None = None) -> Non
                 "Reference to a blocked schema pattern detected. "
                 "Only queries against exposed schemas are allowed."
             )
+
+    unquoted_lower = _SINGLE_QUOTED_LITERAL_RE.sub("''", sql_lower)
+    allowed = {s.lower() for s in get_exposed_schemas()}
+
+    for cat, sch in re.findall(
+        r"\b([a-z_][a-z0-9_]*)\s*\.\s*([a-z_][a-z0-9_]*)\s*\.\s*[a-z_][a-z0-9_]*",
+        unquoted_lower,
+    ):
+        for candidate in (cat, sch):
+            if candidate not in allowed:
+                raise ValueError(
+                    f"Query references '{candidate}', which is outside the exposed schemas "
+                    f"({', '.join(sorted(allowed))})."
+                )
+
+    known_qualifiers: set[str] = {"_safe", "_base", "_desc"}
+    for cte_name in re.findall(
+        r"(?:\bwith(?:\s+recursive)?|,)\s*([a-z_][a-z0-9_]*)\s+as\s*\(", unquoted_lower
+    ):
+        known_qualifiers.add(cte_name)
+
+    for sch, tbl, alias in re.findall(
+        r"\b(?:from|join)\s+([a-z_][a-z0-9_]*)\s*\.\s*([a-z_][a-z0-9_]*)(?:\s+(?:as\s+)?([a-z_][a-z0-9_]*))?",
+        unquoted_lower,
+    ):
+        if sch not in allowed:
+            raise ValueError(
+                f"Query references '{sch}', which is outside the exposed schemas "
+                f"({', '.join(sorted(allowed))})."
+            )
+        known_qualifiers.add(tbl)
+        if alias and alias not in _SQL_CLAUSE_KEYWORDS:
+            known_qualifiers.add(alias)
+
+    for tbl, alias in re.findall(
+        r"\b(?:from|join)\s+([a-z_][a-z0-9_]*)(?!\s*\.)(?:\s+(?:as\s+)?([a-z_][a-z0-9_]*))?",
+        unquoted_lower,
+    ):
+        if tbl not in _SQL_CLAUSE_KEYWORDS:
+            known_qualifiers.add(tbl)
+        if alias and alias not in _SQL_CLAUSE_KEYWORDS:
+            known_qualifiers.add(alias)
+
+    for subq_alias in re.findall(r"\)\s*(?:as\s+)?([a-z_][a-z0-9_]*)", unquoted_lower):
+        if subq_alias not in _SQL_CLAUSE_KEYWORDS:
+            known_qualifiers.add(subq_alias)
+
+    for qualifier in re.findall(r"\b([a-z_][a-z0-9_]*)\s*\.\s*[a-z_][a-z0-9_]*", unquoted_lower):
+        if qualifier not in allowed and qualifier not in known_qualifiers:
+            raise ValueError(
+                f"Query references '{qualifier}', which is outside the exposed schemas "
+                f"({', '.join(sorted(allowed))})."
+            )
+
+    pii_token_match = _FORBIDDEN_PII_TOKEN_RE.search(unquoted_lower)
+    if pii_token_match:
+        raise ValueError(
+            f"Forbidden staging or PII identifier detected: '{pii_token_match.group(0).strip()}'. "
+            "Use pseudonymized core or analytics columns only."
+        )
 
     if conn is not None:
         try:

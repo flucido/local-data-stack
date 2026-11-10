@@ -61,7 +61,8 @@ mod tests {
             ),
             Err(err) => assert!(
                 err.message.to_lowercase().contains("permission")
-                    || err.message.to_lowercase().contains("external access"),
+                    || err.message.to_lowercase().contains("external access")
+                    || err.message.to_lowercase().contains("disabled by configuration"),
                 "expected a permission failure from the DuckDB sandbox, got: {} ({})",
                 err.error_type,
                 err.message
@@ -70,6 +71,35 @@ mod tests {
 
         let _ = std::fs::remove_file(&secret);
         let _ = std::fs::remove_file(&bronze_path);
+    }
+
+    #[test]
+    fn test_sql_execution_time_schema_and_column_allowlists() {
+        use super::medallion::validate_read_only_sql;
+
+        let blocked_queries = [
+            "SELECT * FROM edu_wh.main_privacy_sensitive.priv_pii_lookup_table",
+            "SELECT * FROM main_privacy_sensitive.priv_pii_lookup_table",
+            "SELECT * FROM main_staging.stg_aeries__students",
+            "SELECT * FROM stg_aeries__students",
+            "SELECT student_id_raw FROM main_core.dim_students",
+            "SELECT first_name, last_name FROM main_core.dim_students",
+            "SELECT date_of_birth FROM main_core.dim_students",
+            "SELECT ALL * FROM main_core.dim_students",
+            "SELECT COLUMNS(*) FROM main_core.dim_students",
+            "SELECT * FROM _dlt_loads",
+        ];
+        for q in blocked_queries {
+            assert!(
+                validate_read_only_sql(q).is_err(),
+                "Expected validate_read_only_sql to reject: {q}"
+            );
+        }
+
+        assert!(validate_read_only_sql(
+            "SELECT student_id_hash, grade_level FROM main_core.dim_students"
+        )
+        .is_ok());
     }
 
     #[test]

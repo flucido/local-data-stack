@@ -23,9 +23,7 @@ Follow these rules strictly:
 4. When aggregating, use clear column aliases (e.g., AS total_students).
 5. Join on the columns that logically connect the tables — student-grain tables join on student_id_hash; school-grain tables join on cds_code or school_id.
 6. Student identity is pseudonymized: student identities are represented by student_id_hash only. Direct PII columns (names, dates of birth, raw student IDs) are not available.
-7. There are two query paths for CDE aggregate data:
-   - For multi-metric school comparisons, use main_analytics.mart_cde_school_accountability (pre-joined OBT).
-   - For detailed single-domain queries, use the staging tables directly (e.g. main_staging.stg_cde__suspension).
+7. For CDE school accountability metrics (chronic absenteeism, enrollment, suspensions, expulsions, homeless counts, FRPM, SBAC, ELPAC, restraints), use main_analytics.mart_cde_school_accountability.
 8. CDE reporting_category codes: TA=All Students, RA=Asian, RB=Black, RH=Hispanic, GM=Male, GF=Female, SE=Socioeconomically Disadvantaged, EL=English Learners, SWD=Students with Disabilities, HOM=Homeless, FOS=Foster Youth.
 9. If the question is ambiguous, make a reasonable assumption and generate the query.
 10. Do NOT include any explanation outside the ```sql ``` block."""
@@ -326,11 +324,11 @@ GAP_FEWSHOT_EXAMPLES = [
     # ── Category B: Trend / Year-over-Year ───────────────────────────
     {
         "question": "How has chronic absenteeism changed from 2021-22 to 2023-24?",
-        "sql": "SELECT academic_year,\n       ROUND(AVG(chronic_absent_rate_pct), 2) AS avg_chronic_absent_rate\nFROM main_staging.stg_cde__chronic_absenteeism\nWHERE aggregate_level = 'T'\n  AND reporting_category = 'TA'\n  AND academic_year IN ('2021-22', '2022-23', '2023-24')\nGROUP BY academic_year\nORDER BY academic_year;",
+        "sql": "SELECT academic_year,\n       ROUND(AVG(ca_chronic_absent_rate_pct), 2) AS avg_chronic_absent_rate\nFROM main_analytics.mart_cde_school_accountability\nWHERE reporting_category = 'TA'\n  AND academic_year IN ('2021-22', '2022-23', '2023-24')\nGROUP BY academic_year\nORDER BY academic_year;",
     },
     {
         "question": "Show enrollment for each school across the last 3 years",
-        "sql": "SELECT school_name, academic_year, SUM(cumulative_enrollment) AS total_enrollment\nFROM main_staging.stg_cde__enrollment\nWHERE aggregate_level = 'S'\n  AND reporting_category = 'TA'\n  AND academic_year IN ('2022-23', '2023-24', '2024-25')\nGROUP BY school_name, academic_year\nORDER BY school_name, academic_year;",
+        "sql": "SELECT school_name, academic_year, SUM(en_cumulative_enrollment) AS total_enrollment\nFROM main_analytics.mart_cde_school_accountability\nWHERE aggregate_level = 'S'\n  AND reporting_category = 'TA'\n  AND academic_year IN ('2022-23', '2023-24', '2024-25')\nGROUP BY school_name, academic_year\nORDER BY school_name, academic_year;",
     },
     {
         "question": "Has average GPA improved from 2022-2023 to 2023-2024?",
@@ -364,7 +362,7 @@ GAP_FEWSHOT_EXAMPLES = [
     },
     {
         "question": "Which schools reported physical restraints in 2023-24?",
-        "sql": "SELECT DISTINCT school_name, county_name\nFROM main_staging.stg_cde__restraint_seclusion\nWHERE academic_year = '2023-24'\n  AND aggregate_level = 'S'\n  AND count_of_physical_restraints > 0\nORDER BY school_name;",
+        "sql": "SELECT DISTINCT school_name, county_name\nFROM main_analytics.mart_cde_school_accountability\nWHERE academic_year = '2023-24'\n  AND aggregate_level = 'S'\n  AND rs_physical_restraints > 0\nORDER BY school_name;",
     },
     # ── Category E: Window Functions / Ranking ───────────────────────
     {

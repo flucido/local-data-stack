@@ -133,6 +133,40 @@ class TestValidateSqlStatic:
         with pytest.raises(ValueError, match="file-reading function"):
             validate_sql("SELECT * FROM glob('/tmp/**')")
 
+    def test_rejects_main_staging_schema(self):
+        with pytest.raises(ValueError, match="outside the exposed schemas"):
+            validate_sql("SELECT * FROM main_staging.stg_aeries__students")
+
+    def test_rejects_aeries_stage1_schema(self):
+        with pytest.raises(ValueError, match="outside the exposed schemas"):
+            validate_sql("SELECT StudentID FROM aeries_stage1.students")
+
+    def test_rejects_edu_wh_catalog_reference(self):
+        with pytest.raises(ValueError, match="outside the exposed schemas"):
+            validate_sql("SELECT * FROM edu_wh.main_core.fact_attendance")
+
+    @pytest.mark.parametrize(
+        "forbidden_sql",
+        [
+            "SELECT student_id_raw FROM main_core.dim_students",
+            "SELECT first_name FROM main_core.dim_students",
+            "SELECT last_name FROM main_core.dim_students",
+            "SELECT date_of_birth FROM main_core.dim_students",
+            "SELECT email_raw FROM main_core.dim_students",
+            "SELECT * FROM stg_aeries__students",
+            "SELECT * FROM stg_cde__schools",
+            "SELECT COLUMNS(*) FROM main_core.dim_students",
+        ],
+    )
+    def test_rejects_pii_columns_raw_tokens_and_columns_star(self, forbidden_sql):
+        with pytest.raises(ValueError):
+            validate_sql(forbidden_sql)
+
+    def test_system_prompt_does_not_advertise_main_staging(self):
+        from prompts import SYSTEM_PROMPT
+
+        assert "main_staging" not in SYSTEM_PROMPT
+
 
 # ── Schema-aware validation ────────────────────────────────────────────
 

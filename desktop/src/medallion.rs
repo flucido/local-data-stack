@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex, OnceLock, RwLock};
 use uuid::Uuid;
 
 const MAX_RESULT_ROWS: usize = 1000;
@@ -662,7 +662,7 @@ impl MedallionEngine {
             SELECT table_schema, table_name
             FROM information_schema.tables
             WHERE table_catalog = 'edu_wh'
-              AND table_schema IN ('main_core', 'main_analytics', 'main_staging')
+              AND table_schema IN ('main_core', 'main_analytics')
               AND table_name NOT LIKE '_dlt%'
               AND lower(table_name) NOT LIKE '%pii_lookup%'
             "#,
@@ -673,14 +673,68 @@ impl MedallionEngine {
             .collect();
 
         for (schema, table) in pairs {
+            let quoted_schema = format!("\"{}\"", schema.replace('"', "\"\""));
+            let quoted_table = format!("\"{}\"", table.replace('"', "\"\""));
             let view_sql = format!(
-                "CREATE OR REPLACE VIEW {schema}.{table} AS SELECT * FROM edu_wh.{schema}.{table};"
+                "CREATE OR REPLACE VIEW {quoted_schema}.{quoted_table} AS SELECT * FROM \"edu_wh\".{quoted_schema}.{quoted_table}"
             );
-            let _ = duck.execute_batch(&view_sql);
+            let _ = duck.execute(&view_sql, []);
         }
         Ok(())
     }
 }
+
+struct CompiledSqlValidators {
+    forbidden_tokens: Vec<(&'static str, Regex)>,
+    forbidden_functions: Vec<(&'static str, Regex)>,
+    wildcard_re: Regex,
+    forbidden_pii_re: Regex,
+}
+
+fn sql_validators() -> &'static CompiledSqlValidators {
+    static VALIDATORS: OnceLock<CompiledSqlValidators> = OnceLock::new();
+    VALIDATORS.get_or_init(|| {
+        let forbidden_tokens = FORBIDDEN_TOKENS
+            .iter()
+            .map(|&token| {
+                let pat = format!(r"\b{}\b", regex::escape(token));
+                (token, Regex::new(&pat).expect("valid token regex"))
+            })
+            .collect();
+        let forbidden_functions = FORBIDDEN_FUNCTIONS
+            .iter()
+            .map(|&func| {
+                let pat = format!(r"\b{}\s*\(", regex::escape(func));
+                (func, Regex::new(&pat).expect("valid function regex"))
+            })
+            .collect();
+        let wildcard_re = Regex::new(
+            r"(?is)\bselect\s+(?:all\s+|distinct\s+)?\*|\bselect\b[^;]*?\w+\.\s*\*|\bcolumns\s*\(",
+        )
+        .expect("valid wildcard regex");
+        let forbidden_pii_re = Regex::new(
+            r"(?i)\bstg_aeries__|\bstg_cde__schools\b|\w+_raw\b|\bfirst_name\b|\blast_name\b|\bdate_of_birth\b|\bstudent_id_raw\b",
+        )
+        .expect("valid pii regex");
+        CompiledSqlValidators {
+            forbidden_tokens,
+            forbidden_functions,
+            wildcard_re,
+            forbidden_pii_re,
+        }
+    })
+}
+
+const DENIED_SQL_SUBSTRINGS: &[&str] = &[
+    "main_privacy_sensitive.",
+    "edu_wh.",
+    "priv_",
+    "pii_lookup",
+    "_dlt",
+    "main_staging.",
+    "stg_aeries__",
+    "_raw",
+];
 
 pub fn extract_sql_from_input(raw_input: &str) -> String {
     let trimmed = raw_input.trim();
@@ -711,19 +765,17 @@ pub fn validate_read_only_sql(sql: &str) -> Result<(), DuckDBExecutionError> {
         });
     }
 
+    let validators = sql_validators();
     let lower = cleaned.to_lowercase();
-    for token in FORBIDDEN_TOKENS {
-        let pat = format!(r"\b{}\b", regex::escape(token));
-        if let Ok(re) = Regex::new(&pat) {
-            if re.is_match(&lower) {
-                return Err(DuckDBExecutionError {
-                    status: "error".to_string(),
-                    error_type: "ValidationError".to_string(),
-                    message: format!(
-                        "Forbidden operation detected: '{token}'. Only SELECT queries are allowed."
-                    ),
-                });
-            }
+    for (token, re) in &validators.forbidden_tokens {
+        if re.is_match(&lower) {
+            return Err(DuckDBExecutionError {
+                status: "error".to_string(),
+                error_type: "ValidationError".to_string(),
+                message: format!(
+                    "Forbidden operation detected: '{token}'. Only SELECT queries are allowed."
+                ),
+            });
         }
     }
 
@@ -735,24 +787,40 @@ pub fn validate_read_only_sql(sql: &str) -> Result<(), DuckDBExecutionError> {
         });
     }
 
-    for func in FORBIDDEN_FUNCTIONS {
-        let pat = format!(r"\b{}\s*\(", regex::escape(func));
-        if let Ok(re) = Regex::new(&pat) {
-            if re.is_match(&lower) {
-                return Err(DuckDBExecutionError {
-                    status: "error".to_string(),
-                    error_type: "ValidationError".to_string(),
-                    message: format!(
-                        "Forbidden file-reading function detected: '{func}'. Only warehouse tables are allowed."
-                    ),
-                });
-            }
+    for (func, re) in &validators.forbidden_functions {
+        if re.is_match(&lower) {
+            return Err(DuckDBExecutionError {
+                status: "error".to_string(),
+                error_type: "ValidationError".to_string(),
+                message: format!(
+                    "Forbidden file-reading function detected: '{func}'. Only warehouse tables are allowed."
+                ),
+            });
         }
     }
 
-    let wildcard_re =
-        Regex::new(r"(?is)\bselect\s+(?:distinct\s+)?\*|\bselect\b[^;]*?\w+\.\s*\*").unwrap();
-    if wildcard_re.is_match(&lower) && lower.contains("dim_students") {
+    for denied in DENIED_SQL_SUBSTRINGS {
+        if lower.contains(denied) {
+            return Err(DuckDBExecutionError {
+                status: "error".to_string(),
+                error_type: "ValidationError".to_string(),
+                message: format!("Reference to restricted object '{denied}' is not allowed."),
+            });
+        }
+    }
+
+    if let Some(m) = validators.forbidden_pii_re.find(&lower) {
+        return Err(DuckDBExecutionError {
+            status: "error".to_string(),
+            error_type: "ValidationError".to_string(),
+            message: format!(
+                "Forbidden PII or staging column/table '{}' is not allowed.",
+                m.as_str()
+            ),
+        });
+    }
+
+    if validators.wildcard_re.is_match(&lower) && lower.contains("dim_students") {
         return Err(DuckDBExecutionError {
             status: "error".to_string(),
             error_type: "ValidationError".to_string(),
