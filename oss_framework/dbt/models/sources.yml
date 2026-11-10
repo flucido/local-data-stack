@@ -6,7 +6,7 @@ version: 2
 sources:
   - name: raw
     description: Stage 1 raw landing zone tables loaded by the SIS connector
-    schema: aeries_stage1
+    schema: main
 
     freshness:
       warn_after: {count: 48, period: hour}

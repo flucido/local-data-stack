@@ -246,12 +246,15 @@ class PipelineOrchestrator:
             workdir=self.dbt_project_dir,
         )
 
-    def run_full_pipeline(self, skip_tests: bool = False) -> bool:
+    def run_full_pipeline(
+        self, skip_tests: bool = False, allow_test_failures: bool = False
+    ) -> bool:
         """
         Run the complete data pipeline.
 
         Args:
             skip_tests: If True, skip dbt test execution
+            allow_test_failures: If True, return True even when dbt tests fail
 
         Returns:
             True if all stages succeeded
@@ -291,7 +294,13 @@ class PipelineOrchestrator:
         # Tests (optional)
         if not skip_tests:
             if not self.run_tests():
-                self.log("Data quality tests failed (pipeline completed)", "WARNING")
+                if not allow_test_failures:
+                    self.log("Pipeline failed at Data Quality Tests", "ERROR")
+                    return False
+                self.log(
+                    "Data quality tests failed (continuing due to --allow-test-failures)",
+                    "WARNING",
+                )
 
         # Success summary
         elapsed = datetime.now() - self.start_time
@@ -318,6 +327,11 @@ def main():
         "--skip-tests", action="store_true", help="Skip dbt tests after pipeline run"
     )
     parser.add_argument(
+        "--allow-test-failures",
+        action="store_true",
+        help="Allow pipeline to succeed even if dbt data quality tests fail",
+    )
+    parser.add_argument(
         "--dbt-dir", type=str, help="Path to dbt project directory (default: oss_framework/dbt)"
     )
 
@@ -335,7 +349,10 @@ def main():
     elif args.stage == "4":
         success = orchestrator.stage4_export()
     else:  # args.stage == "all"
-        success = orchestrator.run_full_pipeline(skip_tests=args.skip_tests)
+        success = orchestrator.run_full_pipeline(
+            skip_tests=args.skip_tests,
+            allow_test_failures=args.allow_test_failures,
+        )
 
     sys.exit(0 if success else 1)
 
