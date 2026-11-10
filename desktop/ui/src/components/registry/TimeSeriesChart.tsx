@@ -1,6 +1,6 @@
 import React from "react";
 import { TimeSeriesChartProps } from "../../schemas/workspace-ui";
-import { formatMetricValue } from "../../lib/formatters";
+import { detectColumnIsRatio, formatMetricValue } from "../../lib/formatters";
 
 interface ComponentProps {
   spec: TimeSeriesChartProps;
@@ -22,6 +22,9 @@ export const TimeSeriesChart: React.FC<ComponentProps> = ({ spec, rows }) => {
   ).filter(Boolean);
 
   const primaryY = spec.y_columns[0];
+  const isRatioScale = detectColumnIsRatio(
+    rows.flatMap((r) => spec.y_columns.map((col) => r[col]))
+  );
   const seriesNames = spec.series_column
     ? Array.from(new Set(rows.map((r) => String(r[spec.series_column!] ?? "")))).filter(Boolean)
     : spec.y_columns;
@@ -102,7 +105,8 @@ export const TimeSeriesChart: React.FC<ComponentProps> = ({ spec, rows }) => {
                         }}
                         title={`${bucket.xVal} • ${sv.series}: ${formatMetricValue(
                           sv.value,
-                          spec.value_format
+                          spec.value_format,
+                          isRatioScale
                         )}`}
                       />
                     );
@@ -122,7 +126,8 @@ export const TimeSeriesChart: React.FC<ComponentProps> = ({ spec, rows }) => {
                         }}
                         title={`${bucket.xVal} • ${sv.series}: ${formatMetricValue(
                           sv.value,
-                          spec.value_format
+                          spec.value_format,
+                          isRatioScale
                         )}`}
                       />
                     );
@@ -131,7 +136,7 @@ export const TimeSeriesChart: React.FC<ComponentProps> = ({ spec, rows }) => {
               )}
             </div>
             <span className="ts-total-label">
-              {formatMetricValue(bucket.total, spec.value_format)}
+              {formatMetricValue(bucket.total, spec.value_format, isRatioScale)}
             </span>
             <span className="ts-x-label">{bucket.xVal}</span>
           </div>

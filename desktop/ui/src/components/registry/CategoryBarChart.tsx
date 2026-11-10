@@ -1,6 +1,6 @@
 import React from "react";
 import { CategoryBarChartProps } from "../../schemas/workspace-ui";
-import { formatMetricValue } from "../../lib/formatters";
+import { detectColumnIsRatio, formatMetricValue } from "../../lib/formatters";
 
 interface ComponentProps {
   spec: CategoryBarChartProps;
@@ -10,6 +10,12 @@ interface ComponentProps {
 const BAR_COLORS = ["#38bdf8", "#a78bfa", "#34d399"];
 
 export const CategoryBarChart: React.FC<ComponentProps> = ({ spec, rows }) => {
+  const ratioByCol = Object.fromEntries(
+    spec.value_columns.map((col) => [
+      col,
+      detectColumnIsRatio(rows.map((r) => r[col])),
+    ])
+  );
   const maxVal = Math.max(
     1,
     ...rows.flatMap((r) =>
@@ -55,7 +61,10 @@ export const CategoryBarChart: React.FC<ComponentProps> = ({ spec, rows }) => {
                 <span className="cat-label">{catLabel}</span>
                 <span className="cat-values">
                   {spec.value_columns
-                    .map((col) => `${col}: ${formatMetricValue(row[col], spec.value_format)}`)
+                    .map(
+                      (col) =>
+                        `${col}: ${formatMetricValue(row[col], spec.value_format, ratioByCol[col])}`
+                    )
                     .join(" | ")}
                 </span>
               </div>

@@ -42,8 +42,11 @@ SELECT
     d.enrollment_status,
     d.cohort,
 
-    -- Attendance metrics (from fact_attendance)
-    COALESCE(a.attendance_rate, 0) as attendance_rate,
+    -- Attendance metrics (normalized to 0..100 percentage scale)
+    CASE
+      WHEN COALESCE(a.attendance_rate, 0) <= 1.0 THEN ROUND(COALESCE(a.attendance_rate, 0) * 100.0, 2)
+      ELSE ROUND(COALESCE(a.attendance_rate, 0), 2)
+    END as attendance_rate,
     COALESCE(a.days_absent, 0) as days_absent,
     COALESCE(a.days_present, 0) as days_present,
     COALESCE(a.days_tardy, 0) as days_tardy,
@@ -59,13 +62,13 @@ SELECT
     COALESCE(acad.total_credits, 0) as credits_earned,
     COALESCE(acad.course_count, 0) as course_count,
 
-    -- Derived risk score
+    -- Derived risk score (operates on normalized 0..100 attendance_rate)
     CASE
-        WHEN COALESCE(a.attendance_rate, 0) < 90
+        WHEN (CASE WHEN COALESCE(a.attendance_rate, 0) <= 1.0 THEN COALESCE(a.attendance_rate, 0) * 100.0 ELSE COALESCE(a.attendance_rate, 0) END) < 90
              OR COALESCE(dis.incident_count, 0) > 2
              OR COALESCE(acad.avg_gpa_points, 0) < 2.0
         THEN 'High Risk'
-        WHEN COALESCE(a.attendance_rate, 0) < 95
+        WHEN (CASE WHEN COALESCE(a.attendance_rate, 0) <= 1.0 THEN COALESCE(a.attendance_rate, 0) * 100.0 ELSE COALESCE(a.attendance_rate, 0) END) < 95
              OR COALESCE(dis.incident_count, 0) > 0
              OR COALESCE(acad.avg_gpa_points, 0) < 2.5
         THEN 'Moderate Risk'

@@ -18,7 +18,10 @@ import os
 import threading
 from dataclasses import dataclass, field
 
-import gradio as gr
+try:
+    import gradio as gr
+except ImportError:  # pragma: no cover - optional extra when testing pure helpers
+    gr = None  # type: ignore[assignment]
 
 # spaces.GPU is only available on HF Spaces — use a no-op locally
 try:
@@ -134,13 +137,14 @@ def format_result_df(df):
         if not pd.api.types.is_numeric_dtype(df[col]):
             continue
         if is_pct:
+            non_null = df[col].dropna()
+            col_is_ratio = len(non_null) > 0 and float(non_null.abs().max()) <= 1.0
 
-            def _fmt(v):
+            def _fmt(v, _scale=col_is_ratio):
                 if pd.isna(v):
                     return v
                 val = float(v)
-                # Scale only if the value looks like a 0-1 proportion.
-                if 0 <= val <= 1:
+                if _scale:
                     val *= 100
                 return f"{round(val, 2):.2f}%"
 
@@ -150,6 +154,9 @@ def format_result_df(df):
         elif pd.api.types.is_float_dtype(df[col]):
             df[col] = df[col].apply(lambda v: round(float(v), 2) if pd.notna(v) else v)
     return df
+
+
+format_dataframe = format_result_df
 
 
 def build_summary(question: str, df, row_count: int) -> str:
@@ -298,22 +305,26 @@ def bring_back_prior(prior_state: dict | None) -> tuple:
 
 # ── UI Theme & Styles ──────────────────────────────────────────────────
 
-catalyst_theme = gr.themes.Base(
-    primary_hue="zinc",
-    neutral_hue="zinc",
-    font=[gr.themes.GoogleFont("Inter"), "ui-sans-serif", "system-ui", "sans-serif"],
-).set(
-    body_background_fill="#F3F4F6",
-    body_text_color="#111827",
-    background_fill_primary="#FFFFFF",
-    background_fill_secondary="#F9FAFB",
-    input_background_fill="#FFFFFF",
-    input_border_color="rgba(17, 24, 39, 0.10)",
-    input_border_color_focus="#111827",
-    button_primary_background_fill="#111827",
-    button_primary_text_color="#FFFFFF",
-    border_color_primary="rgba(17, 24, 39, 0.10)",
-    block_border_width="0px",
+catalyst_theme = (
+    gr.themes.Base(
+        primary_hue="zinc",
+        neutral_hue="zinc",
+        font=[gr.themes.GoogleFont("Inter"), "ui-sans-serif", "system-ui", "sans-serif"],
+    ).set(
+        body_background_fill="#F3F4F6",
+        body_text_color="#111827",
+        background_fill_primary="#FFFFFF",
+        background_fill_secondary="#F9FAFB",
+        input_background_fill="#FFFFFF",
+        input_border_color="rgba(17, 24, 39, 0.10)",
+        input_border_color_focus="#111827",
+        button_primary_background_fill="#111827",
+        button_primary_text_color="#FFFFFF",
+        border_color_primary="rgba(17, 24, 39, 0.10)",
+        block_border_width="0px",
+    )
+    if gr is not None
+    else None
 )
 
 

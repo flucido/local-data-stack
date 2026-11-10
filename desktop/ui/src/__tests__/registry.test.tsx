@@ -183,4 +183,14 @@ describe("Generative UI Canonical Registry & Arrow IPC Client", () => {
     expect(document.getElementById("ask-question")).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Ask in plain English/)).toBeInTheDocument();
   });
+
+  it("determines percent 0..1 vs 0..100 scale across the entire column rather than per cell", async () => {
+    const { detectColumnIsRatio, formatMetricValue } = await import("../lib/formatters");
+    const pctCol = [0.85, 4.2];
+    const ratioCol = [0.85, 0.94];
+    expect(detectColumnIsRatio(pctCol)).toBe(false);
+    expect(detectColumnIsRatio(ratioCol)).toBe(true);
+    expect(formatMetricValue(0.85, "percent", detectColumnIsRatio(pctCol))).toBe("0.85%");
+    expect(formatMetricValue(0.85, "percent", detectColumnIsRatio(ratioCol))).toBe("85.00%");
+  });
 });

@@ -30,8 +30,8 @@ SELECT
          THEN SUM(CASE WHEN homeless_flag THEN 1 ELSE 0 END)
          ELSE NULL END AS homeless_count,
 
-    -- Attendance outcomes
-    ROUND(AVG(attendance_rate), 1) AS avg_attendance_rate,
+    -- Attendance outcomes (consistent 0..100 scale matching analytics_for_hex and school_summary)
+    ROUND(AVG(attendance_rate), 2) AS avg_attendance_rate,
     ROUND(100.0 * SUM(CASE WHEN attendance_rate >= 90 THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) AS pct_good_attendance,
     ROUND(AVG(days_absent), 1) AS avg_days_absent,
 

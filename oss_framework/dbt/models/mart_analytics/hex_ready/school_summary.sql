@@ -31,8 +31,8 @@ SELECT
     -- Grade levels
     ROUND(AVG(h.grade_level), 1) AS avg_grade_level,
 
-    -- Outcomes
-    ROUND(AVG(h.attendance_rate), 4) AS avg_attendance_rate,
+    -- Outcomes (attendance_rate normalized to 0..100 in analytics_for_hex)
+    ROUND(AVG(h.attendance_rate), 2) AS avg_attendance_rate,
     ROUND(100.0 * SUM(CASE WHEN h.attendance_rate >= 90 THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) AS pct_good_attendance,
     ROUND(AVG(h.discipline_incidents), 2) AS avg_discipline_incidents,
     SUM(h.discipline_incident_count) AS total_incidents,

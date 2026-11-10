@@ -265,3 +265,13 @@ def test_schema_contract_alignment_across_dbt_and_prompts() -> None:
 
     prompts_text = (REPO_ROOT / "nl_query/prompts.py").read_text()
     assert "SED=Socioeconomically Disadvantaged" in prompts_text
+
+
+def test_attendance_rate_scale_normalization_in_hex_models() -> None:
+    hex_sql = (
+        REPO_ROOT / "oss_framework/dbt/models/mart_analytics/hex_ready/analytics_for_hex.sql"
+    ).read_text()
+    assert (
+        "WHEN COALESCE(a.attendance_rate, 0) <= 1.0 THEN ROUND(COALESCE(a.attendance_rate, 0) * 100.0, 2)"
+        in hex_sql
+    )

@@ -132,3 +132,20 @@ class TestExtractSqlEdgeCases:
 
     def test_trailing_semicolons_stripped(self):
         assert extract_sql("```sql\nSELECT 1;;;;\n```") == "SELECT 1"
+
+
+class TestFormatDataframePercentScale:
+    def test_column_wide_percent_scale_detection(self):
+        import pandas as pd
+        from app import format_dataframe
+
+        df = pd.DataFrame(
+            {
+                "school_name": ["Lincoln", "Roosevelt"],
+                "suspension_rate": [0.85, 4.20],  # already 0..100 scale (max > 1.0)
+                "attendance_rate": [0.91, 0.96],  # 0..1 ratio scale (max <= 1.0)
+            }
+        )
+        formatted = format_dataframe(df)
+        assert list(formatted["suspension_rate"]) == ["0.85%", "4.20%"]
+        assert list(formatted["attendance_rate"]) == ["91.00%", "96.00%"]
