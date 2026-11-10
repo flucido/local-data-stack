@@ -103,3 +103,88 @@ def test_dbt_pii_hashing_unification_and_no_hardcoded_salts() -> None:
     ).read_text()
     assert "['sar.student_id_raw'" not in fact_academics.splitlines()[13]
     assert "[hash_pii_secure('sar.student_id_raw')" in fact_academics.splitlines()[13]
+
+
+def test_no_hardcoded_salts_in_dbt_models_or_scripts() -> None:
+    forbidden = (
+        "oea_2026",
+        "aeries_student_2026_salt_v1",
+        "aeries_staff_2026_salt_v1",
+    )
+    scan_roots = [
+        REPO_ROOT / "oss_framework" / "dbt" / "models",
+        REPO_ROOT / "scripts",
+    ]
+    for root in scan_roots:
+        for path in root.rglob("*"):
+            if not path.is_file() or "__pycache__" in path.parts:
+                continue
+            content = path.read_text(encoding="utf-8", errors="ignore")
+            for token in forbidden:
+                assert token not in content, f"Forbidden salt {token!r} found in {path}"
+
+
+def test_anonymize_aeries_security_and_streaming(tmp_path: Path, monkeypatch) -> None:
+    import hashlib
+    import hmac
+    import subprocess
+    from unittest.mock import MagicMock
+
+    import scripts.anonymize_aeries as anon
+
+    student_salt = "unit_test_student_hmac_salt_2026"
+    staff_salt = "unit_test_staff_hmac_salt_2026_v2"
+    monkeypatch.setenv("LFED_STUDENT_SALT", student_salt)
+    monkeypatch.setenv("LFED_STAFF_SALT", staff_salt)
+
+    expected = hmac.new(student_salt.encode(), b"998877", hashlib.sha256).hexdigest()
+    digest = anon.hash_student_id(" 998877 ")
+    assert len(digest) == 64
+    assert digest == expected
+
+    # Missing or short salt must fail fast
+    monkeypatch.setenv("LFED_STUDENT_SALT", "too_short")
+    try:
+        anon.hash_student_id("998877")
+        raise AssertionError("Expected ValueError for short LFED_STUDENT_SALT")
+    except ValueError:
+        pass
+    monkeypatch.setenv("LFED_STUDENT_SALT", student_salt)
+
+    # Manifest must never include student_salt or staff_salt
+    manifest = anon.build_manifest(tmp_path / "src", tmp_path / "out")
+    assert "student_salt" not in manifest
+    assert "staff_salt" not in manifest
+
+    # Streaming CSV anonymization check
+    src_csv = tmp_path / "students_2025.csv"
+    src_csv.write_text(
+        "StudentID,FirstName,LastName,Grade,Comment\n"
+        " 998877 ,Alice,Smith,8,Private note\n"
+        "998878,Bob,Jones,8,Another note\n",
+        encoding="utf-8",
+    )
+    out_base = tmp_path / "out" / "students_2025"
+    meta = anon.anonymize_file(src_csv, out_base)
+    assert meta["rows_in"] == 2
+    assert meta["rows_out"] == 2
+    assert set(meta["dropped_columns"]) == {"FirstName", "LastName"}
+
+    # Parameterized AppleScript argv check (no path interpolation)
+    evil_dir = tmp_path / 'evil" & do shell script "id" & "'
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        m = MagicMock()
+        m.stdout = ""
+        return m
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    anon._list_via_applescript(evil_dir, "students_*.csv")
+    assert len(calls) == 1
+    assert calls[0][:2] == ["osascript", "-e"]
+    assert calls[0][3] == str(evil_dir)
+    assert str(evil_dir) not in calls[0][2]
+    assert "on run argv" in calls[0][2]
+    assert "POSIX file (item 1 of argv)" in calls[0][2]
