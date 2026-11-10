@@ -351,3 +351,45 @@ def test_staging_and_mart_constants_windows_and_multiyear_joins() -> None:
         REPO_ROOT / "oss_framework/dbt/models/mart_core/core/dim_schools.sql"
     ).read_text()
     assert "COALESCE(m.cde_school_name, 'SCHOOL_' || s.school_id) AS school_name" in dim_schools
+
+
+def test_ci_workflow_packaging_and_benchmark_schema_contracts() -> None:
+    workflow = (REPO_ROOT / ".github/workflows/test.yml").read_text()
+    assert "paths:" not in workflow
+    assert "permissions:\n  contents: read" in workflow
+    assert "|| true" not in workflow
+    for job_name in (
+        "python-lint-and-test:",
+        "desktop-ui-test:",
+        "desktop-rust-test:",
+        "dbt-smoke-test:",
+    ):
+        assert job_name in workflow, f"Missing CI job {job_name}"
+
+    cargo_toml = (REPO_ROOT / "desktop/Cargo.toml").read_text()
+    assert 'default = ["bundled-duckdb"]' in cargo_toml
+
+    build_rs = (REPO_ROOT / "desktop/build.rs").read_text()
+    assert 'cfg!(target_os = "macos")' in build_rs
+
+    pyproject = (REPO_ROOT / "pyproject.toml").read_text()
+    assert '"nl_query*"' in pyproject
+    assert '"scripts*"' in pyproject
+    assert '"training*"' in pyproject
+    assert (
+        "--cov=oss_framework"
+        not in pyproject.split("[tool.pytest.ini_options]")[1].split("[tool.coverage")[0]
+    )
+
+    gitignore = (REPO_ROOT / ".gitignore").read_text()
+    assert "*.duckdb.building" in gitignore
+
+    for perf_rel in (
+        "scripts/performance/benchmark.py",
+        "scripts/performance/duckdb_indexes.sql",
+    ):
+        perf_text = (REPO_ROOT / perf_rel).read_text()
+        assert "fact_grades" not in perf_text
+        assert "fact_discipline_incidents" not in perf_text
+        assert "score_chronic_absenteeism_risk" not in perf_text
+        assert "student_id_hash" in perf_text
