@@ -37,11 +37,16 @@ SELECT
 
 FROM {{ ref('dim_students') }} d
 LEFT JOIN {{ ref('agg_attendance_windows') }} a
-    ON d.student_id_hash = a.student_key AND a.window_type = 'term'
+    ON d.student_id_hash = a.student_key
+    AND d.academic_year = a.academic_year
+    AND a.window_type = 'term'
 LEFT JOIN {{ ref('agg_discipline_windows') }} dis
-    ON d.student_id_hash = dis.student_key AND dis.window_type = 'term'
+    ON d.student_id_hash = dis.student_key
+    AND d.academic_year = dis.academic_year
+    AND dis.window_type = 'term'
 LEFT JOIN {{ ref('fact_academic_performance') }} acad
     ON d.student_id_hash = acad.student_key
+    AND d.academic_year = acad.academic_year
 
 GROUP BY 1, 2, 3, 4
 HAVING COUNT(DISTINCT d.student_id_hash) >= 5

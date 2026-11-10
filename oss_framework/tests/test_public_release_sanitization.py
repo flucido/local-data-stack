@@ -275,3 +275,79 @@ def test_attendance_rate_scale_normalization_in_hex_models() -> None:
         "WHEN COALESCE(a.attendance_rate, 0) <= 1.0 THEN ROUND(COALESCE(a.attendance_rate, 0) * 100.0, 2)"
         in hex_sql
     )
+
+
+def test_staging_and_mart_constants_windows_and_multiyear_joins() -> None:
+    stg_students = (
+        REPO_ROOT / "oss_framework/dbt/models/staging/aeries/stg_aeries__students.sql"
+    ).read_text()
+    assert "'2024-2025' as academic_year" not in stg_students
+    assert "false as ell_program_flag" not in stg_students
+    assert "COALESCE(TRY_CAST(s.ell_status AS BOOLEAN), FALSE)" in stg_students
+    assert "CAST(NULL AS VARCHAR) as race_code_1" not in stg_students
+
+    for rel in (
+        "oss_framework/dbt/models/staging/aeries/stg_aeries__attendance.sql",
+        "oss_framework/dbt/models/staging/aeries/stg_aeries__discipline.sql",
+    ):
+        assert "'2024-2025' as academic_year" not in (REPO_ROOT / rel).read_text()
+
+    fact_disc = (
+        REPO_ROOT / "oss_framework/dbt/models/mart_core/core/fact_discipline.sql"
+    ).read_text()
+    assert "COALESCE(sd.incident_type, sd.short_description)" in fact_disc
+    assert "COALESCE(sd.resolution, sd.disposition_code)" in fact_disc
+
+    agg_disc = (
+        REPO_ROOT
+        / "oss_framework/dbt/models/mart_analytics/aggregations/agg_discipline_windows.sql"
+    ).read_text()
+    assert "CURRENT_DATE" not in agg_disc
+    assert "MAX(DATE(incident_date))" in agg_disc or "MAX(incident_date)" in agg_disc
+
+    fct_acad = (
+        REPO_ROOT / "oss_framework/dbt/models/mart_features/features/fct_academic_features.sql"
+    ).read_text()
+    assert "CURRENT_DATE" not in fct_acad
+    assert "MAX(created_at)" in fct_acad
+
+    caspp = (
+        REPO_ROOT / "oss_framework/dbt/models/staging/cde/stg_cde__assessment_caspp.sql"
+    ).read_text()
+    assert "students_with_scores" in caspp
+    assert "AVG(mean_scale_score) as mean_scale_score" not in caspp
+
+    ca_stg = (
+        REPO_ROOT / "oss_framework/dbt/models/staging/cde/stg_cde__chronic_absenteeism.sql"
+    ).read_text()
+    assert "IS NULL" in ca_stg
+
+    susp_stg = (
+        REPO_ROOT / "oss_framework/dbt/models/staging/cde/stg_cde__suspension.sql"
+    ).read_text()
+    assert "IS NULL" in susp_stg
+
+    dim_students = (
+        REPO_ROOT / "oss_framework/dbt/models/mart_core/core/dim_students.sql"
+    ).read_text()
+    assert "unique_key=['student_id_hash', 'academic_year']" in dim_students
+
+    for rel in (
+        "oss_framework/dbt/models/mart_analytics/analytics/v_chronic_absenteeism_risk.sql",
+        "oss_framework/dbt/models/mart_analytics/analytics/v_wellbeing_risk_profiles.sql",
+        "oss_framework/dbt/models/mart_analytics/analytics/v_equity_outcomes_by_demographics.sql",
+        "oss_framework/dbt/models/mart_features/features/fct_academic_features.sql",
+        "oss_framework/dbt/models/mart_analytics/aggregations/fact_class_effectiveness.sql",
+    ):
+        text = (REPO_ROOT / rel).read_text()
+        assert ".academic_year =" in text, f"Missing multi-year join in {rel}"
+
+    mapping_sql = (
+        REPO_ROOT / "oss_framework/dbt/models/mart_core/core/dim_school_cds_mapping.sql"
+    ).read_text()
+    assert "LEFT(i.cleaned_name, 1) = LEFT(c.cleaned_name, 1)" in mapping_sql
+
+    dim_schools = (
+        REPO_ROOT / "oss_framework/dbt/models/mart_core/core/dim_schools.sql"
+    ).read_text()
+    assert "COALESCE(m.cde_school_name, 'SCHOOL_' || s.school_id) AS school_name" in dim_schools

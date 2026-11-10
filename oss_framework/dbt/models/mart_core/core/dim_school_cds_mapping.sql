@@ -60,7 +60,8 @@ fuzzy_matches AS (
             ORDER BY levenshtein(i.cleaned_name, c.cleaned_name) ASC
         ) AS match_rank
     FROM internal_schools i
-    CROSS JOIN cde_schools c
+    INNER JOIN cde_schools c
+        ON LEFT(i.cleaned_name, 1) = LEFT(c.cleaned_name, 1)
     WHERE levenshtein(i.cleaned_name, c.cleaned_name) <= 5
 ),
 

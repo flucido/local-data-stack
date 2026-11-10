@@ -7,6 +7,7 @@
 WITH academic_base AS (
     SELECT
         ar.student_id_hash AS student_key,
+        ar.school_year AS academic_year,
         CASE
             WHEN ar.grade = 'A+' OR ar.grade = 'A' THEN 4.0
             WHEN ar.grade = 'A-' THEN 3.7
@@ -31,6 +32,7 @@ WITH academic_base AS (
 
 SELECT
     student_key,
+    academic_year,
     ROUND(AVG(grade_numeric), 2) AS grade_numeric,
     ROUND(AVG(assignment_grade_percent), 2) AS assignment_grade_percent,
     COUNT(*) AS assignment_count,
@@ -42,4 +44,4 @@ SELECT
     ) AS pct_passing,
     MAX(_loaded_at) AS _loaded_at
 FROM academic_base
-GROUP BY 1
+GROUP BY student_key, academic_year

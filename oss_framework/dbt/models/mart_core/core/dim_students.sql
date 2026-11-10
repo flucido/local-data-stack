@@ -5,7 +5,7 @@
 {{ config(
     materialized='table',
     schema='core',
-    unique_key='student_id_hash',
+    unique_key=['student_id_hash', 'academic_year'],
     tags=['core', 'dimensions', 'students']
 ) }}
 

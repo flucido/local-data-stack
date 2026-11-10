@@ -25,7 +25,7 @@ WITH base_schools AS (
 
 SELECT
     s.school_id,
-    s.school_name,
+    COALESCE(m.cde_school_name, 'SCHOOL_' || s.school_id) AS school_name,
     m.cds_code,
     m.cde_school_name,
     m.cde_district_name,

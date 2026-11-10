@@ -7,50 +7,62 @@
 WITH discipline_base AS (
     SELECT
         student_id_hash AS student_key,
+        academic_year,
         DATE(incident_date) AS incident_date
     FROM {{ ref('fact_discipline') }}
+),
+
+latest AS (
+    SELECT MAX(DATE(incident_date)) AS max_incident_date
+    FROM discipline_base
 ),
 
 -- 30-day window
 window_30d AS (
     SELECT
-        student_key,
-        CURRENT_DATE - 30 AS window_start_date,
+        db.student_key,
+        db.academic_year,
+        l.max_incident_date - 30 AS window_start_date,
         '30d' AS window_type,
         COUNT(*) AS incident_count,
         COUNT(*) AS incident_frequency_rate
-    FROM discipline_base
-    WHERE incident_date >= CURRENT_DATE - 30
-        AND incident_date <= CURRENT_DATE
-    GROUP BY 1
+    FROM discipline_base db
+    CROSS JOIN latest l
+    WHERE db.incident_date >= l.max_incident_date - 30
+        AND db.incident_date <= l.max_incident_date
+    GROUP BY db.student_key, db.academic_year, l.max_incident_date
 ),
 
 -- 90-day window
 window_90d AS (
     SELECT
-        student_key,
-        CURRENT_DATE - 90 AS window_start_date,
+        db.student_key,
+        db.academic_year,
+        l.max_incident_date - 90 AS window_start_date,
         '90d' AS window_type,
         COUNT(*) AS incident_count,
         COUNT(*) AS incident_frequency_rate
-    FROM discipline_base
-    WHERE incident_date >= CURRENT_DATE - 90
-        AND incident_date <= CURRENT_DATE
-    GROUP BY 1
+    FROM discipline_base db
+    CROSS JOIN latest l
+    WHERE db.incident_date >= l.max_incident_date - 90
+        AND db.incident_date <= l.max_incident_date
+    GROUP BY db.student_key, db.academic_year, l.max_incident_date
 ),
 
 -- Term window
 window_term AS (
     SELECT
-        student_key,
-        DATE_TRUNC('quarter', CURRENT_DATE) AS window_start_date,
+        db.student_key,
+        db.academic_year,
+        DATE_TRUNC('quarter', l.max_incident_date) AS window_start_date,
         'term' AS window_type,
         COUNT(*) AS incident_count,
         COUNT(*) AS incident_frequency_rate
-    FROM discipline_base
-    WHERE incident_date >= DATE_TRUNC('quarter', CURRENT_DATE)
-        AND incident_date <= CURRENT_DATE
-    GROUP BY 1
+    FROM discipline_base db
+    CROSS JOIN latest l
+    WHERE db.incident_date >= DATE_TRUNC('quarter', l.max_incident_date)
+        AND db.incident_date <= l.max_incident_date
+    GROUP BY db.student_key, db.academic_year, l.max_incident_date
 ),
 
 combined AS (
@@ -63,6 +75,7 @@ combined AS (
 
 SELECT
     student_key,
+    academic_year,
     window_start_date,
     window_type,
     COALESCE(incident_count, 0) AS incident_count,
@@ -70,4 +83,4 @@ SELECT
     CURRENT_TIMESTAMP AS _loaded_at
 FROM combined
 WHERE student_key IS NOT NULL
-ORDER BY student_key, window_type
+ORDER BY student_key, academic_year, window_type

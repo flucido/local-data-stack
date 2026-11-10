@@ -62,9 +62,11 @@ risk_base AS (
     FROM {{ ref('dim_students') }} d
     LEFT JOIN {{ ref('agg_attendance_windows') }} a30
         ON d.student_id_hash = a30.student_key
+        AND d.academic_year = a30.academic_year
         AND a30.window_type = '30d'
     LEFT JOIN {{ ref('agg_attendance_windows') }} a90
         ON d.student_id_hash = a90.student_key
+        AND d.academic_year = a90.academic_year
         AND a90.window_type = '90d'
 )
 

@@ -23,6 +23,7 @@ WITH academic_base AS (
         END AS grade_numeric,
         ar.course_id,
         ar.school_id,
+        ar.school_year,
         ar.term
     FROM {{ ref('fact_academic_records') }} ar
     WHERE ar.grade IS NOT NULL
@@ -48,7 +49,9 @@ enrollment_with_grades AS (
         END AS grade_a_or_b,
         ab.term
     FROM academic_base ab
-    LEFT JOIN {{ ref('dim_students') }} ds ON ab.student_id_hash = ds.student_id_hash
+    LEFT JOIN {{ ref('dim_students') }} ds
+        ON ab.student_id_hash = ds.student_id_hash
+        AND ds.academic_year = ab.school_year
 )
 
 SELECT

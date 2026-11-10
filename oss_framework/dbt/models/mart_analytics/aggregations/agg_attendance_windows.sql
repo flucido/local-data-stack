@@ -25,6 +25,15 @@ window_defs AS (
 daily AS (
     SELECT
         {{ hash_pii_secure('ra.student_id') }} AS student_key,
+        CASE
+            WHEN TRY_CAST(ra.attendance_date AS DATE) IS NOT NULL THEN
+                CASE
+                    WHEN MONTH(TRY_CAST(ra.attendance_date AS DATE)) >= 7
+                        THEN CAST(YEAR(TRY_CAST(ra.attendance_date AS DATE)) AS VARCHAR) || '-' || CAST(YEAR(TRY_CAST(ra.attendance_date AS DATE)) + 1 AS VARCHAR)
+                    ELSE CAST(YEAR(TRY_CAST(ra.attendance_date AS DATE)) - 1 AS VARCHAR) || '-' || CAST(YEAR(TRY_CAST(ra.attendance_date AS DATE)) AS VARCHAR)
+                END
+            ELSE '2024-2025'
+        END AS academic_year,
         CAST(ra.attendance_date AS DATE) AS attendance_date,
         CAST(ra.present_flag   AS BOOLEAN) AS present_flag,
         CAST(ra.absent_flag    AS BOOLEAN) AS absent_flag,
@@ -39,15 +48,17 @@ daily AS (
 discipline_by_student AS (
     SELECT
         fd.student_id_hash AS student_key,
+        fd.academic_year,
         fd.incident_date,
         COUNT(*) AS incident_cnt
     FROM {{ ref('fact_discipline') }} fd
-    GROUP BY fd.student_id_hash, fd.incident_date
+    GROUP BY fd.student_id_hash, fd.academic_year, fd.incident_date
 ),
 
 window_metrics AS (
     SELECT
         d.student_key,
+        d.academic_year,
         wd.window_type,
         COUNT(*)                                                   AS total_school_days,
         SUM(CASE WHEN d.present_flag   THEN 1 ELSE 0 END)          AS present_days,
@@ -74,12 +85,13 @@ window_metrics AS (
     CROSS JOIN window_defs wd
     JOIN latest l
         ON d.attendance_date >= l.latest_date - wd.window_days
-    GROUP BY d.student_key, wd.window_type
+    GROUP BY d.student_key, d.academic_year, wd.window_type
 ),
 
 trend AS (
     SELECT
         m30.student_key,
+        m30.academic_year,
         CASE
             WHEN m30.attendance_rate < m90.attendance_rate - 2 THEN 'declining'
             WHEN m30.attendance_rate > m90.attendance_rate + 2 THEN 'improving'
@@ -88,6 +100,7 @@ trend AS (
     FROM window_metrics m30
     JOIN window_metrics m90
         ON  m30.student_key = m90.student_key
+        AND m30.academic_year = m90.academic_year
         AND m30.window_type = '30d'
         AND m90.window_type = '90d'
 ),
@@ -95,17 +108,19 @@ trend AS (
 window_discipline AS (
     SELECT
         ds.student_key,
+        ds.academic_year,
         wd.window_type,
         SUM(ds.incident_cnt) AS discipline_incidents
     FROM discipline_by_student ds
     CROSS JOIN window_defs wd
     JOIN latest l
         ON ds.incident_date >= l.latest_date - wd.window_days
-    GROUP BY ds.student_key, wd.window_type
+    GROUP BY ds.student_key, ds.academic_year, wd.window_type
 )
 
 SELECT
     wm.student_key,
+    wm.academic_year,
     l.latest_date - wd.window_days AS window_start_date,
     wm.window_type,
 
@@ -147,9 +162,12 @@ SELECT
 FROM window_metrics wm
 CROSS JOIN latest l
 JOIN window_defs wd ON wm.window_type = wd.window_type
-LEFT JOIN trend t          ON wm.student_key = t.student_key
+LEFT JOIN trend t
+    ON  wm.student_key   = t.student_key
+    AND wm.academic_year = t.academic_year
 LEFT JOIN window_discipline wdsc
-    ON  wm.student_key  = wdsc.student_key
-    AND wm.window_type  = wdsc.window_type
+    ON  wm.student_key   = wdsc.student_key
+    AND wm.academic_year = wdsc.academic_year
+    AND wm.window_type   = wdsc.window_type
 
-ORDER BY wm.student_key, wm.window_type
+ORDER BY wm.student_key, wm.academic_year, wm.window_type

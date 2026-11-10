@@ -75,11 +75,13 @@ renamed AS (
         TRY_CAST(chronic_absenteeism_count AS INTEGER) as chronic_absent_count,
         TRY_CAST(chronic_absenteeism_rate AS DOUBLE) as chronic_absent_rate_pct,
 
-        -- Flags for data quality
+        -- Flags for data quality (handle both '*' strings and pipeline-nulled suppression)
         CASE
             WHEN chronic_absenteeism_eligible_cumulative_enrollment = '*' THEN TRUE
             WHEN chronic_absenteeism_count = '*' THEN TRUE
             WHEN chronic_absenteeism_rate = '*' THEN TRUE
+            WHEN TRY_CAST(chronic_absenteeism_count AS INTEGER) IS NULL
+                 AND TRY_CAST(chronic_absenteeism_eligible_cumulative_enrollment AS INTEGER) IS NULL THEN TRUE
             ELSE FALSE
         END as is_suppressed,
 
