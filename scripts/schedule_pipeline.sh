@@ -86,7 +86,7 @@ check_environment() {
     # Check if .env file exists
     if [[ ! -f "${PROJECT_ROOT}/.env" ]]; then
         log "WARN" "No .env file found - pipeline will run in TEST MODE"
-        log "WARN" "For production: cp .env.template .env and add credentials"
+        log "WARN" "For production: cp .env.example .env and add credentials"
     fi
 
     # Check Python environment
@@ -110,9 +110,30 @@ check_environment() {
     log "INFO" "✅ Environment checks passed"
 }
 
+# Portable timeout helper supporting Linux timeout, macOS gtimeout, and Python fallback
+run_with_timeout() {
+    local seconds="$1"
+    shift
+    if command -v timeout >/dev/null 2>&1; then
+        timeout "${seconds}s" "$@"
+    elif command -v gtimeout >/dev/null 2>&1; then
+        gtimeout "${seconds}s" "$@"
+    else
+        python3 -c '
+import subprocess, sys
+try:
+    res = subprocess.run(sys.argv[2:], timeout=int(sys.argv[1]), check=False)
+    sys.exit(res.returncode)
+except subprocess.TimeoutExpired:
+    sys.exit(124)
+' "$seconds" "$@"
+    fi
+}
+
 # Function: Run pipeline with timeout
 run_pipeline() {
     local stage="${1:-all}"
+    local timeout_seconds=$((MAX_RUNTIME_MINUTES * 60))
 
     log "INFO" "========================================="
     log "INFO" "Starting pipeline execution: Stage ${stage}"
@@ -125,8 +146,8 @@ run_pipeline() {
     # shellcheck disable=SC1091
     source "${PROJECT_ROOT}/.venv/bin/activate"
 
-    # Run pipeline with timeout
-    if timeout "${MAX_RUNTIME_MINUTES}m" python3 "${PROJECT_ROOT}/scripts/run_pipeline.py" --stage "$stage" 2>&1 | tee -a "$LOG_FILE"; then
+    # Run pipeline with portable timeout
+    if run_with_timeout "$timeout_seconds" python3 "${PROJECT_ROOT}/scripts/run_pipeline.py" --stage "$stage" 2>&1 | tee -a "$LOG_FILE"; then
         log "INFO" "Pipeline completed successfully"
         return 0
     else

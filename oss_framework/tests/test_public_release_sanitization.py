@@ -624,3 +624,17 @@ def test_phase5_t3_streaming_cde_zip_and_single_pass_parquet_exports(tmp_path: P
     assert res["row_count"] == 2
     assert out_pq.exists()
     con.close()
+
+
+def test_phase7_t2_macos_schedule_portability_and_css_contrast() -> None:
+    sched = (REPO_ROOT / "scripts/schedule_pipeline.sh").read_text()
+    assert ".env.template" not in sched
+    assert ".env.example" in sched
+    assert "gtimeout" in sched
+    assert "subprocess.run" in sched
+
+    css = (REPO_ROOT / "desktop/ui/src/styles.css").read_text()
+    assert "#fca5a5" in css
+    assert ":focus-visible" in css
+    assert "contain-intrinsic-size: auto 320px auto 260px" not in css
+    assert "contain-intrinsic-size: auto 320px;" in css

@@ -17,6 +17,11 @@
   box-sizing: border-box;
 }
 
+:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -216,7 +221,7 @@ body {
   border-radius: 0.75rem;
   padding: 1.15rem;
   content-visibility: auto;
-  contain-intrinsic-size: auto 320px auto 260px;
+  contain-intrinsic-size: auto 320px;
 }
 
 @supports not (content-visibility: auto) {
@@ -348,7 +353,7 @@ body {
 
 .kpi-delta-neg {
   background: rgba(248, 113, 113, 0.15);
-  color: var(--accent-red);
+  color: #fca5a5;
 }
 
 /* FilterBar */
@@ -572,7 +577,7 @@ body {
 
 .variance-over {
   background: rgba(248, 113, 113, 0.18);
-  color: var(--accent-red);
+  color: #fca5a5;
 }
 
 .variance-under {
