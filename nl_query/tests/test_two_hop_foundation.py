@@ -377,6 +377,79 @@ def test_python_two_hop_turn_with_self_healing_retry(seeded_conn):
     assert turn["hop2_call"]["tool"] == "render_workspace_ui"
 
 
+def test_phase5_t2_gbnf_fix_real_hop2_lock_and_prompt_pruning(seeded_conn):
+    import model_inference as mi
+    from prompts import build_prompt
+
+    import training.gbnf_compiler as gc
+
+    # 1. A-13: No leading space on single_select
+    assert "single_select" in gc.FILTER_CONTROL_TYPES
+    assert " single_select" not in gc.FILTER_CONTROL_TYPES
+
+    # 2. N9: Global inference mutex exists
+    assert hasattr(mi, "_infer_lock")
+
+    # 3. N1: Single-hop build_prompt prunes schema to <=6 tables and few-shots to <=4 examples
+    pruned_prompt = build_prompt("What is the average attendance rate for English Learners?")
+    system_section = pruned_prompt.split("<|im_start|>user")[0]
+    assert system_section.count("Table: ") <= 6
+    assert system_section.count("\nQuestion: ") <= 4
+
+    # 4. N2, N3, A-6: generate_two_hop_turn passes grammar=hop1_gbnf & grammar=hop2_gbnf and uses real LLM Hop 2 output when valid
+    seen_grammars: list[str | None] = []
+
+    def real_two_hop_mock(prompt: str, grammar: str | None = None, **_kwargs):
+        seen_grammars.append(grammar)
+        if len(seen_grammars) == 1:
+            return {
+                "choices": [
+                    {
+                        "text": json.dumps(
+                            {
+                                "tool": "execute_duckdb_query",
+                                "arguments": {
+                                    "explanation": "Aggregate attendance by school.",
+                                    "sql": "SELECT school_id, COUNT(DISTINCT student_id_hash) AS student_count FROM main_core.fact_attendance WHERE academic_year = '2023-2024' GROUP BY 1 ORDER BY 1",
+                                },
+                            }
+                        )
+                    }
+                ]
+            }
+        return {
+            "choices": [
+                {
+                    "text": json.dumps(
+                        {
+                            "tool": "render_workspace_ui",
+                            "arguments": {
+                                "title": "LLM Selected School Attendance View",
+                                "narrative_summary": "Generated directly by Hop 2 LLM.",
+                                "components": [
+                                    {
+                                        "component": "DataTable",
+                                        "columns": ["school_id", "student_count"],
+                                    }
+                                ],
+                            },
+                        }
+                    )
+                }
+            ]
+        }
+
+    turn = mi.generate_two_hop_turn(
+        "Show student count by school in 2023-2024.",
+        conn=seeded_conn,
+        llm=real_two_hop_mock,
+    )
+    assert len(seen_grammars) == 2
+    assert seen_grammars[0] is not None and "execute_duckdb_query" in seen_grammars[0]
+    assert seen_grammars[1] is not None and "render_workspace_ui" in seen_grammars[1]
+    assert turn["hop2_call"]["arguments"]["title"] == "LLM Selected School Attendance View"
+
+
 def test_reward_fn_scores_hop1_and_hop2_accurately():
     from training.reward_fn import score_hop1_completion, score_hop2_completion
 

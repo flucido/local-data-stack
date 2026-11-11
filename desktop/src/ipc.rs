@@ -1,4 +1,4 @@
-use crate::agent_loop::{run_two_hop_agent_loop, DeterministicTwoHopBackend};
+use crate::agent_loop::{run_two_hop_agent_loop, LocalSlmBackend};
 use crate::medallion::{BronzeAttendanceInput, FilterSpec, MedallionEngine};
 use crate::schema_pruner::{
     compile_hop1_gbnf, compile_hop2_gbnf, format_pruned_ddl, select_top_k_tables, SchemaCatalog,
@@ -90,7 +90,7 @@ pub fn handle_ipc_message(
             top_k,
             max_retries,
         } => {
-            let slm = DeterministicTwoHopBackend;
+            let slm = LocalSlmBackend::from_env();
             match run_two_hop_agent_loop(
                 &prompt,
                 engine,
@@ -99,7 +99,15 @@ pub fn handle_ipc_message(
                 top_k.unwrap_or(5),
                 max_retries.unwrap_or(2),
             ) {
-                Ok(trace) => serde_json::to_value(trace).unwrap_or_else(|_| json!({"status": "error"})),
+                Ok(trace) => {
+                    let mut val =
+                        serde_json::to_value(&trace).unwrap_or_else(|_| json!({"status": "error"}));
+                    if let Some(obj) = val.as_object_mut() {
+                        obj.insert("status".to_string(), json!("ok"));
+                        obj.insert("mode".to_string(), json!(trace.mode));
+                    }
+                    val
+                }
                 Err(e) => json!({
                     "status": "error",
                     "error_type": "AgentLoopError",

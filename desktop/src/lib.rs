@@ -218,6 +218,58 @@ mod tests {
     }
 
     #[test]
+    fn test_local_slm_backend_loopback_and_demo_fallback() {
+        use super::agent_loop::{GenerationHop, LocalSlmBackend, SlmBackend};
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+
+        // 1. Non-loopback endpoint must be rejected (Zero Network Egress invariant)
+        let remote = LocalSlmBackend::new(Some("http://example.com:8080".to_string()));
+        assert_eq!(remote.active_mode(), "deterministic_demo");
+
+        // 2. Unreachable loopback port falls back cleanly to deterministic_demo mode
+        let fallback = LocalSlmBackend::new(Some("http://127.0.0.1:9".to_string()));
+        let demo_out = fallback
+            .generate_with_grammar(
+                "<|im_start|>user\nShow enrollment<|im_end|>\n<|im_start|>assistant\n",
+                "root ::= ...",
+                GenerationHop::Hop1Sql { retry_attempt: 0 },
+            )
+            .unwrap();
+        assert!(demo_out.contains("execute_duckdb_query"));
+        assert_eq!(fallback.active_mode(), "deterministic_demo");
+
+        // 3. Live loopback llama-server socket serves real completion and sets mode="local_slm"
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            if let Ok((mut stream, _)) = listener.accept() {
+                let mut buf = [0u8; 4096];
+                let _ = stream.read(&mut buf);
+                let body = r#"{"content":"{\"tool\":\"execute_duckdb_query\",\"arguments\":{\"explanation\":\"From local llama-server\",\"sql\":\"SELECT school_id, total_students FROM main_analytics.school_summary\"}}"}"#;
+                let resp = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+                let _ = stream.write_all(resp.as_bytes());
+            }
+        });
+
+        let live = LocalSlmBackend::new(Some(format!("http://127.0.0.1:{}", addr.port())));
+        let slm_out = live
+            .generate_with_grammar(
+                "prompt",
+                "grammar",
+                GenerationHop::Hop1Sql { retry_attempt: 0 },
+            )
+            .unwrap();
+        server.join().unwrap();
+        assert!(slm_out.contains("From local llama-server"));
+        assert_eq!(live.active_mode(), "local_slm");
+    }
+
+    #[test]
     fn test_rust_top_k_schema_pruner_and_gbnf_compiler() {
         let catalog = load_unified_schema(&repo_root());
         assert_eq!(catalog.len(), 20);

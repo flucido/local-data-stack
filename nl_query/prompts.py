@@ -405,6 +405,77 @@ def get_all_few_shot_examples() -> list[dict]:
     return FEW_SHOT_EXAMPLES + GAP_FEWSHOT_EXAMPLES
 
 
+def select_relevant_few_shots(
+    user_question: str,
+    examples: list[dict] | None = None,
+    k: int = 4,
+) -> list[dict]:
+    """Select the top-k most relevant few-shot examples by token overlap."""
+    import re
+
+    pool = examples if examples is not None else get_all_few_shot_examples()
+    if len(pool) <= k:
+        return list(pool)
+
+    q_tokens = {
+        tok for tok in re.findall(r"[a-z0-9_]+", (user_question or "").lower()) if len(tok) > 2
+    }
+    scored: list[tuple[int, int, dict]] = []
+    for idx, ex in enumerate(pool):
+        ex_tokens = set(
+            re.findall(
+                r"[a-z0-9_]+",
+                f"{ex.get('question', '')} {ex.get('sql', '')}".lower(),
+            )
+        )
+        overlap = len(q_tokens & ex_tokens)
+        scored.append((-overlap, idx, ex))
+
+    scored.sort(key=lambda item: (item[0], item[1]))
+    return [item[2] for item in scored[:k]]
+
+
+def prune_schema_for_prompt(
+    user_question: str,
+    schema: dict,
+    k: int = 6,
+) -> dict:
+    """Prune schema to top-k relevant tables using select_top_k_tables."""
+    import sys
+    from pathlib import Path
+
+    if not schema or len(schema) <= k:
+        return schema
+
+    repo_root = Path(__file__).resolve().parents[1]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+
+    try:
+        from training.schema_pruner import select_top_k_tables
+
+        normalized: dict[str, list[dict[str, str]]] = {}
+        for tbl_name, cols in schema.items():
+            norm_cols: list[dict[str, str]] = []
+            for c in cols:
+                if isinstance(c, dict):
+                    norm_cols.append(c)
+                else:
+                    norm_cols.append(
+                        {
+                            "name": str(c[0]),
+                            "type": str(c[1]) if len(c) > 1 else "VARCHAR",
+                            "description": str(c[2]) if len(c) > 2 else "",
+                        }
+                    )
+            normalized[tbl_name] = norm_cols
+
+        selected = select_top_k_tables(user_question, normalized, k=k)
+        return {tbl: schema[tbl] for tbl in selected if tbl in schema}
+    except Exception:
+        return dict(list(schema.items())[:k])
+
+
 def build_few_shot_block(examples: list[dict] = None) -> str:
     """Build the few-shot examples block for prompt injection.
 
@@ -442,10 +513,11 @@ def build_prompt(
     """
     if schema is None:
         schema = DEFAULT_SCHEMA
+    pruned_schema = prune_schema_for_prompt(user_question, schema, k=6)
     if examples is None:
-        examples = get_all_few_shot_examples()
+        examples = select_relevant_few_shots(user_question, k=4)
 
-    system = SYSTEM_PROMPT + "\n\n" + build_schema_context(schema)
+    system = SYSTEM_PROMPT + "\n\n" + build_schema_context(pruned_schema)
     if examples:
         system += "\n\n" + build_few_shot_block(examples)
 

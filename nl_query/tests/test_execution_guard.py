@@ -52,6 +52,15 @@ class TestExtractSql:
         result = extract_sql('{"sql": "SELECT 1"')
         assert "SELECT 1" in result
 
+    def test_extract_json_with_escaped_quotes_and_surrounding_prose(self):
+        prose = (
+            'Here is the tool call: {"tool": "execute_duckdb_query", "arguments": '
+            '{"explanation": "quoted {brace}", "sql": "SELECT \\"school_name\\" FROM main_analytics.school_summary WHERE school_name != \'A\\"B\'"}} Done.'
+        )
+        extracted = extract_sql(prose)
+        assert extracted.startswith('SELECT "school_name"')
+        assert "Done." not in extracted
+
 
 # ── Static validation ──────────────────────────────────────────────────
 

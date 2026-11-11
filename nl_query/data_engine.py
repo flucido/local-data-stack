@@ -360,12 +360,14 @@ def _try_parse_json_envelope(text: str) -> str | None:
          {"tool": "execute_duckdb_query", "arguments": {"explanation": "...", "sql": "SELECT ..."}}
       2. Legacy JSON envelope:
          {"sql": "SELECT ...", "explanation": "..."}
-    Returns the SQL string if found, or None.
+    Uses ``json.JSONDecoder().raw_decode`` scanning from each ``{`` so escaped
+    quotes and nested JSON objects inside prose are handled accurately.
     """
-    stripped = text.strip()
-    if stripped.startswith("{") and stripped.endswith("}"):
+    decoder = json.JSONDecoder()
+    idx = text.find("{")
+    while idx != -1:
         try:
-            obj = json.loads(stripped)
+            obj, _end = decoder.raw_decode(text, idx)
             if isinstance(obj, dict):
                 if isinstance(obj.get("arguments"), dict) and "sql" in obj["arguments"]:
                     return str(obj["arguments"]["sql"])
@@ -373,16 +375,7 @@ def _try_parse_json_envelope(text: str) -> str | None:
                     return str(obj["sql"])
         except (json.JSONDecodeError, KeyError, TypeError):
             pass
-
-    json_match = re.search(r'\{[^{}]*"sql"\s*:\s*"[^"]+"[^{}]*\}', text, re.DOTALL)
-    if not json_match:
-        return None
-    try:
-        obj = json.loads(json_match.group(0))
-        if isinstance(obj, dict) and "sql" in obj:
-            return obj["sql"]
-    except (json.JSONDecodeError, KeyError):
-        pass
+        idx = text.find("{", idx + 1)
     return None
 
 
@@ -585,8 +578,15 @@ def _execute_with_timeout(
     thread.start()
 
     if not done.wait(timeout=timeout_sec):
-        conn.interrupt()
+        try:
+            conn.interrupt()
+        except Exception:
+            pass
         thread.join(timeout=2)
+        try:
+            conn.close()
+        except Exception:
+            pass
         raise QueryTimeoutError(f"Query timed out after {timeout_sec}s.")
 
     if result["error"]:
@@ -832,8 +832,15 @@ def apply_query_filters(
     thread.start()
 
     if not done.wait(timeout=timeout_sec):
-        conn.interrupt()
+        try:
+            conn.interrupt()
+        except Exception:
+            pass
         thread.join(timeout=2)
+        try:
+            conn.close()
+        except Exception:
+            pass
         raise QueryTimeoutError(f"Filtered query timed out after {timeout_sec}s.")
 
     if result["error"]:

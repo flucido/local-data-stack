@@ -5,8 +5,10 @@ use crate::schema_pruner::{
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::sync::Arc;
-use std::time::Instant;
+use std::io::{Read, Write};
+use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 pub const TWO_HOP_SYSTEM_INSTRUCTIONS: &str = r#"You are a sovereign local-first analytical SQL and Generative UI agent.
 You operate in a strict Two-Hop Tool-Calling Protocol:
@@ -29,11 +31,17 @@ pub trait SlmBackend: Send + Sync {
         gbnf_grammar: &str,
         hop: GenerationHop,
     ) -> Result<String>;
+
+    fn active_mode(&self) -> &'static str {
+        "local_slm"
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TwoHopExecutionTrace {
     pub question: String,
+    #[serde(default = "default_trace_mode")]
+    pub mode: String,
     pub pruned_tables: Vec<String>,
     pub hop1_call: Value,
     pub self_healing_errors: Vec<DuckDBExecutionError>,
@@ -43,6 +51,10 @@ pub struct TwoHopExecutionTrace {
     pub result_summary: DuckDBResultSummary,
     pub hop2_call: Value,
     pub total_latency_ms: f64,
+}
+
+fn default_trace_mode() -> String {
+    "local_slm".to_string()
 }
 
 /// Format a ChatML turn block (`<|im_start|>role\ncontent<|im_end|>\n`).
@@ -165,6 +177,7 @@ pub fn run_two_hop_agent_loop(
 
     Ok(TwoHopExecutionTrace {
         question: question.to_string(),
+        mode: slm.active_mode().to_string(),
         pruned_tables,
         hop1_call,
         retries_used: self_healing_errors.len(),
@@ -277,6 +290,10 @@ pub fn validate_hop2_column_bindings(hop2_call: &Value, allowed_columns: &[Strin
 pub struct DeterministicTwoHopBackend;
 
 impl SlmBackend for DeterministicTwoHopBackend {
+    fn active_mode(&self) -> &'static str {
+        "deterministic_demo"
+    }
+
     fn generate_with_grammar(
         &self,
         chatml_prompt: &str,
@@ -322,6 +339,162 @@ impl SlmBackend for DeterministicTwoHopBackend {
             }
         }
     }
+}
+
+/// Loopback-only Local SLM Backend (`llama-server` HTTP `/completion`) with automatic fallback
+/// to `DeterministicTwoHopBackend` (`mode: "deterministic_demo"`).
+///
+/// Enforces the Zero Network Egress invariant: non-loopback endpoints are rejected.
+pub struct LocalSlmBackend {
+    loopback_addr: Option<(SocketAddr, String)>,
+    resolved_mode: Mutex<&'static str>,
+}
+
+impl LocalSlmBackend {
+    pub fn from_env() -> Self {
+        Self::new(std::env::var("LFED_SLM_ENDPOINT").ok())
+    }
+
+    pub fn new(endpoint: Option<String>) -> Self {
+        let raw = endpoint.unwrap_or_else(|| "http://127.0.0.1:8080".to_string());
+        let parsed = parse_loopback_endpoint(&raw);
+        let initial_mode = if parsed.is_some() {
+            "local_slm"
+        } else {
+            "deterministic_demo"
+        };
+        Self {
+            loopback_addr: parsed,
+            resolved_mode: Mutex::new(initial_mode),
+        }
+    }
+
+    fn call_loopback_llama_server(
+        addr: &SocketAddr,
+        path: &str,
+        chatml_prompt: &str,
+        gbnf_grammar: &str,
+    ) -> Result<String> {
+        let mut stream = TcpStream::connect_timeout(addr, Duration::from_millis(200))?;
+        let _ = stream.set_read_timeout(Some(Duration::from_secs(30)));
+        let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
+
+        let body_json = serde_json::to_vec(&json!({
+            "prompt": chatml_prompt,
+            "grammar": gbnf_grammar,
+            "n_predict": 384,
+            "temperature": 0.0,
+            "cache_prompt": true,
+            "stop": ["<|im_end|>", "<|im_start|>"]
+        }))?;
+
+        let req_path = if path.is_empty() || path == "/" {
+            "/completion"
+        } else {
+            path
+        };
+        let req_header = format!(
+            "POST {req_path} HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            addr.port(),
+            body_json.len()
+        );
+        let mut full_req = Vec::with_capacity(req_header.len() + body_json.len());
+        full_req.extend_from_slice(req_header.as_bytes());
+        full_req.extend_from_slice(&body_json);
+        stream.write_all(&full_req)?;
+        stream.flush()?;
+
+        let mut resp_bytes = Vec::new();
+        stream.read_to_end(&mut resp_bytes)?;
+        let resp_str = String::from_utf8_lossy(&resp_bytes);
+        let (headers, body) = resp_str
+            .split_once("\r\n\r\n")
+            .ok_or_else(|| anyhow!("Invalid HTTP response from local SLM server"))?;
+        if !headers.starts_with("HTTP/1.1 200") && !headers.starts_with("HTTP/1.0 200") {
+            return Err(anyhow!("Local SLM server returned non-200 status"));
+        }
+
+        let parsed: Value = serde_json::from_str(body.trim())?;
+        if let Some(content) = parsed.get("content").and_then(|v| v.as_str()) {
+            return Ok(content.trim().to_string());
+        }
+        if let Some(choices) = parsed.get("choices").and_then(|v| v.as_array()) {
+            if let Some(first) = choices.first() {
+                if let Some(txt) = first.get("text").and_then(|v| v.as_str()) {
+                    return Ok(txt.trim().to_string());
+                }
+                if let Some(txt) = first
+                    .get("message")
+                    .and_then(|m| m.get("content"))
+                    .and_then(|v| v.as_str())
+                {
+                    return Ok(txt.trim().to_string());
+                }
+            }
+        }
+        Err(anyhow!("Missing completion text in local SLM response"))
+    }
+}
+
+impl SlmBackend for LocalSlmBackend {
+    fn active_mode(&self) -> &'static str {
+        self.resolved_mode
+            .lock()
+            .map(|g| *g)
+            .unwrap_or("deterministic_demo")
+    }
+
+    fn generate_with_grammar(
+        &self,
+        chatml_prompt: &str,
+        gbnf_grammar: &str,
+        hop: GenerationHop,
+    ) -> Result<String> {
+        if let Some((addr, ref path)) = self.loopback_addr {
+            if let Ok(text) =
+                Self::call_loopback_llama_server(&addr, path, chatml_prompt, gbnf_grammar)
+            {
+                if !text.is_empty() {
+                    if let Ok(mut guard) = self.resolved_mode.lock() {
+                        *guard = "local_slm";
+                    }
+                    return Ok(text);
+                }
+            }
+        }
+        if let Ok(mut guard) = self.resolved_mode.lock() {
+            *guard = "deterministic_demo";
+        }
+        DeterministicTwoHopBackend.generate_with_grammar(chatml_prompt, gbnf_grammar, hop)
+    }
+}
+
+fn parse_loopback_endpoint(raw: &str) -> Option<(SocketAddr, String)> {
+    let trimmed = raw.trim();
+    let without_scheme = trimmed
+        .strip_prefix("http://")
+        .unwrap_or(trimmed);
+    if trimmed.starts_with("https://") {
+        // Local llama-server runs plain HTTP on loopback; external HTTPS is forbidden.
+        return None;
+    }
+    let (host_port, path) = match without_scheme.find('/') {
+        Some(idx) => (&without_scheme[..idx], without_scheme[idx..].to_string()),
+        None => (without_scheme, "/completion".to_string()),
+    };
+    let host_only = if host_port.starts_with('[') {
+        host_port.split(']').next().unwrap_or("").trim_start_matches('[')
+    } else {
+        host_port.split(':').next().unwrap_or("")
+    };
+    if !matches!(host_only.to_lowercase().as_str(), "127.0.0.1" | "localhost" | "::1") {
+        return None;
+    }
+    let addr = host_port
+        .to_socket_addrs()
+        .ok()?
+        .find(|a| a.ip().is_loopback())?;
+    Some((addr, path))
 }
 
 pub fn synthesize_hop2_from_chatml(chatml_prompt: &str) -> Value {
