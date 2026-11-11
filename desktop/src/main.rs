@@ -134,8 +134,15 @@ fn default_bootstrap_html() -> &'static str {
     window.sendRustRpc = function(cmdObj) {
       const requestId = cmdObj.request_id || ('req_' + Math.random().toString(36).slice(2));
       const msg = Object.assign({}, cmdObj, { request_id: requestId });
-      return new Promise((resolve) => {
-        window.__ipcCallbacks[requestId] = resolve;
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          delete window.__ipcCallbacks[requestId];
+          reject(new Error('Desktop query timed out after 30 seconds.'));
+        }, 30000);
+        window.__ipcCallbacks[requestId] = function(payload) {
+          clearTimeout(timer);
+          resolve(payload);
+        };
         if (window.ipc && window.ipc.postMessage) {
           window.ipc.postMessage(JSON.stringify(msg));
         }
@@ -230,8 +237,15 @@ fn main() -> Result<()> {
             window.sendRustRpc = function(cmdObj) {
               const requestId = cmdObj.request_id || ('req_' + Math.random().toString(36).slice(2));
               const msg = Object.assign({}, cmdObj, { request_id: requestId });
-              return new Promise((resolve) => {
-                window.__ipcCallbacks[requestId] = resolve;
+              return new Promise((resolve, reject) => {
+                const timer = setTimeout(() => {
+                  delete window.__ipcCallbacks[requestId];
+                  reject(new Error('Desktop query timed out after 30 seconds.'));
+                }, 30000);
+                window.__ipcCallbacks[requestId] = function(payload) {
+                  clearTimeout(timer);
+                  resolve(payload);
+                };
                 if (window.ipc && window.ipc.postMessage) {
                   window.ipc.postMessage(JSON.stringify(msg));
                 }

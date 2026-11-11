@@ -19,6 +19,7 @@ export interface TwoHopTurnState {
   id: string;
   domain: "education";
   prompt: string;
+  mode?: "local_slm" | "deterministic_demo" | string;
   hop1Call: ExecuteDuckDBQueryCall;
   resultSummary: DuckDBResultSummary;
   hop2Call: RenderWorkspaceUICall;
@@ -264,6 +265,7 @@ export function isWryBridgeEnabled(): boolean {
 
 interface TwoHopTraceResponse {
   status?: string;
+  mode?: string;
   message?: string;
   error_type?: string;
   question?: string;
@@ -407,6 +409,7 @@ export async function runPromptScenario(
       id: queryId,
       domain: "education",
       prompt: resp.question ?? prompt,
+      mode: resp.mode,
       hop1Call,
       resultSummary: summary,
       hop2Call,

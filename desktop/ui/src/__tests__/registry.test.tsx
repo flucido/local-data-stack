@@ -403,4 +403,72 @@ describe("Generative UI Canonical Registry & Arrow IPC Client", () => {
     );
     expect(screen.getByText("No data")).toBeInTheDocument();
   });
+
+  it("renders educator-friendly copy, aria-pressed/expanded states, How this answer was computed disclosure, polite live region, Demo Mode indicator, and surfaces arrow:// fetch errors", async () => {
+    const { fetchArrowDataset } = await import("../lib/arrow-client");
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(async () => new Response("Not Found", { status: 404 })) as unknown as typeof fetch;
+    try {
+      await expect(fetchArrowDataset("q_missing_no_fallback")).rejects.toThrowError(/404|Failed to load/i);
+    } finally {
+      globalThis.fetch = origFetch;
+    }
+
+    const scenario = PRESET_SCENARIOS[0];
+    window.sendRustRpc = vi.fn(async (req: Record<string, unknown>) => {
+      if (req.cmd === "run_prompt") {
+        return {
+          status: "ok",
+          mode: "deterministic_demo",
+          question: "How is enrollment trending?",
+          hop1_call: scenario.hop1Call,
+          hop2_call: scenario.hop2Call,
+          result_summary: scenario.summary,
+          arrow_uri: `arrow://${scenario.summary.query_id}`,
+          retries_used: 0,
+          total_latency_ms: 8.4,
+        };
+      }
+      return {
+        status: "ok",
+        result_summary: scenario.summary,
+      };
+    });
+
+    // Provide valid Arrow stream for fetchArrowDataset when sendRustRpc is mocked
+    const validBytes = encodeRowsToArrowIPC(scenario.seedRows);
+    globalThis.fetch = vi.fn(
+      async () => new Response(validBytes as unknown as BodyInit, { status: 200 })
+    ) as unknown as typeof fetch;
+
+    try {
+      const { container } = render(<App />);
+
+      // Wait for initial preset load
+      const summaryHeading = await screen.findByText(/How this answer was computed/i);
+      expect(summaryHeading).toBeInTheDocument();
+
+      // D8/D9: No developer protocol jargon in main header
+      expect(container.textContent).not.toContain("Tao + Wry");
+      expect(container.textContent).not.toContain("Two-Hop GBNF");
+
+      // D16: aria-pressed on active preset button & aria-expanded on details toggle
+      const activePreset = container.querySelector('.scenario-btn[aria-pressed="true"]');
+      expect(activePreset).not.toBeNull();
+      const inspectorBtn = container.querySelector(".inspector-toggle");
+      expect(inspectorBtn).toHaveAttribute("aria-expanded", "false");
+
+      // D10: Polite live region present
+      const liveRegion = container.querySelector('[role="status"][aria-live="polite"]');
+      expect(liveRegion).not.toBeNull();
+
+      // Demo Mode indicator when mode === "deterministic_demo"
+      const textarea = document.getElementById("ask-question") as HTMLTextAreaElement;
+      fireEvent.change(textarea, { target: { value: "How is enrollment trending?" } });
+      fireEvent.submit(textarea.closest("form")!);
+      expect(await screen.findByText(/Demo Mode/i)).toBeInTheDocument();
+    } finally {
+      globalThis.fetch = origFetch;
+    }
+  });
 });

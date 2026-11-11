@@ -245,6 +245,43 @@ body {
   line-height: 1.45;
 }
 
+.explanation-disclosure {
+  margin-block-start: 0.65rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.explanation-disclosure summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--accent-blue);
+}
+
+.explanation-text {
+  margin: 0.4rem 0;
+  color: var(--text-primary);
+}
+
+.sort-header-btn {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-weight: 600;
+  inline-size: 100%;
+}
+
+.empty-table-cell {
+  text-align: center;
+  padding: 1.5rem !important;
+  color: var(--text-secondary);
+}
+
+.demo-mode-badge strong {
+  color: #fbbf24;
+}
+
 .panel-header {
   display: flex;
   flex-wrap: wrap;
