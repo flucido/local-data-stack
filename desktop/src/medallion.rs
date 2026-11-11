@@ -1,4 +1,8 @@
 use anyhow::{anyhow, Result};
+use arrow::array::{
+    Array, BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array, Int8Array,
+    LargeStringArray, StringArray, UInt32Array, UInt64Array,
+};
 use arrow::record_batch::RecordBatch;
 use arrow::util::display::ArrayFormatter;
 use arrow_ipc::writer::StreamWriter;
@@ -7,12 +11,14 @@ use regex::Regex;
 use rusqlite::{params, Connection as SqliteConnection};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock, RwLock};
 use uuid::Uuid;
 
 const MAX_RESULT_ROWS: usize = 1000;
+const MAX_CACHE_ENTRIES: usize = 64;
+const MAX_CACHE_BYTES: usize = 128 * 1024 * 1024;
 
 const FORBIDDEN_TOKENS: &[&str] = &[
     "drop", "delete", "insert", "update", "alter", "truncate", "create", "attach", "detach",
@@ -107,33 +113,75 @@ pub struct BronzeAttendanceInput {
 pub struct CachedQueryEntry {
     pub query_id: String,
     pub base_sql: String,
-    pub arrow_ipc_bytes: Vec<u8>,
+    pub arrow_ipc_bytes: Arc<Vec<u8>>,
     pub summary: DuckDBResultSummary,
+}
+
+#[derive(Default)]
+struct ArrowCacheInner {
+    entries: HashMap<String, CachedQueryEntry>,
+    lru_order: VecDeque<String>,
+    total_bytes: usize,
 }
 
 #[derive(Default, Clone)]
 pub struct ArrowCache {
-    inner: Arc<RwLock<HashMap<String, CachedQueryEntry>>>,
+    inner: Arc<RwLock<ArrowCacheInner>>,
 }
 
 impl ArrowCache {
     pub fn new() -> Self {
         Self {
-            inner: Arc::new(RwLock::new(HashMap::new())),
+            inner: Arc::new(RwLock::new(ArrowCacheInner::default())),
         }
+    }
+
+    pub fn len(&self) -> usize {
+        self.inner.read().map(|g| g.entries.len()).unwrap_or(0)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     pub fn insert(&self, entry: CachedQueryEntry) {
         if let Ok(mut guard) = self.inner.write() {
-            guard.insert(entry.query_id.clone(), entry);
+            let entry_bytes = entry.arrow_ipc_bytes.len();
+            let qid = entry.query_id.clone();
+
+            if let Some(prev) = guard.entries.remove(&qid) {
+                guard.total_bytes = guard.total_bytes.saturating_sub(prev.arrow_ipc_bytes.len());
+                guard.lru_order.retain(|k| k != &qid);
+            }
+
+            while !guard.lru_order.is_empty()
+                && (guard.entries.len() >= MAX_CACHE_ENTRIES
+                    || guard.total_bytes.saturating_add(entry_bytes) > MAX_CACHE_BYTES)
+            {
+                if let Some(oldest_key) = guard.lru_order.pop_front() {
+                    if let Some(evicted) = guard.entries.remove(&oldest_key) {
+                        guard.total_bytes = guard
+                            .total_bytes
+                            .saturating_sub(evicted.arrow_ipc_bytes.len());
+                    }
+                }
+            }
+
+            guard.total_bytes = guard.total_bytes.saturating_add(entry_bytes);
+            guard.lru_order.push_back(qid.clone());
+            guard.entries.insert(qid, entry);
         }
     }
 
     pub fn get(&self, query_id: &str) -> Option<CachedQueryEntry> {
-        self.inner
-            .read()
-            .ok()
-            .and_then(|g| g.get(query_id).cloned())
+        if let Ok(mut guard) = self.inner.write() {
+            if let Some(found) = guard.entries.get(query_id).cloned() {
+                guard.lru_order.retain(|k| k != query_id);
+                guard.lru_order.push_back(query_id.to_string());
+                return Some(found);
+            }
+        }
+        None
     }
 }
 
@@ -396,7 +444,8 @@ impl MedallionEngine {
         self.sync_bronze_to_silver_and_gold()
     }
 
-    /// Synchronize Bronze SQLite ACID tables into DuckDB K-12 Silver (`main_core`) & Gold (`main_analytics`) tables.
+    /// Synchronize Bronze SQLite ACID tables into DuckDB K-12 Silver (`main_core`) & Gold (`main_analytics`) tables
+    /// inside a single transaction using DuckDB Appenders.
     pub fn sync_bronze_to_silver_and_gold(&self) -> Result<()> {
         let sqlite = SqliteConnection::open(&self.bronze_path)?;
         let duck = self
@@ -406,6 +455,7 @@ impl MedallionEngine {
 
         duck.execute_batch(
             r#"
+            BEGIN TRANSACTION;
             CREATE SCHEMA IF NOT EXISTS main_core;
             CREATE SCHEMA IF NOT EXISTS main_analytics;
             CREATE SCHEMA IF NOT EXISTS main_staging;
@@ -476,193 +526,207 @@ impl MedallionEngine {
             "#,
         )?;
 
-        // 1. Sync dim_schools (applying any Bronze school_name overrides)
-        {
-            let mut stmt = sqlite.prepare(
-                r#"
-                SELECT s.school_id,
-                       COALESCE(o.override_school_name, s.school_name) AS school_name,
-                       s.school_type
-                FROM bronze_schools s
-                LEFT JOIN bronze_school_name_overrides o
-                  ON s.school_id = o.school_id
-                "#,
-            )?;
-            let rows = stmt.query_map([], |r| {
-                Ok((
-                    r.get::<_, String>(0)?,
-                    r.get::<_, String>(1)?,
-                    r.get::<_, String>(2)?,
-                ))
-            })?;
-            for row in rows {
-                let (id, name, stype) = row?;
-                duck.execute(
-                    "INSERT INTO main_core.dim_schools VALUES (?, ?, ?)",
-                    duckdb::params![id, name, stype],
+        let sync_res = (|| -> Result<()> {
+            // 1. Sync dim_schools (applying any Bronze school_name overrides)
+            {
+                let mut stmt = sqlite.prepare(
+                    r#"
+                    SELECT s.school_id,
+                           COALESCE(o.override_school_name, s.school_name) AS school_name,
+                           s.school_type
+                    FROM bronze_schools s
+                    LEFT JOIN bronze_school_name_overrides o
+                      ON s.school_id = o.school_id
+                    "#,
                 )?;
+                let rows = stmt.query_map([], |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, String>(2)?,
+                    ))
+                })?;
+                let mut appender = duck.appender_to_db("dim_schools", "main_core")?;
+                for row in rows {
+                    let (id, name, stype) = row?;
+                    appender.append_row(duckdb::params![id, name, stype])?;
+                }
+                appender.flush()?;
+            }
+
+            // 2. Sync dim_students
+            {
+                let mut stmt = sqlite.prepare(
+                    r#"
+                    SELECT student_id_hash, academic_year, grade_level, gender, ethnicity,
+                           primary_race, sed_status, ell_status, sped_status
+                    FROM bronze_students
+                    "#,
+                )?;
+                let rows = stmt.query_map([], |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, i64>(2)?,
+                        r.get::<_, String>(3)?,
+                        r.get::<_, String>(4)?,
+                        r.get::<_, String>(5)?,
+                        r.get::<_, i64>(6)? != 0,
+                        r.get::<_, i64>(7)? != 0,
+                        r.get::<_, i64>(8)? != 0,
+                    ))
+                })?;
+                let mut appender = duck.appender_to_db("dim_students", "main_core")?;
+                for row in rows {
+                    let (sid, yr, gr, gen, eth, race, sed, ell, sped) = row?;
+                    appender.append_row(duckdb::params![
+                        sid, yr, gr, gen, eth, race, sed, ell, sped, sed, sped
+                    ])?;
+                }
+                appender.flush()?;
+            }
+
+            // 3. Sync fact_attendance
+            {
+                let mut stmt = sqlite.prepare(
+                    r#"
+                    SELECT student_id_hash, school_id, academic_year, days_enrolled,
+                           days_present, days_absent, unexcused_absences, attendance_rate
+                    FROM bronze_attendance
+                    "#,
+                )?;
+                let rows = stmt.query_map([], |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, String>(2)?,
+                        r.get::<_, i64>(3)?,
+                        r.get::<_, i64>(4)?,
+                        r.get::<_, i64>(5)?,
+                        r.get::<_, i64>(6)?,
+                        r.get::<_, f64>(7)?,
+                    ))
+                })?;
+                let mut appender = duck.appender_to_db("fact_attendance", "main_core")?;
+                for row in rows {
+                    let (sid, sch_id, yr, enr, pres, abs, unex, rate) = row?;
+                    appender.append_row(duckdb::params![
+                        sid, sch_id, yr, enr, pres, abs, unex, rate
+                    ])?;
+                }
+                appender.flush()?;
+            }
+
+            // 4. Sync school_summary
+            {
+                let mut stmt = sqlite.prepare(
+                    r#"
+                    SELECT ss.school_id,
+                           ss.academic_year,
+                           COALESCE(o.override_school_name, ss.school_name) AS school_name,
+                           ss.school_type,
+                           ss.total_students,
+                           ss.avg_gpa,
+                           ss.avg_attendance_rate,
+                           ss.total_incidents,
+                           ss.students_with_incidents
+                    FROM bronze_school_summary ss
+                    LEFT JOIN bronze_school_name_overrides o
+                      ON ss.school_id = o.school_id
+                    "#,
+                )?;
+                let rows = stmt.query_map([], |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, String>(2)?,
+                        r.get::<_, String>(3)?,
+                        r.get::<_, i64>(4)?,
+                        r.get::<_, f64>(5)?,
+                        r.get::<_, f64>(6)?,
+                        r.get::<_, i64>(7)?,
+                        r.get::<_, i64>(8)?,
+                    ))
+                })?;
+                let mut appender = duck.appender_to_db("school_summary", "main_analytics")?;
+                for row in rows {
+                    let (id, yr, name, stype, tot, gpa, att, inc, st_inc) = row?;
+                    appender.append_row(duckdb::params![
+                        id, yr, name, stype, tot, tot, gpa, att, inc, st_inc
+                    ])?;
+                }
+                appender.flush()?;
+            }
+
+            // 5. Sync equity_by_race
+            {
+                let mut stmt = sqlite.prepare(
+                    r#"
+                    SELECT academic_year, primary_race, student_count, avg_gpa, avg_attendance_rate, incident_count
+                    FROM bronze_equity_by_race
+                    "#,
+                )?;
+                let rows = stmt.query_map([], |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, i64>(2)?,
+                        r.get::<_, f64>(3)?,
+                        r.get::<_, f64>(4)?,
+                        r.get::<_, i64>(5)?,
+                    ))
+                })?;
+                let mut appender = duck.appender_to_db("equity_by_race", "main_analytics")?;
+                for row in rows {
+                    let (yr, race, cnt, gpa, att, inc) = row?;
+                    appender.append_row(duckdb::params![yr, race, cnt, gpa, att, inc])?;
+                }
+                appender.flush()?;
+            }
+
+            // 6. Sync mart_cde_school_accountability
+            {
+                let mut stmt = sqlite.prepare(
+                    r#"
+                    SELECT academic_year, cds_code, school_name, reporting_category,
+                           reporting_category_label, ca_chronic_absent_rate_pct, su_suspension_rate_pct, exp_total_expulsions
+                    FROM bronze_cde_accountability
+                    "#,
+                )?;
+                let rows = stmt.query_map([], |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, String>(2)?,
+                        r.get::<_, String>(3)?,
+                        r.get::<_, String>(4)?,
+                        r.get::<_, f64>(5)?,
+                        r.get::<_, f64>(6)?,
+                        r.get::<_, i64>(7)?,
+                    ))
+                })?;
+                let mut appender =
+                    duck.appender_to_db("mart_cde_school_accountability", "main_analytics")?;
+                for row in rows {
+                    let (yr, cds, sname, rc, rcl, ca, su, exp) = row?;
+                    appender.append_row(duckdb::params![yr, cds, sname, rc, rcl, ca, su, exp])?;
+                }
+                appender.flush()?;
+            }
+
+            Ok(())
+        })();
+
+        match sync_res {
+            Ok(()) => {
+                duck.execute_batch("COMMIT;")?;
+                Ok(())
+            }
+            Err(err) => {
+                let _ = duck.execute_batch("ROLLBACK;");
+                Err(err)
             }
         }
-
-        // 2. Sync dim_students
-        {
-            let mut stmt = sqlite.prepare(
-                r#"
-                SELECT student_id_hash, academic_year, grade_level, gender, ethnicity,
-                       primary_race, sed_status, ell_status, sped_status
-                FROM bronze_students
-                "#,
-            )?;
-            let rows = stmt.query_map([], |r| {
-                Ok((
-                    r.get::<_, String>(0)?,
-                    r.get::<_, String>(1)?,
-                    r.get::<_, i64>(2)?,
-                    r.get::<_, String>(3)?,
-                    r.get::<_, String>(4)?,
-                    r.get::<_, String>(5)?,
-                    r.get::<_, i64>(6)? != 0,
-                    r.get::<_, i64>(7)? != 0,
-                    r.get::<_, i64>(8)? != 0,
-                ))
-            })?;
-            for row in rows {
-                let (sid, yr, gr, gen, eth, race, sed, ell, sped) = row?;
-                duck.execute(
-                    "INSERT INTO main_core.dim_students VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    duckdb::params![sid, yr, gr, gen, eth, race, sed, ell, sped, sed, sped],
-                )?;
-            }
-        }
-
-        // 3. Sync fact_attendance
-        {
-            let mut stmt = sqlite.prepare(
-                r#"
-                SELECT student_id_hash, school_id, academic_year, days_enrolled,
-                       days_present, days_absent, unexcused_absences, attendance_rate
-                FROM bronze_attendance
-                "#,
-            )?;
-            let rows = stmt.query_map([], |r| {
-                Ok((
-                    r.get::<_, String>(0)?,
-                    r.get::<_, String>(1)?,
-                    r.get::<_, String>(2)?,
-                    r.get::<_, i64>(3)?,
-                    r.get::<_, i64>(4)?,
-                    r.get::<_, i64>(5)?,
-                    r.get::<_, i64>(6)?,
-                    r.get::<_, f64>(7)?,
-                ))
-            })?;
-            for row in rows {
-                let (sid, sch_id, yr, enr, pres, abs, unex, rate) = row?;
-                duck.execute(
-                    "INSERT INTO main_core.fact_attendance VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    duckdb::params![sid, sch_id, yr, enr, pres, abs, unex, rate],
-                )?;
-            }
-        }
-
-        // 4. Sync school_summary (applying school_name override if present)
-        {
-            let mut stmt = sqlite.prepare(
-                r#"
-                SELECT ss.school_id,
-                       ss.academic_year,
-                       COALESCE(o.override_school_name, ss.school_name) AS school_name,
-                       ss.school_type,
-                       ss.total_students,
-                       ss.avg_gpa,
-                       ss.avg_attendance_rate,
-                       ss.total_incidents,
-                       ss.students_with_incidents
-                FROM bronze_school_summary ss
-                LEFT JOIN bronze_school_name_overrides o
-                  ON ss.school_id = o.school_id
-                "#,
-            )?;
-            let rows = stmt.query_map([], |r| {
-                Ok((
-                    r.get::<_, String>(0)?,
-                    r.get::<_, String>(1)?,
-                    r.get::<_, String>(2)?,
-                    r.get::<_, String>(3)?,
-                    r.get::<_, i64>(4)?,
-                    r.get::<_, f64>(5)?,
-                    r.get::<_, f64>(6)?,
-                    r.get::<_, i64>(7)?,
-                    r.get::<_, i64>(8)?,
-                ))
-            })?;
-            for row in rows {
-                let (id, yr, name, stype, tot, gpa, att, inc, st_inc) = row?;
-                duck.execute(
-                    "INSERT INTO main_analytics.school_summary VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    duckdb::params![id, yr, name, stype, tot, tot, gpa, att, inc, st_inc],
-                )?;
-            }
-        }
-
-        // 5. Sync equity_by_race
-        {
-            let mut stmt = sqlite.prepare(
-                r#"
-                SELECT academic_year, primary_race, student_count, avg_gpa, avg_attendance_rate, incident_count
-                FROM bronze_equity_by_race
-                "#,
-            )?;
-            let rows = stmt.query_map([], |r| {
-                Ok((
-                    r.get::<_, String>(0)?,
-                    r.get::<_, String>(1)?,
-                    r.get::<_, i64>(2)?,
-                    r.get::<_, f64>(3)?,
-                    r.get::<_, f64>(4)?,
-                    r.get::<_, i64>(5)?,
-                ))
-            })?;
-            for row in rows {
-                let (yr, race, cnt, gpa, att, inc) = row?;
-                duck.execute(
-                    "INSERT INTO main_analytics.equity_by_race VALUES (?, ?, ?, ?, ?, ?)",
-                    duckdb::params![yr, race, cnt, gpa, att, inc],
-                )?;
-            }
-        }
-
-        // 6. Sync mart_cde_school_accountability
-        {
-            let mut stmt = sqlite.prepare(
-                r#"
-                SELECT academic_year, cds_code, school_name, reporting_category,
-                       reporting_category_label, ca_chronic_absent_rate_pct, su_suspension_rate_pct, exp_total_expulsions
-                FROM bronze_cde_accountability
-                "#,
-            )?;
-            let rows = stmt.query_map([], |r| {
-                Ok((
-                    r.get::<_, String>(0)?,
-                    r.get::<_, String>(1)?,
-                    r.get::<_, String>(2)?,
-                    r.get::<_, String>(3)?,
-                    r.get::<_, String>(4)?,
-                    r.get::<_, f64>(5)?,
-                    r.get::<_, f64>(6)?,
-                    r.get::<_, i64>(7)?,
-                ))
-            })?;
-            for row in rows {
-                let (yr, cds, sname, rc, rcl, ca, su, exp) = row?;
-                duck.execute(
-                    "INSERT INTO main_analytics.mart_cde_school_accountability VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    duckdb::params![yr, cds, sname, rc, rcl, ca, su, exp],
-                )?;
-            }
-        }
-
-        Ok(())
     }
 
     /// Copy the K-12 Education warehouse (`analytics.duckdb`) to an isolated session snapshot,
@@ -945,6 +1009,15 @@ impl MedallionEngine {
         raw_input: &str,
         custom_query_id: Option<String>,
     ) -> std::result::Result<CachedQueryEntry, DuckDBExecutionError> {
+        self.execute_and_cache_arrow_with_base(raw_input, custom_query_id, None)
+    }
+
+    fn execute_and_cache_arrow_with_base(
+        &self,
+        raw_input: &str,
+        custom_query_id: Option<String>,
+        override_base_sql: Option<String>,
+    ) -> std::result::Result<CachedQueryEntry, DuckDBExecutionError> {
         let sql = extract_sql_from_input(raw_input);
         validate_read_only_sql(&sql)?;
 
@@ -996,8 +1069,8 @@ impl MedallionEngine {
 
         let entry = CachedQueryEntry {
             query_id,
-            base_sql: sql,
-            arrow_ipc_bytes: ipc_bytes,
+            base_sql: override_base_sql.unwrap_or(sql),
+            arrow_ipc_bytes: Arc::new(ipc_bytes),
             summary,
         };
         self.arrow_cache.insert(entry.clone());
@@ -1096,11 +1169,7 @@ impl MedallionEngine {
             "WITH _base AS (\n{base_sql}\n)\nSELECT * FROM _base\n{where_sql}"
         );
 
-        let mut entry = self.execute_and_cache_arrow(&wrapped_sql, None)?;
-        // Preserve original base_sql so subsequent FilterBar changes continue wrapping the clean base query
-        entry.base_sql = base_sql;
-        self.arrow_cache.insert(entry.clone());
-        Ok(entry)
+        self.execute_and_cache_arrow_with_base(&wrapped_sql, None, Some(base_sql))
     }
 }
 
@@ -1119,6 +1188,213 @@ fn sql_literal(val: &Value) -> String {
     }
 }
 
+fn extract_arrow_cell_native(
+    arr: &dyn Array,
+    row_idx: usize,
+    fallback_fmt: Option<&ArrayFormatter<'_>>,
+    dtype: &str,
+) -> Value {
+    if arr.is_null(row_idx) {
+        return Value::Null;
+    }
+    if let Some(a) = arr.as_any().downcast_ref::<Int64Array>() {
+        return json!(a.value(row_idx));
+    }
+    if let Some(a) = arr.as_any().downcast_ref::<Int32Array>() {
+        return json!(a.value(row_idx));
+    }
+    if let Some(a) = arr.as_any().downcast_ref::<Int16Array>() {
+        return json!(a.value(row_idx));
+    }
+    if let Some(a) = arr.as_any().downcast_ref::<Int8Array>() {
+        return json!(a.value(row_idx));
+    }
+    if let Some(a) = arr.as_any().downcast_ref::<UInt64Array>() {
+        return json!(a.value(row_idx));
+    }
+    if let Some(a) = arr.as_any().downcast_ref::<UInt32Array>() {
+        return json!(a.value(row_idx));
+    }
+    if let Some(a) = arr.as_any().downcast_ref::<Float64Array>() {
+        let f = a.value(row_idx);
+        return if f.is_finite() { json!(f) } else { Value::Null };
+    }
+    if let Some(a) = arr.as_any().downcast_ref::<Float32Array>() {
+        let f = a.value(row_idx) as f64;
+        return if f.is_finite() { json!(f) } else { Value::Null };
+    }
+    if let Some(a) = arr.as_any().downcast_ref::<BooleanArray>() {
+        return json!(a.value(row_idx));
+    }
+    if let Some(a) = arr.as_any().downcast_ref::<StringArray>() {
+        return json!(a.value(row_idx));
+    }
+    if let Some(a) = arr.as_any().downcast_ref::<LargeStringArray>() {
+        return json!(a.value(row_idx));
+    }
+    if let Some(fmt) = fallback_fmt {
+        return format_cell_value(fmt, row_idx, dtype);
+    }
+    Value::Null
+}
+
+fn summarize_arrow_column(
+    col_idx: usize,
+    dtype: &str,
+    batches: &[RecordBatch],
+) -> (usize, usize, Option<Value>, Option<Value>, Option<Vec<Value>>) {
+    let mut null_count = 0usize;
+    let is_num_temp = is_numeric_or_temporal(dtype);
+
+    // Fast native path for Float64 / Int64 / String columns
+    let all_f64 = batches
+        .iter()
+        .all(|b| b.column(col_idx).as_any().is::<Float64Array>());
+    if all_f64 {
+        let mut min_v: Option<f64> = None;
+        let mut max_v: Option<f64> = None;
+        let mut distinct: HashSet<u64> = HashSet::new();
+        for b in batches {
+            let a = b.column(col_idx).as_any().downcast_ref::<Float64Array>().unwrap();
+            null_count += a.null_count();
+            for i in 0..a.len() {
+                if !a.is_null(i) {
+                    let v = a.value(i);
+                    if v.is_finite() {
+                        distinct.insert(v.to_bits());
+                        min_v = Some(min_v.map_or(v, |m| m.min(v)));
+                        max_v = Some(max_v.map_or(v, |m| m.max(v)));
+                    }
+                }
+            }
+        }
+        return (
+            distinct.len(),
+            null_count,
+            min_v.map(|v| json!(v)),
+            max_v.map(|v| json!(v)),
+            None,
+        );
+    }
+
+    let all_i64 = batches
+        .iter()
+        .all(|b| b.column(col_idx).as_any().is::<Int64Array>());
+    if all_i64 {
+        let mut min_v: Option<i64> = None;
+        let mut max_v: Option<i64> = None;
+        let mut distinct: HashSet<i64> = HashSet::new();
+        for b in batches {
+            let a = b.column(col_idx).as_any().downcast_ref::<Int64Array>().unwrap();
+            null_count += a.null_count();
+            for i in 0..a.len() {
+                if !a.is_null(i) {
+                    let v = a.value(i);
+                    distinct.insert(v);
+                    min_v = Some(min_v.map_or(v, |m| m.min(v)));
+                    max_v = Some(max_v.map_or(v, |m| m.max(v)));
+                }
+            }
+        }
+        return (
+            distinct.len(),
+            null_count,
+            min_v.map(|v| json!(v)),
+            max_v.map(|v| json!(v)),
+            None,
+        );
+    }
+
+    let all_utf8 = batches
+        .iter()
+        .all(|b| b.column(col_idx).as_any().is::<StringArray>());
+    if all_utf8 {
+        let mut distinct: HashSet<String> = HashSet::new();
+        let mut samples: Vec<Value> = Vec::new();
+        let mut min_s: Option<String> = None;
+        let mut max_s: Option<String> = None;
+        for b in batches {
+            let a = b.column(col_idx).as_any().downcast_ref::<StringArray>().unwrap();
+            null_count += a.null_count();
+            for i in 0..a.len() {
+                if !a.is_null(i) {
+                    let s = a.value(i);
+                    if distinct.insert(s.to_string()) && samples.len() < 3 {
+                        samples.push(json!(s));
+                    }
+                    if is_num_temp {
+                        min_s = Some(match min_s {
+                            Some(ref m) if m.as_str() <= s => m.clone(),
+                            _ => s.to_string(),
+                        });
+                        max_s = Some(match max_s {
+                            Some(ref m) if m.as_str() >= s => m.clone(),
+                            _ => s.to_string(),
+                        });
+                    }
+                }
+            }
+        }
+        if is_num_temp && min_s.is_some() {
+            return (
+                distinct.len(),
+                null_count,
+                min_s.map(|s| json!(s)),
+                max_s.map(|s| json!(s)),
+                None,
+            );
+        }
+        let sample_opt = if samples.is_empty() { None } else { Some(samples) };
+        return (distinct.len(), null_count, None, None, sample_opt);
+    }
+
+    // Fallback for remaining Arrow types (Decimal, Date32, Boolean, Int32, etc.)
+    let mut vals: Vec<Value> = Vec::new();
+    let mut distinct: HashSet<String> = HashSet::new();
+    let mut unique_ordered: Vec<Value> = Vec::new();
+    for b in batches {
+        let arr = b.column(col_idx);
+        let fmt = ArrayFormatter::try_new(arr.as_ref(), &Default::default()).ok();
+        for i in 0..arr.len() {
+            if arr.is_null(i) {
+                null_count += 1;
+            } else {
+                let v = extract_arrow_cell_native(arr.as_ref(), i, fmt.as_ref(), dtype);
+                let key = match &v {
+                    Value::String(s) => s.clone(),
+                    other => other.to_string(),
+                };
+                if distinct.insert(key) && unique_ordered.len() < 3 {
+                    unique_ordered.push(v.clone());
+                }
+                if is_num_temp {
+                    vals.push(v);
+                }
+            }
+        }
+    }
+    if is_num_temp && !vals.is_empty() {
+        let mut min_v = vals[0].clone();
+        let mut max_v = vals[0].clone();
+        for v in vals.iter().skip(1) {
+            if compare_json_values(v, &min_v) == std::cmp::Ordering::Less {
+                min_v = v.clone();
+            }
+            if compare_json_values(v, &max_v) == std::cmp::Ordering::Greater {
+                max_v = v.clone();
+            }
+        }
+        (distinct.len(), null_count, Some(min_v), Some(max_v), None)
+    } else {
+        let sample_opt = if unique_ordered.is_empty() {
+            None
+        } else {
+            Some(unique_ordered)
+        };
+        (distinct.len(), null_count, None, None, sample_opt)
+    }
+}
+
 fn build_result_summary(
     query_id: &str,
     schema: &arrow_schema::SchemaRef,
@@ -1127,26 +1403,22 @@ fn build_result_summary(
 ) -> DuckDBResultSummary {
     let row_count: usize = batches.iter().map(|b| b.num_rows()).sum();
     let num_cols = schema.fields().len();
-
-    let mut col_values: Vec<Vec<Value>> = vec![Vec::new(); num_cols];
-    let mut null_counts: Vec<usize> = vec![0; num_cols];
     let mut sample_rows: Vec<Vec<Value>> = Vec::new();
 
     for batch in batches {
+        if sample_rows.len() >= 3 {
+            break;
+        }
         let formatters: Vec<Option<ArrayFormatter<'_>>> = (0..num_cols)
             .map(|c_idx| {
                 ArrayFormatter::try_new(batch.column(c_idx).as_ref(), &Default::default()).ok()
             })
             .collect();
-
         for r_idx in 0..batch.num_rows() {
-            let capture_sample = sample_rows.len() < 3;
-            let mut sample_row = if capture_sample {
-                Vec::with_capacity(num_cols)
-            } else {
-                Vec::new()
-            };
-
+            if sample_rows.len() >= 3 {
+                break;
+            }
+            let mut row_vals = Vec::with_capacity(num_cols);
             for c_idx in 0..num_cols {
                 let col_arr = batch.column(c_idx);
                 let field_name = schema.field(c_idx).name();
@@ -1154,23 +1426,14 @@ fn build_result_summary(
                     .get(field_name)
                     .cloned()
                     .unwrap_or_else(|| format!("{:?}", schema.field(c_idx).data_type()));
-
-                if col_arr.is_null(r_idx) {
-                    null_counts[c_idx] += 1;
-                    if capture_sample {
-                        sample_row.push(Value::Null);
-                    }
-                } else if let Some(fmt) = &formatters[c_idx] {
-                    let v = format_cell_value(fmt, r_idx, &dtype);
-                    col_values[c_idx].push(v.clone());
-                    if capture_sample {
-                        sample_row.push(v);
-                    }
-                }
+                row_vals.push(extract_arrow_cell_native(
+                    col_arr.as_ref(),
+                    r_idx,
+                    formatters[c_idx].as_ref(),
+                    &dtype,
+                ));
             }
-            if capture_sample {
-                sample_rows.push(sample_row);
-            }
+            sample_rows.push(row_vals);
         }
     }
 
@@ -1181,47 +1444,16 @@ fn build_result_summary(
             .get(&name)
             .cloned()
             .unwrap_or_else(|| format!("{:?}", field.data_type()).to_uppercase());
-
-        let vals = &col_values[c_idx];
-        let mut distinct_set: HashSet<String> = HashSet::new();
-        let mut unique_ordered: Vec<Value> = Vec::new();
-        for v in vals {
-            let key = serde_json::to_string(v).unwrap_or_default();
-            if distinct_set.insert(key) {
-                unique_ordered.push(v.clone());
-            }
-        }
-
-        let (min_val, max_val, sample_vals) = if is_numeric_or_temporal(&dtype) && !vals.is_empty() {
-            let mut min_v = vals[0].clone();
-            let mut max_v = vals[0].clone();
-            for v in vals.iter().skip(1) {
-                if compare_json_values(v, &min_v) == std::cmp::Ordering::Less {
-                    min_v = v.clone();
-                }
-                if compare_json_values(v, &max_v) == std::cmp::Ordering::Greater {
-                    max_v = v.clone();
-                }
-            }
-            (Some(min_v), Some(max_v), None)
-        } else if !unique_ordered.is_empty() {
-            (
-                None,
-                None,
-                Some(unique_ordered.into_iter().take(3).collect()),
-            )
-        } else {
-            (None, None, None)
-        };
-
+        let (distinct_count, null_count, min, max, sample_values) =
+            summarize_arrow_column(c_idx, &dtype, batches);
         columns.push(ColumnSummary {
             name,
             data_type: dtype,
-            distinct_count: distinct_set.len(),
-            null_count: null_counts[c_idx],
-            min: min_val,
-            max: max_val,
-            sample_values: sample_vals,
+            distinct_count,
+            null_count,
+            min,
+            max,
+            sample_values,
         });
     }
 

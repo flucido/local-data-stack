@@ -205,11 +205,17 @@ fn main() -> Result<()> {
             handle_arrow_protocol_request(request, &engine_for_arrow)
         })
         .with_ipc_handler(move |req| {
-            let body = req.body();
-            let resp_val = handle_ipc_message(body, &engine_for_ipc, &catalog_for_ipc);
-            if let Ok(resp_json) = serde_json::to_string(&resp_val) {
-                let _ = proxy.send_event(UserEvent::IpcResponse(resp_json));
-            }
+            let body_bytes = req.body().as_bytes().to_vec();
+            let engine = Arc::clone(&engine_for_ipc);
+            let catalog = Arc::clone(&catalog_for_ipc);
+            let proxy = proxy.clone();
+            std::thread::spawn(move || {
+                let body_str = String::from_utf8_lossy(&body_bytes);
+                let resp_val = handle_ipc_message(&body_str, &engine, &catalog);
+                if let Ok(resp_json) = serde_json::to_string(&resp_val) {
+                    let _ = proxy.send_event(UserEvent::IpcResponse(resp_json));
+                }
+            });
         })
         .with_initialization_script(
             r#"

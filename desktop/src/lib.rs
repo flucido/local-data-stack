@@ -188,6 +188,36 @@ mod tests {
     }
 
     #[test]
+    fn test_arrow_cache_lru_eviction_and_arc_sharing() {
+        use super::medallion::{ArrowCache, CachedQueryEntry, DuckDBResultSummary};
+
+        let cache = ArrowCache::new();
+        for i in 0..70 {
+            let qid = format!("q_lru_{i:03}");
+            let entry = CachedQueryEntry {
+                query_id: qid.clone(),
+                base_sql: "SELECT 1".to_string(),
+                arrow_ipc_bytes: Arc::new(vec![42u8; 1024]),
+                summary: DuckDBResultSummary {
+                    status: "ok".to_string(),
+                    query_id: qid,
+                    row_count: 1,
+                    columns: Vec::new(),
+                    sample_rows: Vec::new(),
+                },
+            };
+            cache.insert(entry);
+        }
+
+        // Capped at 64 entries: oldest 6 (000..005) evicted, newest (069) retained
+        assert_eq!(cache.len(), 64);
+        assert!(cache.get("q_lru_000").is_none());
+        let first = cache.get("q_lru_069").unwrap();
+        let second = cache.get("q_lru_069").unwrap();
+        assert!(Arc::ptr_eq(&first.arrow_ipc_bytes, &second.arrow_ipc_bytes));
+    }
+
+    #[test]
     fn test_rust_top_k_schema_pruner_and_gbnf_compiler() {
         let catalog = load_unified_schema(&repo_root());
         assert_eq!(catalog.len(), 20);

@@ -248,7 +248,7 @@ pub fn handle_arrow_protocol_request(
             .header("Access-Control-Allow-Origin", "*")
             .header("X-Query-Id", entry.query_id)
             .header("X-Row-Count", entry.summary.row_count.to_string())
-            .body(Cow::Owned(entry.arrow_ipc_bytes))
+            .body(Cow::Owned((*entry.arrow_ipc_bytes).clone()))
             .unwrap()
     } else {
         let body = serde_json::to_vec(&json!({
