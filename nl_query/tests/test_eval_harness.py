@@ -1,7 +1,6 @@
 """test_eval_harness.py — Eval harness tests (mocked LLM, no GPU needed)."""
 
 import json
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 
@@ -142,7 +141,20 @@ class TestExactMatch:
 class TestRunEvalMocked:
     def test_full_flow_with_mock_llm(self, tmp_path):
         """Mock LLM returns gold SQL -> should score 100% execution match."""
+        import duckdb
         from eval import run_eval
+
+        # Create a minimal self-contained warehouse so the test works on CI
+        warehouse = tmp_path / "test_warehouse.duckdb"
+        conn = duckdb.connect(str(warehouse))
+        conn.execute("CREATE SCHEMA IF NOT EXISTS main_core")
+        conn.execute(
+            "CREATE TABLE main_core.dim_students (student_id_hash VARCHAR, academic_year VARCHAR)"
+        )
+        conn.execute(
+            "INSERT INTO main_core.dim_students VALUES ('h1', '2023-2024'), ('h2', '2023-2024')"
+        )
+        conn.close()
 
         test_set = tmp_path / "test.jsonl"
         test_set.write_text(
@@ -168,16 +180,10 @@ class TestRunEvalMocked:
         }
 
         with patch("model_inference.get_model", return_value=mock_llm):
-            warehouse = str(
-                Path(__file__).resolve().parent.parent.parent
-                / "oss_framework"
-                / "data"
-                / "analytics.duckdb"
-            )
             result = run_eval(
                 adapter_repo="mock",
                 test_set_path=str(test_set),
-                warehouse_path=warehouse,
+                warehouse_path=str(warehouse),
             )
 
         assert result.total == 1
