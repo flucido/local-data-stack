@@ -62,7 +62,7 @@ jobs:
 
       - name: Run dashboard contract tests
         env:
-          DUCKDB_DATABASE_PATH: oss_framework/data/analytics.duckdb
+          DUCKDB_DATABASE_PATH: /tmp/ci_contracts.duckdb
         run: |
           python scripts/contracts/contract_tests.py
 
