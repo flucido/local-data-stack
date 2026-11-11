@@ -1,8 +1,9 @@
-import React, { useId, useMemo, useState } from "react";
+import React, { useEffect, useId, useMemo, useState } from "react";
 import {
   ColumnDef,
   flexRender,
   getCoreRowModel,
+  getPaginationRowModel,
   getSortedRowModel,
   SortingState,
   useReactTable,
@@ -14,6 +15,37 @@ interface ComponentProps {
   rows: Record<string, unknown>[];
 }
 
+const CORE_ROW_MODEL = getCoreRowModel();
+const SORTED_ROW_MODEL = getSortedRowModel();
+const PAGINATION_ROW_MODEL = getPaginationRowModel();
+
+function escapeCsvCell(val: unknown): string {
+  if (val === null || val === undefined) {
+    return '""';
+  }
+  if (typeof val === "number" || typeof val === "boolean") {
+    return `"${String(val)}"`;
+  }
+  let raw = String(val);
+  if (/^[=+\-@]/.test(raw)) {
+    raw = `'${raw}`;
+  }
+  return `"${raw.replace(/"/g, '""')}"`;
+}
+
+export function buildCsvContent(
+  columns: string[],
+  rows: Record<string, unknown>[]
+): string {
+  const header = columns
+    .map((c) => `"${String(c).replace(/"/g, '""')}"`)
+    .join(",");
+  const lines = rows.map((r) =>
+    columns.map((c) => escapeCsvCell(r[c])).join(",")
+  );
+  return [header, ...lines].join("\n");
+}
+
 export const DataTable: React.FC<ComponentProps> = ({ spec, rows }) => {
   const captionId = useId();
   const [searchQuery, setSearchQuery] = useState("");
@@ -22,6 +54,15 @@ export const DataTable: React.FC<ComponentProps> = ({ spec, rows }) => {
       ? [{ id: spec.default_sort.column, desc: spec.default_sort.direction === "desc" }]
       : []
   );
+
+  useEffect(() => {
+    setSearchQuery("");
+    setSorting(
+      spec.default_sort
+        ? [{ id: spec.default_sort.column, desc: spec.default_sort.direction === "desc" }]
+        : []
+    );
+  }, [spec]);
 
   const filteredRows = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -55,13 +96,16 @@ export const DataTable: React.FC<ComponentProps> = ({ spec, rows }) => {
   const table = useReactTable({
     data: filteredRows,
     columns,
+    initialState: {
+      pagination: { pageSize: 100 },
+    },
     state: { sorting },
     onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
+    getCoreRowModel: CORE_ROW_MODEL,
+    getSortedRowModel: SORTED_ROW_MODEL,
+    getPaginationRowModel: PAGINATION_ROW_MODEL,
   });
 
-  // Expose CSS variables --label-1, --label-2, ... for @container (width < 600px) stacked layout
   const tableCssVars = useMemo(() => {
     const vars: Record<string, string> = {};
     spec.columns.forEach((col, i) => {
@@ -71,44 +115,40 @@ export const DataTable: React.FC<ComponentProps> = ({ spec, rows }) => {
   }, [spec.columns]);
 
   const exportCsv = () => {
-    const header = spec.columns.join(",");
-    const lines = filteredRows.map((r) =>
-      spec.columns
-        .map((c) => `"${String(r[c] ?? "").replace(/"/g, '""')}"`)
-        .join(",")
-    );
-    const csv = [header, ...lines].join("\n");
+    const csv = buildCsvContent(spec.columns, filteredRows);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "arrow_export.csv";
+    a.download = "school_data_export.csv";
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  const visibleRows = table.getRowModel().rows;
 
   return (
     <section className="workspace-panel" data-testid="data-table">
       <header className="panel-header">
         <div>
           <h3 className="panel-title">
-            Arrow Data Grid ({filteredRows.length.toLocaleString()} rows)
+            Detailed Results ({filteredRows.length.toLocaleString()} rows)
           </h3>
           <span className="panel-subtitle">
-            Columns: <code>{spec.columns.join(", ")}</code>
+            Showing columns: {spec.columns.join(", ")}
           </span>
         </div>
         <div className="table-toolbar">
           <input
             type="search"
             className="table-search-input"
-            placeholder="Filter rows..."
+            placeholder="Search rows…"
             aria-label="Filter table rows"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
           <button type="button" className="btn-secondary" onClick={exportCsv}>
-            Export CSV
+            Download CSV
           </button>
         </div>
       </header>
@@ -121,7 +161,7 @@ export const DataTable: React.FC<ComponentProps> = ({ spec, rows }) => {
       >
         <table style={tableCssVars}>
           <caption id={captionId} className="sr-only">
-            Analytical result table with columns {spec.columns.join(", ")}
+            Results table with columns {spec.columns.join(", ")}
           </caption>
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -132,14 +172,30 @@ export const DataTable: React.FC<ComponentProps> = ({ spec, rows }) => {
                     <th
                       key={header.id}
                       scope="col"
-                      onClick={header.column.getToggleSortingHandler()}
+                      aria-sort={
+                        sortDir === "asc"
+                          ? "ascending"
+                          : sortDir === "desc"
+                          ? "descending"
+                          : "none"
+                      }
                       className="sortable-th"
                     >
-                      {flexRender(
-                        header.column.columnDef.header,
-                        header.getContext()
-                      )}
-                      {sortDir === "asc" ? " ▲" : sortDir === "desc" ? " ▼" : ""}
+                      <button
+                        type="button"
+                        className="sort-header-btn"
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
+                        <span>
+                          {flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                        </span>
+                        <span aria-hidden="true">
+                          {sortDir === "asc" ? " ▲" : sortDir === "desc" ? " ▼" : ""}
+                        </span>
+                      </button>
                     </th>
                   );
                 })}
@@ -147,29 +203,46 @@ export const DataTable: React.FC<ComponentProps> = ({ spec, rows }) => {
             ))}
           </thead>
           <tbody>
-            {table.getRowModel().rows.map((row) => (
-              <tr key={row.id}>
-                {row.getVisibleCells().map((cell, cellIdx) => {
-                  const colId = cell.column.id;
-                  const rendered = flexRender(
-                    cell.column.columnDef.cell,
-                    cell.getContext()
-                  );
-                  if (cellIdx === 0) {
-                    return (
-                      <th key={cell.id} scope="row">
-                        {rendered}
-                      </th>
-                    );
-                  }
-                  return (
-                    <td key={cell.id} data-label={colId}>
-                      {rendered}
-                    </td>
-                  );
-                })}
+            {visibleRows.length === 0 ? (
+              <tr>
+                <td colSpan={spec.columns.length} className="empty-table-cell">
+                  <span>No matching records found.</span>{" "}
+                  {searchQuery.trim() !== "" && (
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => setSearchQuery("")}
+                    >
+                      Clear search
+                    </button>
+                  )}
+                </td>
               </tr>
-            ))}
+            ) : (
+              visibleRows.map((row) => (
+                <tr key={row.id}>
+                  {row.getVisibleCells().map((cell, cellIdx) => {
+                    const colId = cell.column.id;
+                    const rendered = flexRender(
+                      cell.column.columnDef.cell,
+                      cell.getContext()
+                    );
+                    if (cellIdx === 0) {
+                      return (
+                        <th key={cell.id} scope="row">
+                          {rendered}
+                        </th>
+                      );
+                    }
+                    return (
+                      <td key={cell.id} data-label={colId}>
+                        {rendered}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
