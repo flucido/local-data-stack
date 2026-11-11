@@ -270,6 +270,52 @@ mod tests {
     }
 
     #[test]
+    fn test_webview_csp_script_escaping_navigation_and_arrow_cors() {
+        use super::ipc::{
+            build_webview_html_from_dist, handle_arrow_protocol_request,
+            is_allowed_webview_navigation,
+        };
+
+        // 1. Deterministic asset sorting + </script escaping + CSP meta tag
+        let tmp_dist = std::env::temp_dir().join(format!("ui_dist_{}", Uuid::new_v4().simple()));
+        let assets = tmp_dist.join("assets");
+        std::fs::create_dir_all(&assets).unwrap();
+        std::fs::write(assets.join("b.js"), "console.log('second </script><script>evil()');").unwrap();
+        std::fs::write(assets.join("a.js"), "console.log('first');").unwrap();
+        std::fs::write(assets.join("style.css"), "body { color: #fff; }").unwrap();
+
+        let html = build_webview_html_from_dist(&tmp_dist);
+        assert!(html.contains("Content-Security-Policy"));
+        assert!(html.contains("default-src 'self' arrow: http://arrow.localhost"));
+        assert!(!html.contains("</script><script>evil()"));
+        assert!(html.contains("<\\/script><script>evil()"));
+        assert!(html.find("console.log('first')").unwrap() < html.find("console.log('second").unwrap());
+        let _ = std::fs::remove_dir_all(&tmp_dist);
+
+        // 2. Navigation policy blocks external HTTPS/HTTP URLs
+        assert!(is_allowed_webview_navigation("about:blank"));
+        assert!(is_allowed_webview_navigation("arrow://q_123"));
+        assert!(is_allowed_webview_navigation("http://localhost:5173"));
+        assert!(is_allowed_webview_navigation("http://127.0.0.1:8080"));
+        assert!(!is_allowed_webview_navigation("https://evil.example.com"));
+        assert!(!is_allowed_webview_navigation("http://10.0.0.1/exfil"));
+
+        // 3. arrow:// custom protocol restricts Access-Control-Allow-Origin from * to null
+        let bronze_path = temp_bronze_db();
+        let engine = Arc::new(MedallionEngine::new(&bronze_path, None).unwrap());
+        let req = Request::builder()
+            .uri("arrow://q_nonexistent")
+            .body(Vec::new())
+            .unwrap();
+        let resp = handle_arrow_protocol_request(req, &engine);
+        assert_eq!(
+            resp.headers().get("Access-Control-Allow-Origin").unwrap(),
+            "null"
+        );
+        let _ = std::fs::remove_file(&bronze_path);
+    }
+
+    #[test]
     fn test_rust_top_k_schema_pruner_and_gbnf_compiler() {
         let catalog = load_unified_schema(&repo_root());
         assert_eq!(catalog.len(), 20);
