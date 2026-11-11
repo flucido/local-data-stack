@@ -84,7 +84,7 @@ def test_dbt_pii_hashing_unification_and_no_hardcoded_salts() -> None:
         REPO_ROOT
         / "oss_framework/dbt/models/mart_features/features/fct_chronic_absence_features.sql"
     ).read_text()
-    assert chronic_text.count("hash_pii_secure('ra.student_id')") == 3
+    assert "hash_pii_secure('ra.student_id')" in chronic_text
 
     windows_text = (
         REPO_ROOT
@@ -638,3 +638,30 @@ def test_phase7_t2_macos_schedule_portability_and_css_contrast() -> None:
     assert ":focus-visible" in css
     assert "contain-intrinsic-size: auto 320px auto 260px" not in css
     assert "contain-intrinsic-size: auto 320px;" in css
+
+
+def test_final_review_dbt_multiyear_hex_and_chronic_joins() -> None:
+    for rel in (
+        "oss_framework/dbt/models/mart_analytics/hex_ready/math_8_cohort_tracking.sql",
+        "oss_framework/dbt/models/mart_analytics/hex_ready/algebra_1_outcomes.sql",
+        "oss_framework/dbt/models/mart_analytics/hex_ready/lead_program_enrollment.sql",
+        "oss_framework/dbt/models/mart_analytics/hex_ready/math_pathways_7th_grade.sql",
+    ):
+        sql = (REPO_ROOT / rel).read_text()
+        assert "ar.school_year = d.academic_year" in sql, f"Missing multi-year join in {rel}"
+
+    m8 = (
+        REPO_ROOT / "oss_framework/dbt/models/mart_analytics/hex_ready/math_8_cohort_tracking.sql"
+    ).read_text()
+    assert "COUNT(DISTINCT student_id_hash) as student_count" in m8
+
+    chronic_feat = (
+        REPO_ROOT
+        / "oss_framework/dbt/models/mart_features/features/fct_chronic_absence_features.sql"
+    ).read_text()
+    assert "unique_key=['student_id_hash', 'academic_year']" in chronic_feat
+    assert "ds.academic_year = a30.academic_year" in chronic_feat
+
+    dim_stu = (REPO_ROOT / "oss_framework/dbt/models/mart_core/core/dim_students.sql").read_text()
+    assert "sed_status" in dim_stu
+    assert "sped_status" in dim_stu

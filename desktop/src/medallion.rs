@@ -223,7 +223,7 @@ impl MedallionEngine {
         engine.sync_bronze_to_silver_and_gold()?;
         if let Some(edu_path) = edu_warehouse_path {
             if edu_path.exists() {
-                let _ = engine.attach_education_warehouse(edu_path);
+                engine.attach_education_warehouse(edu_path)?;
             }
         }
         // Must come after the ATTACH above: attaching reads the warehouse file
@@ -729,24 +729,20 @@ impl MedallionEngine {
         }
     }
 
-    /// Copy the K-12 Education warehouse (`analytics.duckdb`) to an isolated session snapshot,
-    /// attach it in read-only mode, and expose its `main_core` and `main_analytics` views
-    /// without holding an OS file lock on the production DuckDB file.
+    /// Copy the K-12 Education warehouse (`analytics.duckdb`) to a mode-0600 temporary snapshot,
+    /// materialize its allowed `main_core` and `main_analytics` base tables into the in-memory
+    /// DuckDB session (stripping any PII columns and ensuring contract aliases), then immediately
+    /// `DETACH` and delete the snapshot file so zero external catalogs or file locks remain.
     pub fn attach_education_warehouse(&self, edu_path: &Path) -> Result<()> {
         let snapshot_path = std::env::temp_dir().join(format!(
             "lfed_edu_snapshot_{}.duckdb",
             Uuid::new_v4().simple()
         ));
-        std::fs::copy(edu_path, &snapshot_path)?;
+        copy_file_restricted_0600(edu_path, &snapshot_path)?;
         let src_wal = PathBuf::from(format!("{}.wal", edu_path.display()));
+        let dst_wal = PathBuf::from(format!("{}.wal", snapshot_path.display()));
         if src_wal.exists() {
-            let dst_wal = PathBuf::from(format!("{}.wal", snapshot_path.display()));
-            let _ = std::fs::copy(&src_wal, &dst_wal);
-        }
-        if let Ok(mut guard) = self.edu_snapshot_path.lock() {
-            if let Some(prev) = guard.replace(snapshot_path.clone()) {
-                let _ = std::fs::remove_file(prev);
-            }
+            let _ = copy_file_restricted_0600(&src_wal, &dst_wal);
         }
 
         let duck = self
@@ -754,40 +750,164 @@ impl MedallionEngine {
             .lock()
             .map_err(|_| anyhow!("DuckDB mutex poisoned"))?;
         let escaped = snapshot_path.to_string_lossy().replace('\'', "''");
-        duck.execute_batch(&format!(
-            "ATTACH IF NOT EXISTS '{escaped}' AS edu_wh (READ_ONLY);"
-        ))?;
 
-        let mut stmt = duck.prepare(
-            r#"
-            SELECT table_schema, table_name
-            FROM information_schema.tables
-            WHERE table_catalog = 'edu_wh'
-              AND table_schema IN ('main_core', 'main_analytics')
-              AND table_name NOT LIKE '_dlt%'
-              AND lower(table_name) NOT LIKE '%pii_lookup%'
-            "#,
-        )?;
-        let pairs: Vec<(String, String)> = stmt
-            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
-            .filter_map(|r| r.ok())
-            .collect();
+        let import_res = (|| -> Result<()> {
+            duck.execute_batch(&format!(
+                "ATTACH IF NOT EXISTS '{escaped}' AS edu_wh (READ_ONLY);"
+            ))?;
 
-        for (schema, table) in pairs {
-            let quoted_schema = format!("\"{}\"", schema.replace('"', "\"\""));
-            let quoted_table = format!("\"{}\"", table.replace('"', "\"\""));
-            let view_sql = format!(
-                "CREATE OR REPLACE VIEW {quoted_schema}.{quoted_table} AS SELECT * FROM \"edu_wh\".{quoted_schema}.{quoted_table}"
-            );
-            let _ = duck.execute(&view_sql, []);
-        }
-        Ok(())
+            let mut stmt = duck.prepare(
+                r#"
+                SELECT table_schema, table_name
+                FROM information_schema.tables
+                WHERE table_catalog = 'edu_wh'
+                  AND table_type = 'BASE TABLE'
+                  AND table_schema IN ('main_core', 'main_analytics')
+                  AND table_name != 'analytics_for_hex'
+                  AND table_name NOT LIKE '_dlt%'
+                  AND lower(table_name) NOT LIKE '%pii_lookup%'
+                "#,
+            )?;
+            let pairs: Vec<(String, String)> = stmt
+                .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+                .filter_map(|r| r.ok())
+                .collect();
+
+            const BLOCKED_COLS: &[&str] = &[
+                "first_name",
+                "last_name",
+                "date_of_birth",
+                "student_id_raw",
+                "ssn",
+                "email",
+                "phone",
+                "address",
+            ];
+
+            for (schema, table) in pairs {
+                let quoted_schema = format!("\"{}\"", schema.replace('"', "\"\""));
+                let quoted_table = format!("\"{}\"", table.replace('"', "\"\""));
+
+                // Skip empty warehouse tables when an in-memory seed table already exists
+                let row_cnt: i64 = duck.query_row(
+                    &format!("SELECT COUNT(*) FROM \"edu_wh\".{quoted_schema}.{quoted_table}"),
+                    [],
+                    |r| r.get(0),
+                )?;
+                let existing_mem: i64 = duck.query_row(
+                    "SELECT COUNT(*) FROM information_schema.tables WHERE table_catalog = 'memory' AND table_schema = ? AND table_name = ?",
+                    duckdb::params![schema, table],
+                    |r| r.get(0),
+                )?;
+                if row_cnt == 0 && existing_mem > 0 {
+                    continue;
+                }
+
+                let mut col_stmt = duck.prepare(
+                    r#"
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_catalog = 'edu_wh'
+                      AND table_schema = ?
+                      AND table_name = ?
+                    ORDER BY ordinal_position
+                    "#,
+                )?;
+                let cols: Vec<String> = col_stmt
+                    .query_map(duckdb::params![schema, table], |r| r.get::<_, String>(0))?
+                    .filter_map(|r| r.ok())
+                    .filter(|c| {
+                        let cl = c.to_lowercase();
+                        !BLOCKED_COLS.contains(&cl.as_str()) && !cl.ends_with("_raw")
+                    })
+                    .collect();
+                if cols.is_empty() {
+                    continue;
+                }
+
+                let lower_cols: HashSet<String> = cols.iter().map(|c| c.to_lowercase()).collect();
+                let mut select_exprs: Vec<String> = cols
+                    .iter()
+                    .map(|c| format!("\"{}\"", c.replace('"', "\"\"")))
+                    .collect();
+
+                if table == "school_summary" {
+                    if !lower_cols.contains("academic_year") {
+                        select_exprs.push("'2024-2025' AS \"academic_year\"".to_string());
+                    }
+                    if !lower_cols.contains("school_name") && lower_cols.contains("school_id") {
+                        select_exprs.push(
+                            "('SCHOOL_' || CAST(\"school_id\" AS VARCHAR)) AS \"school_name\""
+                                .to_string(),
+                        );
+                    }
+                    if !lower_cols.contains("total_students") && lower_cols.contains("student_count")
+                    {
+                        select_exprs.push("\"student_count\" AS \"total_students\"".to_string());
+                    }
+                    if !lower_cols.contains("student_count") && lower_cols.contains("total_students")
+                    {
+                        select_exprs.push("\"total_students\" AS \"student_count\"".to_string());
+                    }
+                } else if table == "equity_by_race" {
+                    if !lower_cols.contains("academic_year") {
+                        select_exprs.push("'2024-2025' AS \"academic_year\"".to_string());
+                    }
+                    if !lower_cols.contains("incident_count") {
+                        select_exprs.push("CAST(0 AS BIGINT) AS \"incident_count\"".to_string());
+                    }
+                } else if table == "dim_students" {
+                    if !lower_cols.contains("sed_status")
+                        && lower_cols.contains("free_reduced_lunch_flag")
+                    {
+                        select_exprs
+                            .push("\"free_reduced_lunch_flag\" AS \"sed_status\"".to_string());
+                    }
+                    if !lower_cols.contains("sped_status")
+                        && lower_cols.contains("special_education_flag")
+                    {
+                        select_exprs
+                            .push("\"special_education_flag\" AS \"sped_status\"".to_string());
+                    }
+                }
+
+                let mat_sql = format!(
+                    "CREATE OR REPLACE TABLE {quoted_schema}.{quoted_table} AS SELECT {} FROM \"edu_wh\".{quoted_schema}.{quoted_table}",
+                    select_exprs.join(", ")
+                );
+                duck.execute(&mat_sql, [])?;
+            }
+            Ok(())
+        })();
+
+        let _ = duck.execute("DETACH IF EXISTS \"edu_wh\"", []);
+        let _ = std::fs::remove_file(&snapshot_path);
+        let _ = std::fs::remove_file(&dst_wal);
+
+        import_res
     }
+}
+
+fn copy_file_restricted_0600(src: &Path, dst: &Path) -> Result<()> {
+    let mut reader = std::fs::File::open(src)?;
+    let mut opts = std::fs::OpenOptions::new();
+    opts.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        opts.mode(0o600);
+    }
+    let mut writer = opts.open(dst)?;
+    std::io::copy(&mut reader, &mut writer)?;
+    Ok(())
 }
 
 struct CompiledSqlValidators {
     forbidden_tokens: Vec<(&'static str, Regex)>,
     forbidden_functions: Vec<(&'static str, Regex)>,
+    single_quoted_re: Regex,
+    comment_re: Regex,
+    double_quoted_re: Regex,
     wildcard_re: Regex,
     forbidden_pii_re: Regex,
 }
@@ -809,32 +929,36 @@ fn sql_validators() -> &'static CompiledSqlValidators {
                 (func, Regex::new(&pat).expect("valid function regex"))
             })
             .collect();
+        let single_quoted_re = Regex::new(r"'(?:''|[^'])*'").expect("valid literal regex");
+        let comment_re = Regex::new(r"--[^\n]*|/\*[\s\S]*?\*/").expect("valid comment regex");
+        let double_quoted_re = Regex::new(r#""((?:""|[^"])+)""#).expect("valid quote regex");
         let wildcard_re = Regex::new(
-            r"(?is)\bselect\s+(?:all\s+|distinct\s+)?\*|\bselect\b[^;]*?\w+\.\s*\*|\bcolumns\s*\(",
+            r"(?is)\bselect\s+(?:all\s+|distinct\s+)?\*|\bselect\b[^;]*?\w+\s*\.\s*\*|\bcolumns\s*\(",
         )
         .expect("valid wildcard regex");
         let forbidden_pii_re = Regex::new(
-            r"(?i)\bstg_aeries__|\bstg_cde__schools\b|\w+_raw\b|\bfirst_name\b|\blast_name\b|\bdate_of_birth\b|\bstudent_id_raw\b",
+            r"(?i)\b(?:edu_wh|main_privacy_sensitive|main_staging|aeries_stage1|main_features|cde_raw|stg_cde__schools|analytics_for_hex|first_name|last_name|date_of_birth|student_id_raw|ssn|email|phone|address)\b|\bstg_aeries__\w*|\braw_\w+\b|\w+_raw\b|\bpriv_\w*|\b\w*pii_lookup\w*|\b_dlt\w*",
         )
         .expect("valid pii regex");
         CompiledSqlValidators {
             forbidden_tokens,
             forbidden_functions,
+            single_quoted_re,
+            comment_re,
+            double_quoted_re,
             wildcard_re,
             forbidden_pii_re,
         }
     })
 }
 
-const DENIED_SQL_SUBSTRINGS: &[&str] = &[
-    "main_privacy_sensitive.",
-    "edu_wh.",
-    "priv_",
-    "pii_lookup",
-    "_dlt",
-    "main_staging.",
-    "stg_aeries__",
-    "_raw",
+const ALLOWED_EXPOSED_SCHEMAS: &[&str] = &[
+    "core",
+    "main_core",
+    "analytics",
+    "main_analytics",
+    "cde",
+    "main_cde",
 ];
 
 pub fn extract_sql_from_input(raw_input: &str) -> String {
@@ -867,7 +991,15 @@ pub fn validate_read_only_sql(sql: &str) -> Result<(), DuckDBExecutionError> {
     }
 
     let validators = sql_validators();
-    let lower = cleaned.to_lowercase();
+    let no_strings = validators.single_quoted_re.replace_all(cleaned, "''");
+    let no_comments = validators.comment_re.replace_all(&no_strings, " ");
+    let unquoted = validators
+        .double_quoted_re
+        .replace_all(&no_comments, |caps: &regex::Captures<'_>| {
+            caps[1].replace("\"\"", "\"")
+        });
+    let lower = unquoted.to_lowercase();
+
     for (token, re) in &validators.forbidden_tokens {
         if re.is_match(&lower) {
             return Err(DuckDBExecutionError {
@@ -900,22 +1032,12 @@ pub fn validate_read_only_sql(sql: &str) -> Result<(), DuckDBExecutionError> {
         }
     }
 
-    for denied in DENIED_SQL_SUBSTRINGS {
-        if lower.contains(denied) {
-            return Err(DuckDBExecutionError {
-                status: "error".to_string(),
-                error_type: "ValidationError".to_string(),
-                message: format!("Reference to restricted object '{denied}' is not allowed."),
-            });
-        }
-    }
-
     if let Some(m) = validators.forbidden_pii_re.find(&lower) {
         return Err(DuckDBExecutionError {
             status: "error".to_string(),
             error_type: "ValidationError".to_string(),
             message: format!(
-                "Forbidden PII or staging column/table '{}' is not allowed.",
+                "Forbidden PII or restricted schema/table '{}' is not allowed.",
                 m.as_str()
             ),
         });
@@ -930,6 +1052,217 @@ pub fn validate_read_only_sql(sql: &str) -> Result<(), DuckDBExecutionError> {
         });
     }
 
+    validate_sql_ast_via_duckdb(cleaned)?;
+
+    Ok(())
+}
+
+fn validate_sql_ast_via_duckdb(sql: &str) -> Result<(), DuckDBExecutionError> {
+    static PARSER_DB: OnceLock<Mutex<DuckConnection>> = OnceLock::new();
+    let mutex = PARSER_DB.get_or_init(|| {
+        Mutex::new(DuckConnection::open_in_memory().expect("in-memory AST parser DuckDB"))
+    });
+    let Ok(conn) = mutex.lock() else {
+        return Ok(());
+    };
+    let Ok(raw_json) = conn.query_row("SELECT json_serialize_sql(?)", [sql], |r| {
+        r.get::<_, String>(0)
+    }) else {
+        return Ok(());
+    };
+    let Ok(ast) = serde_json::from_str::<Value>(&raw_json) else {
+        return Ok(());
+    };
+    if ast.get("error").and_then(|v| v.as_bool()) == Some(true) {
+        return Ok(());
+    }
+    let Some(stmts) = ast.get("statements").and_then(|v| v.as_array()) else {
+        return Ok(());
+    };
+    if stmts.len() != 1 {
+        return Err(DuckDBExecutionError {
+            status: "error".to_string(),
+            error_type: "ValidationError".to_string(),
+            message: "Only a single SELECT statement is allowed.".to_string(),
+        });
+    }
+    let mut initial_ctes = HashSet::new();
+    initial_ctes.insert("_safe".to_string());
+    initial_ctes.insert("_base".to_string());
+    initial_ctes.insert("_desc".to_string());
+    if let Some(node) = stmts[0].get("node") {
+        walk_duckdb_ast_node(node, &initial_ctes)?;
+    }
+    Ok(())
+}
+
+fn collect_protected_bindings(val: &Value, bindings: &mut HashSet<String>) {
+    match val {
+        Value::Object(map) => {
+            if map.get("type").and_then(|t| t.as_str()) == Some("BASE_TABLE") {
+                let tbl = map
+                    .get("table_name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+                let alias = map
+                    .get("alias")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+                if tbl == "dim_students" {
+                    bindings.insert(tbl);
+                    if !alias.is_empty() {
+                        bindings.insert(alias);
+                    }
+                }
+            } else if map.get("type").and_then(|t| t.as_str()) != Some("SELECT_NODE") {
+                for v in map.values() {
+                    collect_protected_bindings(v, bindings);
+                }
+            }
+        }
+        Value::Array(arr) => {
+            for item in arr {
+                collect_protected_bindings(item, bindings);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn walk_duckdb_ast_node(
+    val: &Value,
+    cte_scope: &HashSet<String>,
+) -> Result<(), DuckDBExecutionError> {
+    match val {
+        Value::Array(arr) => {
+            for item in arr {
+                walk_duckdb_ast_node(item, cte_scope)?;
+            }
+        }
+        Value::Object(map) => {
+            let mut local_ctes = cte_scope.clone();
+            if let Some(cte_entries) = map
+                .get("cte_map")
+                .and_then(|cm| cm.get("map"))
+                .and_then(|m| m.as_array())
+            {
+                for entry in cte_entries {
+                    if let Some(k) = entry.get("key").and_then(|v| v.as_str()) {
+                        local_ctes.insert(k.to_lowercase());
+                    }
+                }
+                for entry in cte_entries {
+                    if let Some(v) = entry.get("value") {
+                        walk_duckdb_ast_node(v, &local_ctes)?;
+                    }
+                }
+            }
+
+            if map.get("type").and_then(|t| t.as_str()) == Some("BASE_TABLE") {
+                let catalog = map
+                    .get("catalog_name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+                let schema = map
+                    .get("schema_name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+                let table = map
+                    .get("table_name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+
+                if !catalog.is_empty() && catalog != "memory" && catalog != "temp" {
+                    return Err(DuckDBExecutionError {
+                        status: "error".to_string(),
+                        error_type: "ValidationError".to_string(),
+                        message: format!("Reference to catalog '{catalog}' is not allowed."),
+                    });
+                }
+                if schema.is_empty() {
+                    if !local_ctes.contains(&table) {
+                        return Err(DuckDBExecutionError {
+                            status: "error".to_string(),
+                            error_type: "ValidationError".to_string(),
+                            message: format!(
+                                "Unqualified table '{table}' is outside the exposed schemas."
+                            ),
+                        });
+                    }
+                } else if !ALLOWED_EXPOSED_SCHEMAS.contains(&schema.as_str()) {
+                    return Err(DuckDBExecutionError {
+                        status: "error".to_string(),
+                        error_type: "ValidationError".to_string(),
+                        message: format!(
+                            "Schema '{schema}' is outside the exposed schemas."
+                        ),
+                    });
+                }
+            }
+
+            if map.get("type").and_then(|t| t.as_str()) == Some("SELECT_NODE") {
+                let mut protected = HashSet::new();
+                if let Some(ft) = map.get("from_table") {
+                    collect_protected_bindings(ft, &mut protected);
+                }
+                if !protected.is_empty() {
+                    if let Some(sel_list) = map.get("select_list").and_then(|s| s.as_array()) {
+                        for item in sel_list {
+                            let is_star = item.get("type").and_then(|v| v.as_str()) == Some("STAR")
+                                || item.get("class").and_then(|v| v.as_str()) == Some("STAR");
+                            if is_star {
+                                let rel = item
+                                    .get("relation_name")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("")
+                                    .to_lowercase();
+                                if rel.is_empty() || protected.contains(&rel) {
+                                    return Err(DuckDBExecutionError {
+                                        status: "error".to_string(),
+                                        error_type: "ValidationError".to_string(),
+                                        message: "Wildcard SELECT * against protected table 'dim_students' is not allowed."
+                                            .to_string(),
+                                    });
+                                }
+                            }
+                            if item.get("type").and_then(|v| v.as_str()) == Some("COLUMN_REF") {
+                                if let Some(cols) =
+                                    item.get("column_names").and_then(|v| v.as_array())
+                                {
+                                    if cols.len() == 1 {
+                                        let single = cols[0]
+                                            .as_str()
+                                            .unwrap_or("")
+                                            .to_lowercase();
+                                        if protected.contains(&single) {
+                                            return Err(DuckDBExecutionError {
+                                                status: "error".to_string(),
+                                                error_type: "ValidationError".to_string(),
+                                                message: "Whole-row struct selection against protected table 'dim_students' is not allowed."
+                                                    .to_string(),
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (k, v) in map {
+                if k != "cte_map" {
+                    walk_duckdb_ast_node(v, &local_ctes)?;
+                }
+            }
+        }
+        _ => {}
+    }
     Ok(())
 }
 

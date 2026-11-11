@@ -277,11 +277,31 @@ pub fn handle_arrow_protocol_request(
 pub const WEBVIEW_CSP_META: &str = r#"<meta http-equiv="Content-Security-Policy" content="default-src 'self' arrow: http://arrow.localhost; connect-src arrow: http://arrow.localhost; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';" />"#;
 
 pub fn is_allowed_webview_navigation(uri: &str) -> bool {
-    uri.starts_with("about:")
-        || uri.starts_with("data:")
-        || uri.starts_with("arrow:")
-        || uri.starts_with("http://localhost")
-        || uri.starts_with("http://127.0.0.1")
+    let trimmed = uri.trim();
+    if trimmed == "about:blank" {
+        return true;
+    }
+    if let Some(rest) = trimmed.strip_prefix("arrow://") {
+        return !rest.is_empty() && !rest.contains('@');
+    }
+    if !trimmed.starts_with("http://") {
+        return false;
+    }
+    let Ok(parsed) = trimmed.parse::<http::Uri>() else {
+        return false;
+    };
+    if parsed.scheme_str() != Some("http") {
+        return false;
+    }
+    if let Some(auth) = parsed.authority() {
+        if auth.as_str().contains('@') {
+            return false;
+        }
+    }
+    matches!(
+        parsed.host(),
+        Some("localhost") | Some("127.0.0.1") | Some("arrow.localhost")
+    )
 }
 
 pub fn build_webview_html_from_dist(ui_dist_dir: &std::path::Path) -> String {

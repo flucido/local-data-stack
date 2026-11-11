@@ -79,6 +79,12 @@ mod tests {
 
         let blocked_queries = [
             "SELECT * FROM edu_wh.main_privacy_sensitive.priv_pii_lookup_table",
+            "SELECT * FROM \"edu_wh\".main.raw_students",
+            "SELECT * FROM edu_wh . aeries_stage1 . raw_students",
+            "SELECT * FROM \"main_features\".\"analytics_for_hex\"",
+            "SELECT * FROM raw_students",
+            "SELECT \"s\".* FROM main_core.dim_students \"s\"",
+            "SELECT s FROM main_core.dim_students s",
             "SELECT * FROM main_privacy_sensitive.priv_pii_lookup_table",
             "SELECT * FROM main_staging.stg_aeries__students",
             "SELECT * FROM stg_aeries__students",
@@ -115,7 +121,7 @@ mod tests {
                 .args([
                     "-c",
                     &format!(
-                        "import duckdb; c = duckdb.connect(r'{}'); c.execute(\"CREATE SCHEMA main_analytics; CREATE TABLE main_analytics.custom_cohort (cohort_name VARCHAR, student_count BIGINT); INSERT INTO main_analytics.custom_cohort VALUES ('Cohort A', 12);\"); c.close()",
+                        "import duckdb; c = duckdb.connect(r'{}'); c.execute(\"CREATE SCHEMA main_analytics; CREATE TABLE main_analytics.custom_cohort (cohort_name VARCHAR, student_count BIGINT); INSERT INTO main_analytics.custom_cohort VALUES ('Cohort A', 12); CREATE TABLE main_analytics.school_summary (academic_year VARCHAR, school_id VARCHAR, school_name VARCHAR, total_students BIGINT, student_count BIGINT, avg_gpa DOUBLE, avg_attendance_rate DOUBLE); INSERT INTO main_analytics.school_summary VALUES ('2024-2025', '1', 'Real Warehouse High', 512, 512, 3.21, 94.5);\"); c.close()",
                         src_edu.display()
                     ),
                 ])
@@ -125,7 +131,7 @@ mod tests {
         } else {
             let c = duckdb::Connection::open(&src_edu).unwrap();
             c.execute_batch(
-                "CREATE SCHEMA main_analytics; CREATE TABLE main_analytics.custom_cohort (cohort_name VARCHAR, student_count BIGINT); INSERT INTO main_analytics.custom_cohort VALUES ('Cohort A', 12);",
+                "CREATE SCHEMA main_analytics; CREATE TABLE main_analytics.custom_cohort (cohort_name VARCHAR, student_count BIGINT); INSERT INTO main_analytics.custom_cohort VALUES ('Cohort A', 12); CREATE TABLE main_analytics.school_summary (academic_year VARCHAR, school_id VARCHAR, school_name VARCHAR, total_students BIGINT, student_count BIGINT, avg_gpa DOUBLE, avg_attendance_rate DOUBLE); INSERT INTO main_analytics.school_summary VALUES ('2024-2025', '1', 'Real Warehouse High', 512, 512, 3.21, 94.5);",
             )
             .unwrap();
         }
@@ -157,6 +163,15 @@ mod tests {
             )
             .unwrap();
         assert_eq!(res.summary.row_count, 1);
+
+        // Attached warehouse school_summary (1 row) must override the 16-row synthetic Bronze table
+        let sum_override = engine
+            .execute_and_cache_arrow(
+                "SELECT academic_year, school_name, total_students FROM main_analytics.school_summary",
+                None,
+            )
+            .unwrap();
+        assert_eq!(sum_override.summary.row_count, 1);
 
         drop(engine);
         let _ = std::fs::remove_file(&src_edu);
@@ -292,13 +307,17 @@ mod tests {
         assert!(html.find("console.log('first')").unwrap() < html.find("console.log('second").unwrap());
         let _ = std::fs::remove_dir_all(&tmp_dist);
 
-        // 2. Navigation policy blocks external HTTPS/HTTP URLs
+        // 2. Navigation policy blocks external HTTPS/HTTP URLs and host-prefix/data: bypasses
         assert!(is_allowed_webview_navigation("about:blank"));
         assert!(is_allowed_webview_navigation("arrow://q_123"));
         assert!(is_allowed_webview_navigation("http://localhost:5173"));
         assert!(is_allowed_webview_navigation("http://127.0.0.1:8080"));
         assert!(!is_allowed_webview_navigation("https://evil.example.com"));
         assert!(!is_allowed_webview_navigation("http://10.0.0.1/exfil"));
+        assert!(!is_allowed_webview_navigation("http://localhost.evil.com"));
+        assert!(!is_allowed_webview_navigation("http://127.0.0.1.evil.com"));
+        assert!(!is_allowed_webview_navigation("http://localhost@evil.com"));
+        assert!(!is_allowed_webview_navigation("data:text/html,<script>evil()</script>"));
 
         // 3. arrow:// custom protocol restricts Access-Control-Allow-Origin from * to null
         let bronze_path = temp_bronze_db();

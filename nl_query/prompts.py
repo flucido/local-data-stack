@@ -145,60 +145,6 @@ DEFAULT_SCHEMA = {
         ("has_cde_data", "BOOLEAN", "TRUE if any CDE domain has data"),
         ("data_domains_present", "INTEGER", "Count of CDE domains with data (0-11)"),
     ],
-    # ── CDE staging tables (for detailed single-domain queries) ─────
-    "main_staging.stg_cde__chronic_absenteeism": [
-        ("cds_code", "VARCHAR", "14-char school identifier"),
-        ("academic_year", "VARCHAR", "School year"),
-        ("aggregate_level", "VARCHAR", "T=State, C=County, D=District, S=School"),
-        ("reporting_category", "VARCHAR", "Subgroup code"),
-        ("eligible_enrollment", "INTEGER", "Students enrolled >= 31 days"),
-        ("chronic_absent_count", "INTEGER", "Students missing >= 10% of days"),
-        ("chronic_absent_rate_pct", "DOUBLE", "Chronic absenteeism rate (%)"),
-    ],
-    "main_staging.stg_cde__suspension": [
-        ("cds_code", "VARCHAR", "14-char school identifier"),
-        ("academic_year", "VARCHAR", "School year"),
-        ("aggregate_level", "VARCHAR", "T/C/D/S"),
-        ("reporting_category", "VARCHAR", "Subgroup code"),
-        ("total_suspensions", "INTEGER", "Total suspension incidents"),
-        ("suspension_rate_total", "DOUBLE", "Suspension rate (%)"),
-        ("suspension_count_violent_incident_injury", "INTEGER", "Violent incident (injury)"),
-        ("suspension_count_weapons_possession", "INTEGER", "Weapons possession"),
-        ("suspension_count_illicit_drug_related", "INTEGER", "Illicit drug-related"),
-        ("suspension_count_defiance_only", "INTEGER", "Defiance-only"),
-    ],
-    "main_staging.stg_cde__enrollment": [
-        ("cds_code", "VARCHAR", "14-char school identifier"),
-        ("academic_year", "VARCHAR", "School year"),
-        ("aggregate_level", "VARCHAR", "T/C/D/S"),
-        ("reporting_category", "VARCHAR", "Subgroup code"),
-        ("cumulative_enrollment", "INTEGER", "Cumulative enrollment"),
-    ],
-    "main_staging.stg_cde__homeless_enrollment": [
-        ("cds_code", "VARCHAR", "14-char school identifier"),
-        ("academic_year", "VARCHAR", "School year"),
-        ("reporting_category", "VARCHAR", "Subgroup code"),
-        ("cumulative_enrollment", "INTEGER", "Total enrollment"),
-        ("homeless_student_enrollment", "INTEGER", "Homeless student count"),
-        ("temporarily_doubled_up_percent", "DOUBLE", "% temporarily doubled up"),
-    ],
-    "main_staging.stg_cde__frpm": [
-        ("cds_code", "VARCHAR", "14-char school identifier"),
-        ("academic_year", "VARCHAR", "School year"),
-        ("enrollment_k12", "INTEGER", "K-12 enrollment"),
-        ("free_meal_count_k12", "INTEGER", "Free meal count (K-12)"),
-        ("percent_eligible_free_k12", "DOUBLE", "% eligible free (K-12)"),
-        ("frpm_count_k12", "INTEGER", "FRPM count (K-12)"),
-        ("percent_eligible_frpm_k12", "DOUBLE", "% eligible FRPM (K-12)"),
-    ],
-    "main_staging.stg_cde__assessment_caspp": [
-        ("cds_code", "VARCHAR", "14-char school identifier"),
-        ("academic_year", "VARCHAR", "School year"),
-        ("reporting_category", "VARCHAR", "Subgroup code (student_group_id)"),
-        ("mean_scale_score", "DOUBLE", "Mean scale score"),
-        ("percentage_standard_met_and_above", "DOUBLE", "% met or above standard"),
-        ("students_tested", "INTEGER", "Students tested"),
-    ],
     # ── Existing analytics marts ────────────────────────────────────
     "main_analytics.school_summary": [
         ("academic_year", "VARCHAR", "School year (format 'YYYY-YYYY')"),
@@ -264,26 +210,26 @@ FEW_SHOT_EXAMPLES = [
         "question": "Compare chronic absenteeism and suspension rates for all race subgroups in 2023-24.",
         "sql": "SELECT reporting_category_label,\n       ROUND(AVG(ca_chronic_absent_rate_pct), 2) AS avg_chronic_absent,\n       ROUND(AVG(su_suspension_rate_pct), 2) AS avg_suspension\nFROM main_analytics.mart_cde_school_accountability\nWHERE academic_year = '2023-24'\n  AND is_race_ethnicity_subgroup = TRUE\nGROUP BY reporting_category_label\nORDER BY avg_chronic_absent DESC;",
     },
-    # ── Staging path (stg_cde__*) ──────────────────────────────────
+    # ── CDE domain rollups via mart_cde_school_accountability ──────
     {
         "question": "How many homeless students are in each district in 2023-24?",
-        "sql": "SELECT district_name, SUM(homeless_student_enrollment) AS total_homeless\nFROM main_staging.stg_cde__homeless_enrollment\nWHERE academic_year = '2023-24'\n  AND aggregate_level = 'D'\n  AND reporting_category = 'TA'\n  AND homeless_student_enrollment IS NOT NULL\nGROUP BY district_name\nORDER BY total_homeless DESC;",
+        "sql": "SELECT district_name, SUM(hs_homeless_count) AS total_homeless\nFROM main_analytics.mart_cde_school_accountability\nWHERE academic_year = '2023-24'\n  AND reporting_category = 'TA'\n  AND hs_homeless_count IS NOT NULL\nGROUP BY district_name\nORDER BY total_homeless DESC;",
     },
     {
         "question": "What is the total number of suspensions across all schools in 2023-24?",
-        "sql": "SELECT SUM(total_suspensions) AS total_suspensions\nFROM main_staging.stg_cde__suspension\nWHERE academic_year = '2023-24'\n  AND aggregate_level = 'S'\n  AND reporting_category = 'TA';",
+        "sql": "SELECT SUM(su_total_suspensions) AS total_suspensions\nFROM main_analytics.mart_cde_school_accountability\nWHERE academic_year = '2023-24'\n  AND aggregate_level = 'S'\n  AND reporting_category = 'TA';",
     },
     {
         "question": "What percentage of students are eligible for free meals district-wide in 2023-24?",
-        "sql": "SELECT cds_code, percent_eligible_free_k12\nFROM main_staging.stg_cde__frpm\nWHERE academic_year = '2023-24'\n  AND percent_eligible_free_k12 IS NOT NULL\nORDER BY percent_eligible_free_k12 DESC\nLIMIT 10;",
+        "sql": "SELECT cds_code, frpm_free_pct_k12\nFROM main_analytics.mart_cde_school_accountability\nWHERE academic_year = '2023-24'\n  AND reporting_category = 'TA'\n  AND frpm_free_pct_k12 IS NOT NULL\nORDER BY frpm_free_pct_k12 DESC\nLIMIT 10;",
     },
     {
         "question": "How many total students were enrolled across all schools in 2023-24?",
-        "sql": "SELECT SUM(cumulative_enrollment) AS total_enrollment\nFROM main_staging.stg_cde__enrollment\nWHERE academic_year = '2023-24'\n  AND aggregate_level = 'S'\n  AND reporting_category = 'TA';",
+        "sql": "SELECT SUM(en_cumulative_enrollment) AS total_enrollment\nFROM main_analytics.mart_cde_school_accountability\nWHERE academic_year = '2023-24'\n  AND aggregate_level = 'S'\n  AND reporting_category = 'TA';",
     },
     {
         "question": "What are the SBAC mean scale scores by reporting category for a school in 2023-24?",
-        "sql": "SELECT reporting_category, ROUND(AVG(mean_scale_score), 1) AS avg_score\nFROM main_staging.stg_cde__assessment_caspp\nWHERE cds_code = '01611190000000'\n  AND academic_year = '2023-24'\nGROUP BY reporting_category\nORDER BY avg_score DESC;",
+        "sql": "SELECT reporting_category, ROUND(AVG(sbac_mean_scale_score), 1) AS avg_score\nFROM main_analytics.mart_cde_school_accountability\nWHERE cds_code = '01611190000000'\n  AND academic_year = '2023-24'\nGROUP BY reporting_category\nORDER BY avg_score DESC;",
     },
     # ── Mixed / cross-grain ────────────────────────────────────────
     {

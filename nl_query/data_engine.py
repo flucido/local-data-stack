@@ -212,32 +212,120 @@ _WILDCARD_SELECT_RE = re.compile(
 )
 
 _SINGLE_QUOTED_LITERAL_RE = re.compile(r"'(?:''|[^'])*'")
+_SQL_COMMENT_RE = re.compile(r"--[^\n]*|/\*[\s\S]*?\*/")
+_DOUBLE_QUOTED_IDENT_RE = re.compile(r'"((?:""|[^"])+)"')
 _FORBIDDEN_PII_TOKEN_RE = re.compile(
-    r"\bstg_aeries__|\bstg_cde__schools\b|\w+_raw\b|\bfirst_name\b|\blast_name\b|\bdate_of_birth\b|\bstudent_id_raw\b|\bcolumns\s*\(",
+    r"\bstg_aeries__|\bstg_cde__schools\b|\braw_\w+\b|\w+_raw\b|\banalytics_for_hex\b"
+    r"|\bfirst_name\b|\blast_name\b|\bdate_of_birth\b|\bstudent_id_raw\b"
+    r"|\bssn\b|\bemail\b|\bphone\b|\baddress\b|\bcolumns\s*\(",
     re.IGNORECASE,
 )
-_SQL_CLAUSE_KEYWORDS = {
-    "where",
-    "group",
-    "order",
-    "limit",
-    "having",
-    "qualify",
-    "window",
-    "union",
-    "intersect",
-    "except",
-    "join",
-    "inner",
-    "left",
-    "right",
-    "full",
-    "cross",
-    "natural",
-    "on",
-    "using",
-    "as",
-}
+_PARSER_CONN_LOCK = threading.Lock()
+_PARSER_CONN: duckdb.DuckDBPyConnection | None = None
+
+
+def _serialize_sql_ast(sql: str, conn: duckdb.DuckDBPyConnection | None = None) -> dict | None:
+    """Parse SQL into DuckDB's canonical JSON AST via json_serialize_sql."""
+    global _PARSER_CONN
+    try:
+        if conn is not None:
+            raw = conn.execute("SELECT json_serialize_sql(?)", [sql]).fetchone()[0]
+        else:
+            with _PARSER_CONN_LOCK:
+                if _PARSER_CONN is None:
+                    _PARSER_CONN = duckdb.connect(":memory:")
+                raw = _PARSER_CONN.execute("SELECT json_serialize_sql(?)", [sql]).fetchone()[0]
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, dict) else None
+    except Exception:
+        return None
+
+
+def _validate_ast_node(node: object, allowed_schemas: set[str], cte_scope: set[str]) -> None:
+    """Recursively enforce schema allowlists and protected-table projection rules on DuckDB's AST."""
+    if isinstance(node, list):
+        for item in node:
+            _validate_ast_node(item, allowed_schemas, cte_scope)
+        return
+    if not isinstance(node, dict):
+        return
+
+    local_ctes = set(cte_scope)
+    cte_map = node.get("cte_map")
+    if isinstance(cte_map, dict):
+        for entry in cte_map.get("map") or []:
+            if isinstance(entry, dict) and isinstance(entry.get("key"), str):
+                local_ctes.add(entry["key"].lower())
+        for entry in cte_map.get("map") or []:
+            if isinstance(entry, dict):
+                _validate_ast_node(entry.get("value"), allowed_schemas, local_ctes)
+
+    node_type = node.get("type")
+    if node_type == "BASE_TABLE":
+        catalog = str(node.get("catalog_name") or "").strip().lower()
+        schema = str(node.get("schema_name") or "").strip().lower()
+        table = str(node.get("table_name") or "").strip().lower()
+        if catalog and catalog not in ("memory", "temp"):
+            raise ValueError(
+                f"Query references catalog '{catalog}', which is outside the exposed schemas "
+                f"({', '.join(sorted(allowed_schemas))})."
+            )
+        if not schema:
+            if table not in local_ctes:
+                raise ValueError(
+                    f"Unqualified table '{table}' is outside the exposed schemas "
+                    f"({', '.join(sorted(allowed_schemas))}). Specify an allowed schema."
+                )
+        elif schema not in allowed_schemas:
+            raise ValueError(
+                f"Query references '{schema}', which is outside the exposed schemas "
+                f"({', '.join(sorted(allowed_schemas))})."
+            )
+        if _is_blocked_table(table) or table.startswith("raw_") or table == "analytics_for_hex":
+            raise ValueError(f"Access to restricted table '{table}' is not allowed.")
+
+    if node_type == "SELECT_NODE":
+        protected_bindings: set[str] = set()
+
+        def _collect_protected(ref_obj: object) -> None:
+            if isinstance(ref_obj, dict):
+                if ref_obj.get("type") == "BASE_TABLE":
+                    tname = str(ref_obj.get("table_name") or "").strip().lower()
+                    alias = str(ref_obj.get("alias") or "").strip().lower()
+                    if tname in PROTECTED_TABLE_NAMES:
+                        protected_bindings.add(tname)
+                        if alias:
+                            protected_bindings.add(alias)
+                elif ref_obj.get("type") != "SELECT_NODE":
+                    for v in ref_obj.values():
+                        _collect_protected(v)
+            elif isinstance(ref_obj, list):
+                for it in ref_obj:
+                    _collect_protected(it)
+
+        _collect_protected(node.get("from_table"))
+        if protected_bindings:
+            for sel_item in node.get("select_list") or []:
+                if not isinstance(sel_item, dict):
+                    continue
+                if sel_item.get("type") == "STAR" or sel_item.get("class") == "STAR":
+                    rel = str(sel_item.get("relation_name") or "").strip().lower()
+                    if not rel or rel in protected_bindings:
+                        raise ValueError(
+                            "Wildcard SELECT * against protected table 'dim_students' is not allowed. "
+                            "Select only the specific non-PII columns you need."
+                        )
+                if sel_item.get("type") == "COLUMN_REF":
+                    col_names = [str(c).lower() for c in (sel_item.get("column_names") or [])]
+                    if len(col_names) == 1 and col_names[0] in protected_bindings:
+                        raise ValueError(
+                            "Whole-row struct selection against protected table 'dim_students' is not allowed."
+                        )
+
+    for key, val in node.items():
+        if key != "cte_map":
+            _validate_ast_node(val, allowed_schemas, local_ctes)
+
 
 # ── Execution limits ───────────────────────────────────────────────────
 
@@ -472,60 +560,39 @@ def validate_sql(sql: str, conn: duckdb.DuckDBPyConnection | None = None) -> Non
                 "Only queries against exposed schemas are allowed."
             )
 
-    unquoted_lower = _SINGLE_QUOTED_LITERAL_RE.sub("''", sql_lower)
-    allowed = {s.lower() for s in get_exposed_schemas()}
+    no_strings = _SINGLE_QUOTED_LITERAL_RE.sub("''", sql)
+    no_comments = _SQL_COMMENT_RE.sub(" ", no_strings)
+    normalized_lower = _DOUBLE_QUOTED_IDENT_RE.sub(
+        lambda m: m.group(1).replace('""', '"'), no_comments
+    ).lower()
 
-    for cat, sch in re.findall(
-        r"\b([a-z_][a-z0-9_]*)\s*\.\s*([a-z_][a-z0-9_]*)\s*\.\s*[a-z_][a-z0-9_]*",
-        unquoted_lower,
-    ):
-        for candidate in (cat, sch):
-            if candidate not in allowed:
+    if _WILDCARD_SELECT_RE.search(normalized_lower):
+        for name in PROTECTED_TABLE_NAMES:
+            if re.search(rf"\b{re.escape(name)}\b", normalized_lower):
                 raise ValueError(
-                    f"Query references '{candidate}', which is outside the exposed schemas "
+                    f"Wildcard SELECT * against protected table '{name}' is not allowed. "
+                    "Select only the specific non-PII columns you need."
+                )
+
+    allowed = {s.lower() for s in get_exposed_schemas()}
+    ast = _serialize_sql_ast(sql, conn=conn)
+    if ast is not None and not ast.get("error", False):
+        stmts = ast.get("statements") or []
+        if len(stmts) != 1:
+            raise ValueError("Only a single SELECT statement is allowed.")
+        _validate_ast_node(stmts[0].get("node"), allowed, {"_safe", "_base", "_desc"})
+    else:
+        for qualifier in re.findall(
+            r"\b(?:from|join)\s+([a-z_][a-z0-9_]*)\s*\.\s*[a-z_][a-z0-9_]*",
+            normalized_lower,
+        ):
+            if qualifier not in allowed:
+                raise ValueError(
+                    f"Query references '{qualifier}', which is outside the exposed schemas "
                     f"({', '.join(sorted(allowed))})."
                 )
 
-    known_qualifiers: set[str] = {"_safe", "_base", "_desc"}
-    for cte_name in re.findall(
-        r"(?:\bwith(?:\s+recursive)?|,)\s*([a-z_][a-z0-9_]*)\s+as\s*\(", unquoted_lower
-    ):
-        known_qualifiers.add(cte_name)
-
-    for sch, tbl, alias in re.findall(
-        r"\b(?:from|join)\s+([a-z_][a-z0-9_]*)\s*\.\s*([a-z_][a-z0-9_]*)(?:\s+(?:as\s+)?([a-z_][a-z0-9_]*))?",
-        unquoted_lower,
-    ):
-        if sch not in allowed:
-            raise ValueError(
-                f"Query references '{sch}', which is outside the exposed schemas "
-                f"({', '.join(sorted(allowed))})."
-            )
-        known_qualifiers.add(tbl)
-        if alias and alias not in _SQL_CLAUSE_KEYWORDS:
-            known_qualifiers.add(alias)
-
-    for tbl, alias in re.findall(
-        r"\b(?:from|join)\s+([a-z_][a-z0-9_]*)(?!\s*\.)(?:\s+(?:as\s+)?([a-z_][a-z0-9_]*))?",
-        unquoted_lower,
-    ):
-        if tbl not in _SQL_CLAUSE_KEYWORDS:
-            known_qualifiers.add(tbl)
-        if alias and alias not in _SQL_CLAUSE_KEYWORDS:
-            known_qualifiers.add(alias)
-
-    for subq_alias in re.findall(r"\)\s*(?:as\s+)?([a-z_][a-z0-9_]*)", unquoted_lower):
-        if subq_alias not in _SQL_CLAUSE_KEYWORDS:
-            known_qualifiers.add(subq_alias)
-
-    for qualifier in re.findall(r"\b([a-z_][a-z0-9_]*)\s*\.\s*[a-z_][a-z0-9_]*", unquoted_lower):
-        if qualifier not in allowed and qualifier not in known_qualifiers:
-            raise ValueError(
-                f"Query references '{qualifier}', which is outside the exposed schemas "
-                f"({', '.join(sorted(allowed))})."
-            )
-
-    pii_token_match = _FORBIDDEN_PII_TOKEN_RE.search(unquoted_lower)
+    pii_token_match = _FORBIDDEN_PII_TOKEN_RE.search(normalized_lower)
     if pii_token_match:
         raise ValueError(
             f"Forbidden staging or PII identifier detected: '{pii_token_match.group(0).strip()}'. "
