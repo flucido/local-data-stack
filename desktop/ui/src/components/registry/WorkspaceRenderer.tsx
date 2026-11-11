@@ -47,6 +47,7 @@ export const WorkspaceRenderer: React.FC<WorkspaceRendererProps> = ({
 
   const semanticCheck = validateWorkspaceUISemantics(parsed.data, resultSummary);
   const { title, narrative_summary, components } = parsed.data.arguments;
+  const turnSignature = `${title}-${resultSummary?.query_id ?? baseRows.length}`;
 
   return (
     <div className="workspace-container" data-testid="workspace-renderer">
@@ -64,7 +65,7 @@ export const WorkspaceRenderer: React.FC<WorkspaceRendererProps> = ({
 
       <div className="workspace-panels-stack">
         {components.map((comp, idx) => {
-          const key = `${comp.component}-${idx}`;
+          const key = `${turnSignature}-${comp.component}-${idx}`;
           switch (comp.component) {
             case "KPIGrid":
               return <KPIGrid key={key} spec={comp} rows={rows} />;

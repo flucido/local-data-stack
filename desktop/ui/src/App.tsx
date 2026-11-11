@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   applyZeroLlmFilterBarMutation,
   PRESET_SCENARIOS,
@@ -21,6 +21,9 @@ export const App: React.FC = () => {
   const [question, setQuestion] = useState("");
   const [isAsking, setIsAsking] = useState(false);
   const [askError, setAskError] = useState<string | null>(null);
+  const [isFiltering, setIsFiltering] = useState(false);
+  const [filterError, setFilterError] = useState<string | null>(null);
+  const filterSeqRef = useRef(0);
 
   useEffect(() => {
     if (!activeScenario) return;
@@ -55,16 +58,34 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleApplyFilters = async (filters: FilterMutation[]) => {
-    if (!turnState) return;
-    const { dataset, filterLatencyMs: elapsed } =
-      await applyZeroLlmFilterBarMutation(turnState, baseRows, filters);
-    setTurnState({
-      ...turnState,
-      dataset,
-    });
-    setFilterLatencyMs(elapsed);
-  };
+  const handleApplyFilters = useCallback(
+    async (filters: FilterMutation[]) => {
+      if (!turnState) return;
+      const reqId = ++filterSeqRef.current;
+      setIsFiltering(true);
+      setFilterError(null);
+      try {
+        const { dataset, filterLatencyMs: elapsed } =
+          await applyZeroLlmFilterBarMutation(turnState, baseRows, filters);
+        if (reqId !== filterSeqRef.current) {
+          return;
+        }
+        setTurnState((prev) => (prev ? { ...prev, dataset } : prev));
+        setFilterLatencyMs(elapsed);
+      } catch (err) {
+        if (reqId === filterSeqRef.current) {
+          setFilterError(
+            err instanceof Error ? err.message : "Could not apply filters."
+          );
+        }
+      } finally {
+        if (reqId === filterSeqRef.current) {
+          setIsFiltering(false);
+        }
+      }
+    },
+    [turnState, baseRows]
+  );
 
   return (
     <main className="app-shell">
@@ -190,15 +211,23 @@ export const App: React.FC = () => {
         </section>
       )}
 
+      {filterError && (
+        <p className="ask-error" role="alert">
+          {filterError}
+        </p>
+      )}
+
       {turnState && (
-        <WorkspaceRenderer
-          uiPayload={turnState.hop2Call}
-          resultSummary={turnState.resultSummary}
-          rows={turnState.dataset.rows}
-          baseRows={baseRows}
-          onApplyFilters={handleApplyFilters}
-          filterLatencyMs={filterLatencyMs}
-        />
+        <div aria-busy={isFiltering || isAsking}>
+          <WorkspaceRenderer
+            uiPayload={turnState.hop2Call}
+            resultSummary={turnState.resultSummary}
+            rows={turnState.dataset.rows}
+            baseRows={baseRows}
+            onApplyFilters={handleApplyFilters}
+            filterLatencyMs={filterLatencyMs}
+          />
+        </div>
       )}
     </main>
   );

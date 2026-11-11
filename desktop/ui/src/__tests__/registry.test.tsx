@@ -193,4 +193,214 @@ describe("Generative UI Canonical Registry & Arrow IPC Client", () => {
     expect(formatMetricValue(0.85, "percent", detectColumnIsRatio(pctCol))).toBe("0.85%");
     expect(formatMetricValue(0.85, "percent", detectColumnIsRatio(ratioCol))).toBe("85.00%");
   });
+
+  it("supports FilterBar single_select, decimal dual-bound numeric_range, debounce, date clamping, aria-pressed, and Show all", () => {
+    vi.useFakeTimers();
+    try {
+      const onApplyFilters = vi.fn();
+      const baseRows = Array.from({ length: 10 }, (_, i) => ({
+        school_name: `School ${String(i + 1).padStart(2, "0")}`,
+        academic_year: i < 5 ? "2022-2023" : "2024-2025",
+        avg_gpa: Number((2.15 + i * 0.15).toFixed(2)),
+        grade_band: i % 2 === 0 ? "Middle" : "High",
+      }));
+
+      const payload = RenderWorkspaceUISchema.parse({
+        tool: "render_workspace_ui",
+        arguments: {
+          title: "Filter Fidelity Suite",
+          narrative_summary: "Tests all FilterBar controls.",
+          components: [
+            {
+              component: "FilterBar",
+              controls: [
+                { column: "school_name", control_type: "multi_select", label: "Schools" },
+                { column: "grade_band", control_type: "single_select", label: "Grade Band" },
+                { column: "academic_year", control_type: "date_range", label: "School Year" },
+                { column: "avg_gpa", control_type: "numeric_range", label: "GPA Range" },
+              ],
+            },
+          ],
+        },
+      });
+
+      render(
+        <WorkspaceRenderer
+          uiPayload={payload}
+          rows={baseRows}
+          baseRows={baseRows}
+          onApplyFilters={onApplyFilters}
+        />
+      );
+
+      // D2 + D3 + D11: aria-pressed, group labelledby, and Show all (10)
+      const pill01 = screen.getByRole("button", { name: "School 01" });
+      expect(pill01).toHaveAttribute("aria-pressed", "false");
+      fireEvent.click(pill01);
+      expect(pill01).toHaveAttribute("aria-pressed", "true");
+
+      const showAllBtn = screen.getByRole("button", { name: /Show all \(10\)/i });
+      fireEvent.click(showAllBtn);
+      expect(screen.getByRole("button", { name: "School 10" })).toBeInTheDocument();
+
+      // U10: single_select renders <select> with "All"
+      const gradeSelect = screen.getByLabelText("Grade Band") as HTMLSelectElement;
+      expect(gradeSelect.tagName).toBe("SELECT");
+      fireEvent.change(gradeSelect, { target: { value: "High" } });
+      expect(onApplyFilters).toHaveBeenLastCalledWith(
+        expect.arrayContaining([
+          { column: "grade_band", control_type: "single_select", value: "High" },
+        ])
+      );
+
+      // U13: date_range clamps max when min > max
+      const startSel = screen.getByLabelText("School Year Start") as HTMLSelectElement;
+      const endSel = screen.getByLabelText("School Year End") as HTMLSelectElement;
+      fireEvent.change(endSel, { target: { value: "2022-2023" } });
+      fireEvent.change(startSel, { target: { value: "2024-2025" } });
+      expect(onApplyFilters).toHaveBeenLastCalledWith(
+        expect.arrayContaining([
+          {
+            column: "academic_year",
+            control_type: "date_range",
+            min: "2024-2025",
+            max: "2024-2025",
+          },
+        ])
+      );
+
+      // U10 + U1: decimal numeric_range has Min & Max sliders with step=0.05 and 250ms debounce
+      const minSlider = screen.getByLabelText("GPA Range Minimum") as HTMLInputElement;
+      const maxSlider = screen.getByLabelText("GPA Range Maximum") as HTMLInputElement;
+      expect(minSlider.step).toBe("0.05");
+      expect(maxSlider.step).toBe("0.05");
+
+      const callsBeforeSlider = onApplyFilters.mock.calls.length;
+      fireEvent.change(minSlider, { target: { value: "2.5" } });
+      expect(onApplyFilters.mock.calls.length).toBe(callsBeforeSlider);
+      vi.advanceTimersByTime(260);
+      expect(onApplyFilters.mock.calls.length).toBe(callsBeforeSlider + 1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("enforces DataTable accessible sorting, empty state, CSV formula neutralization, SVG line/area TimeSeriesChart, CategoryBarChart pivoting, and KPIGrid adverse metric polarity", async () => {
+    const { buildCsvContent } = await import("../components/registry/DataTable");
+
+    // D23: Quote CSV headers and neutralize leading =, +, -, @ formula injection
+    const csv = buildCsvContent(
+      ["school_name", "formula_col"],
+      [{ school_name: "Lincoln, High", formula_col: "=CMD|' /C calc'!A0" }]
+    );
+    expect(csv.split("\n")[0]).toBe('"school_name","formula_col"');
+    expect(csv.split("\n")[1]).toContain("\"'=CMD|' /C calc'!A0\"");
+
+    // D1 + D19: DataTable keyboard button sorting + aria-sort + empty state with Clear search
+    const tablePayload = RenderWorkspaceUISchema.parse({
+      tool: "render_workspace_ui",
+      arguments: {
+        title: "School Records",
+        narrative_summary: "Sortable accessible table.",
+        components: [
+          {
+            component: "DataTable",
+            columns: ["school_name", "avg_gpa"],
+            default_sort: { column: "avg_gpa", direction: "desc" },
+          },
+          {
+            component: "TimeSeriesChart",
+            chart_variant: "line",
+            x_column: "academic_year",
+            y_columns: ["avg_gpa"],
+            value_format: "decimal",
+          },
+          {
+            component: "CategoryBarChart",
+            chart_variant: "stacked",
+            category_column: "school_name",
+            value_columns: ["avg_gpa"],
+            series_column: "academic_year",
+            value_format: "decimal",
+          },
+          {
+            component: "KPIGrid",
+            metrics: [
+              {
+                label: "Chronic Absenteeism Rate",
+                value_column: "chronic_rate",
+                value_format: "percent",
+                delta_column: "chronic_delta",
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    const rows = [
+      {
+        school_name: "Lincoln High",
+        academic_year: "2023-2024",
+        avg_gpa: 3.1,
+        chronic_rate: 14.2,
+        chronic_delta: 2.5,
+      },
+    ];
+
+    const { container, unmount } = render(
+      <WorkspaceRenderer
+        uiPayload={tablePayload}
+        rows={rows}
+        baseRows={rows}
+        onApplyFilters={vi.fn()}
+      />
+    );
+
+    // D1: <th aria-sort="descending"> with inner <button>
+    const gpaHeader = container.querySelector('th[aria-sort="descending"]');
+    expect(gpaHeader).not.toBeNull();
+    expect(gpaHeader?.querySelector("button")).not.toBeNull();
+
+    // U11 + D4: TimeSeriesChart renders SVG polyline/path on "line" variant + sr-only table
+    expect(container.querySelector("svg polyline, svg path")).not.toBeNull();
+    expect(container.querySelector("table.sr-only")).not.toBeNull();
+
+    // D15: Positive delta on Chronic Absenteeism Rate is adverse (.kpi-delta-neg)
+    expect(container.querySelector(".kpi-delta-neg")).not.toBeNull();
+
+    // D19: Filter table to 0 matches -> "No matching records found" + "Clear search"
+    const searchInput = screen.getByLabelText(/Filter table rows|Search table/i);
+    fireEvent.change(searchInput, { target: { value: "zzz_nomatch" } });
+    expect(screen.getByText(/No matching records found/i)).toBeInTheDocument();
+    const clearBtn = screen.getByRole("button", { name: /Clear search/i });
+    fireEvent.click(clearBtn);
+    expect(screen.queryByText(/No matching records found/i)).toBeNull();
+
+    unmount();
+
+    // D15: KPIGrid with rows=[] shows "No data"
+    const emptyKpiPayload = RenderWorkspaceUISchema.parse({
+      tool: "render_workspace_ui",
+      arguments: {
+        title: "Empty KPI",
+        narrative_summary: "Empty check.",
+        components: [
+          {
+            component: "KPIGrid",
+            metrics: [{ label: "Attendance Rate", value_column: "att", value_format: "percent" }],
+          },
+        ],
+      },
+    });
+    render(
+      <WorkspaceRenderer
+        uiPayload={emptyKpiPayload}
+        rows={[]}
+        baseRows={[]}
+        onApplyFilters={vi.fn()}
+      />
+    );
+    expect(screen.getByText("No data")).toBeInTheDocument();
+  });
 });
