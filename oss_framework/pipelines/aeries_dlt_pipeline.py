@@ -25,7 +25,20 @@ from dlt.common.pipeline import LoadInfo
 from dlt.sources import DltResource
 
 from oss_framework.connectors import get_sis_connector
+from oss_framework.connectors.mappings.aeries_to_canonical import STUDENT_STAGE1_ALLOWLIST
 from oss_framework.pipelines.dlt_state import pipeline_kwargs
+
+
+def filter_student_record(record: dict[str, Any]) -> dict[str, Any]:
+    """Filter a student record through the canonical Stage 1 allowlist."""
+    return {
+        k: v
+        for k, v in record.items()
+        if k in STUDENT_STAGE1_ALLOWLIST
+        and not k.startswith(("MailingAddress", "ResidenceAddress"))
+        and k not in {"HomePhone", "StudentMobilePhone", "StateStudentID", "OldStudentID"}
+    }
+
 
 RAW_TABLES = (
     "raw_students",
@@ -135,12 +148,13 @@ def aeries_source(
         columns={"withdrawal_date": {"data_type": "text"}},
     )
     def students() -> Iterator[dict[str, Any]]:
-        """Extract student data"""
+        """Extract student data filtered through Stage 1 PII-minimized allowlist"""
         data = client.get_students()
         for record in data:
-            record["created_at"] = datetime.now().isoformat()
-            record["updated_at"] = datetime.now().isoformat()
-            yield record
+            clean = filter_student_record(record)
+            clean["created_at"] = datetime.now().isoformat()
+            clean["updated_at"] = datetime.now().isoformat()
+            yield clean
 
     @dlt.resource(
         name="raw_attendance",

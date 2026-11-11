@@ -42,6 +42,8 @@ from typing import Any
 
 import polars as pl
 
+from oss_framework.connectors.mappings.aeries_to_canonical import STUDENT_STAGE1_ALLOWLIST
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -84,8 +86,6 @@ DTYPE_MAPPINGS = {
     "students": {
         # Student identifiers - preserve leading zeros
         "StudentID": str,
-        "OldStudentID": str,
-        "StateStudentID": str,
         "StudentNumber": str,
         # School codes - preserve leading zeros
         "SchoolCode": str,
@@ -93,28 +93,6 @@ DTYPE_MAPPINGS = {
         # Language and counselor codes
         "CorrespondenceLanguageCode": str,
         "CounselorNumber": str,
-        # Address zip codes and extensions - preserve leading zeros
-        "MailingAddressZipCode": str,
-        "MailingAddressZipExt": str,
-        "ResidenceAddressZipCode": str,
-        "ResidenceAddressZipExt": str,
-        # Phone numbers - preserve leading zeros
-        "HomePhone": str,
-        "StudentMobilePhone": str,
-        # User codes - preserve leading zeros
-        "UserCode1": str,
-        "UserCode2": str,
-        "UserCode3": str,
-        "UserCode4": str,
-        "UserCode5": str,
-        "UserCode6": str,
-        "UserCode7": str,
-        "UserCode8": str,
-        "UserCode9": str,
-        "UserCode10": str,
-        "UserCode11": str,
-        "UserCode12": str,
-        "UserCode13": str,
         # Race codes - preserve leading zeros
         "RaceCode1": str,
         "RaceCode2": str,
@@ -122,14 +100,12 @@ DTYPE_MAPPINGS = {
         "RaceCode4": str,
         "RaceCode5": str,
         # Additional student codes - preserve leading zeros
-        "NetworkLoginID": str,
         "RecordsReleaseCode": str,
         "LanguageFluencyCode": str,
         "HomeLanguageCode": str,
         "AttendanceProgramCodePrimary": str,
         "AttendanceProgramCodeAdditional1": str,
         "AttendanceProgramCodeAdditional2": str,
-        "LockerNumber": str,
         "ElementaryTeacherNumber": str,
     },
     "attendance": {
@@ -224,7 +200,7 @@ class AeriesToParquetPipeline:
         ``truncate_ragged_lines`` absorbs trailing-delimiter drift.
         """
         overrides = dict.fromkeys(DTYPE_MAPPINGS.get(domain, {}), pl.Utf8)
-        return pl.scan_csv(
+        lf = pl.scan_csv(
             csv_file,
             schema_overrides=overrides,
             encoding="utf8-lossy",
@@ -232,6 +208,17 @@ class AeriesToParquetPipeline:
             infer_schema_length=10_000,
             truncate_ragged_lines=True,
         )
+        if domain == "students":
+            schema_names = lf.collect_schema().names()
+            allowed_cols = [
+                c
+                for c in schema_names
+                if c in STUDENT_STAGE1_ALLOWLIST
+                and not c.startswith(("MailingAddress", "ResidenceAddress"))
+                and c not in {"HomePhone", "StudentMobilePhone", "StateStudentID", "OldStudentID"}
+            ]
+            lf = lf.select(allowed_cols)
+        return lf
 
     def convert(self, domain: str, year: str) -> dict[str, Any]:
         """

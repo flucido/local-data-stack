@@ -60,6 +60,12 @@ class AeriesConnector(SISConnector):
         self.test_mode = test_mode or not self.api_key
 
         if not self.test_mode:
+            allow_insecure = os.getenv("LFED_ALLOW_INSECURE_HTTP") == "1"
+            if not self.base_url.lower().startswith("https://") and not allow_insecure:
+                raise ValueError(
+                    "Aeries base_url must use https:// in production mode "
+                    "(set LFED_ALLOW_INSECURE_HTTP=1 only for local mock testing)."
+                )
             self.headers = {
                 "AERIES-CERT": self.api_key,
                 "Accept": "application/json",
@@ -67,7 +73,8 @@ class AeriesConnector(SISConnector):
             adapter = HTTPAdapter(max_retries=_build_retry())
             self._session = requests.Session()
             self._session.mount("https://", adapter)
-            self._session.mount("http://", adapter)
+            if allow_insecure:
+                self._session.mount("http://", adapter)
         else:
             self._session = None
 

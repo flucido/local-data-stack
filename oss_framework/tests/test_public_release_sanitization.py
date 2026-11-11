@@ -393,3 +393,101 @@ def test_ci_workflow_packaging_and_benchmark_schema_contracts() -> None:
         assert "fact_discipline_incidents" not in perf_text
         assert "score_chronic_absenteeism_risk" not in perf_text
         assert "student_id_hash" in perf_text
+
+
+def test_phase4_t1_stage1_and_staging_pii_minimization(tmp_path: Path, monkeypatch) -> None:
+    import polars as pl
+
+    # 1. HTTPS enforcement on AeriesConnector unless LFED_ALLOW_INSECURE_HTTP=1
+    import pytest
+
+    from oss_framework.connectors.aeries import AeriesConnector
+    from oss_framework.pipelines.aeries_dlt_pipeline import filter_student_record
+    from oss_framework.pipelines.aeries_to_parquet import AeriesToParquetPipeline
+
+    monkeypatch.delenv("LFED_ALLOW_INSECURE_HTTP", raising=False)
+    with pytest.raises(ValueError, match="https://"):
+        AeriesConnector(
+            base_url="http://insecure.district.local/v5", api_key="secret_cert", test_mode=False
+        )
+
+    monkeypatch.setenv("LFED_ALLOW_INSECURE_HTTP", "1")
+    insecure_ok = AeriesConnector(
+        base_url="http://localhost:8080/v5", api_key="secret_cert", test_mode=False
+    )
+    assert insecure_ok.base_url.startswith("http://")
+    monkeypatch.delenv("LFED_ALLOW_INSECURE_HTTP", raising=False)
+
+    # 2. Student allowlist filtering drops phones, addresses, StateStudentID, OldStudentID
+    raw_rec = {
+        "student_id": "1001",
+        "first_name": "Ada",
+        "last_name": "Lovelace",
+        "HomePhone": "555-0100",
+        "StudentMobilePhone": "555-0199",
+        "MailingAddress": "123 Main St",
+        "MailingAddressZipCode": "90210",
+        "ResidenceAddress": "123 Main St",
+        "StateStudentID": "SSID999",
+        "OldStudentID": "OLD1",
+    }
+    filtered = filter_student_record(raw_rec)
+    assert "student_id" in filtered
+    for dropped in (
+        "HomePhone",
+        "StudentMobilePhone",
+        "MailingAddress",
+        "MailingAddressZipCode",
+        "ResidenceAddress",
+        "StateStudentID",
+        "OldStudentID",
+    ):
+        assert dropped not in filtered
+
+    # Verify Polars CSV->Parquet pipeline also strips disallowed student columns
+    src_dir = tmp_path / "src" / "students"
+    src_dir.mkdir(parents=True)
+    csv_file = src_dir / "students_2024_2025.csv"
+    csv_file.write_text(
+        "StudentID,FirstName,Grade,SchoolCode,HomePhone,StudentMobilePhone,MailingAddress,ResidenceAddress,StateStudentID,OldStudentID\n"
+        "1001,Ada,8,1,555-0100,555-0199,123 Main,123 Main,SSID999,OLD1\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("oss_framework.pipelines.aeries_to_parquet.SOURCE_BASE", tmp_path / "src")
+    monkeypatch.setattr("oss_framework.pipelines.aeries_to_parquet.TARGET_BASE", tmp_path / "out")
+    res = AeriesToParquetPipeline().convert("students", "2024-2025")
+    assert res["success"] is True
+    out_df = pl.read_parquet(tmp_path / "out" / "students" / "year=2024-2025" / "part-000.parquet")
+    assert "StudentID" in out_df.columns
+    for dropped in (
+        "HomePhone",
+        "StudentMobilePhone",
+        "MailingAddress",
+        "ResidenceAddress",
+        "StateStudentID",
+        "OldStudentID",
+    ):
+        assert dropped not in out_df.columns
+
+    # 3. Post-hook on priv_pii_lookup_table drops plaintext PII from stg_aeries__students
+    lookup_sql = (
+        REPO_ROOT / "oss_framework/dbt/models/mart_privacy/privacy/priv_pii_lookup_table.sql"
+    ).read_text()
+    assert "DROP COLUMN IF EXISTS first_name_raw" in lookup_sql
+    assert "DROP COLUMN IF EXISTS last_name_raw" in lookup_sql
+    assert "DROP COLUMN IF EXISTS date_of_birth_raw" in lookup_sql
+
+    # 4. Masked names removed from priv_student_hashes
+    hashes_sql = (
+        REPO_ROOT / "oss_framework/dbt/models/mart_privacy/privacy/priv_student_hashes.sql"
+    ).read_text()
+    assert "first_name_masked" not in hashes_sql
+    assert "last_name_masked" not in hashes_sql
+
+    # 5. Admin names and phone removed from stg_cde__schools
+    cde_schools_sql = (
+        REPO_ROOT / "oss_framework/dbt/models/staging/cde/stg_cde__schools.sql"
+    ).read_text()
+    assert "admin_first_name" not in cde_schools_sql
+    assert "admin_last_name" not in cde_schools_sql
+    assert "phone_number" not in cde_schools_sql

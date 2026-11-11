@@ -17,21 +17,6 @@ models:
         data_tests:
           - not_null
 
-      - name: first_name_raw
-        description: "Student first name (PII - will be hashed)"
-        data_tests:
-          - not_null
-
-      - name: last_name_raw
-        description: "Student last name (PII - will be hashed)"
-        data_tests:
-          - not_null
-
-      - name: date_of_birth_raw
-        description: "Date of birth (sensitive PII - will be hashed)"
-        data_tests:
-          - not_null
-
       - name: gender
         description: "Gender identity"
         data_tests:
