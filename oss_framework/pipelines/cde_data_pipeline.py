@@ -18,7 +18,6 @@ Features:
 See ``data/cde_raw/DATA_CATALOG.md`` for the full domain catalogue and quirks.
 """
 
-import io
 import logging
 import os
 import zipfile
@@ -329,12 +328,12 @@ class CDEDataLoader:
             yield {header[i]: _clean_value(row[i]) for i in range(min(len(header), len(row)))}
         wb.close()
 
-    def _read_zip_frame(self, file_path: str, delimiter: str = "^") -> pl.LazyFrame | None:
-        """Read a caret-delimited data file inside a .zip (SBAC/CAASPP).
+    def _read_zip_frame(
+        self, file_path: str, delimiter: str = "^", stage_dir: Path | None = None
+    ) -> pl.LazyFrame | None:
+        """Stream a caret-delimited data file inside a .zip (SBAC/CAASPP) via zf.open()."""
+        import shutil
 
-        Picks the full ``all_csv_v1.txt`` member when present, otherwise the
-        first ``.txt`` member. Handles BOM + suppression markers vectorised.
-        """
         try:
             with zipfile.ZipFile(file_path) as zf:
                 members = [m for m in zf.namelist() if m.lower().endswith(".txt")]
@@ -342,14 +341,27 @@ class CDEDataLoader:
                     logger.warning("No .txt member inside %s", file_path)
                     return None
                 target = next((m for m in members if "all_csv_v1" in m.lower()), members[0])
-                raw = zf.read(target)
-            df = pl.read_csv(
-                io.BytesIO(raw),
-                separator=delimiter,
-                encoding="utf8-lossy",
-                infer_schema_length=0,
-                truncate_ragged_lines=True,
-            )
+                if stage_dir is not None:
+                    stage_dir.mkdir(parents=True, exist_ok=True)
+                    extracted_path = stage_dir / f"{Path(file_path).stem}_{Path(target).name}"
+                    with zf.open(target) as src_fh, open(extracted_path, "wb") as dst_fh:
+                        shutil.copyfileobj(src_fh, dst_fh)
+                    lf = pl.scan_csv(
+                        extracted_path,
+                        separator=delimiter,
+                        encoding="utf8-lossy",
+                        infer_schema_length=0,
+                        truncate_ragged_lines=True,
+                    )
+                    return _clean_frame(_strip_bom_columns(lf))
+                with zf.open(target) as fh:
+                    df = pl.read_csv(
+                        fh,
+                        separator=delimiter,
+                        encoding="utf8-lossy",
+                        infer_schema_length=0,
+                        truncate_ragged_lines=True,
+                    )
         except FileNotFoundError:
             logger.warning("File not found: %s", file_path)
             return None
@@ -360,11 +372,16 @@ class CDEDataLoader:
 
     def _read_zip_file(self, file_path: str, delimiter: str = "^") -> Iterator[dict[str, Any]]:
         """Read a caret-delimited file inside a .zip and yield row dicts."""
-        lf = self._read_zip_frame(file_path, delimiter=delimiter)
-        if lf is None:
-            return
-        df = lf.collect()
-        yield from df.iter_rows(named=True)
+        import tempfile
+
+        with tempfile.TemporaryDirectory(prefix="cde_zip_") as tmp_dir:
+            stage_dir = Path(tmp_dir)
+            lf = self._read_zip_frame(file_path, delimiter=delimiter, stage_dir=stage_dir)
+            if lf is None:
+                return
+            out = stage_dir / "zip_member.parquet"
+            lf.sink_parquet(out)
+            yield from pl.scan_parquet(out).collect(engine="streaming").to_dicts()
 
     # -- file discovery ---------------------------------------------------
 
@@ -390,17 +407,17 @@ class CDEDataLoader:
             return self._read_zip_file(str(file_path), delimiter=cfg.get("delim", "^"))
         raise ValueError(f"Unknown file type '{ftype}' for {file_path}")
 
-    def _frame_for(self, file_path: Path, cfg: dict[str, Any]) -> pl.LazyFrame | None:
-        """Dispatch to the right Polars frame reader based on file type.
-
-        ``xlsx`` files keep the openpyxl reader (title rows above the header
-        need row-wise detection) and are lifted into a lazy frame afterwards.
-        """
+    def _frame_for(
+        self, file_path: Path, cfg: dict[str, Any], stage_dir: Path | None = None
+    ) -> pl.LazyFrame | None:
+        """Dispatch to the right Polars frame reader based on file type."""
         ftype = cfg.get("type", "txt")
         if ftype == "txt":
             return self._read_tsv_frame(str(file_path), delimiter=cfg.get("delim", "\t"))
         if ftype == "zip":
-            return self._read_zip_frame(str(file_path), delimiter=cfg.get("delim", "^"))
+            return self._read_zip_frame(
+                str(file_path), delimiter=cfg.get("delim", "^"), stage_dir=stage_dir
+            )
         if ftype == "xlsx":
             rows = list(self._read_xlsx_file(str(file_path), sheet_substr=cfg.get("sheet")))
             if not rows:
@@ -411,46 +428,45 @@ class CDEDataLoader:
     # -- schema-drift-tolerant union loader -------------------------------
 
     def _load_domain(self, domain_key: str) -> Iterator[dict[str, Any]]:
-        """Load all files for a domain, unioning columns across years.
+        """Load all files for a domain, unioning columns across years via streaming Parquet sink."""
+        import tempfile
 
-        Uses Polars ``concat(how="diagonal_relaxed")`` for schema-drift
-        tolerance: columns are unioned by name across yearly files and
-        columns missing from a given year are filled with null — no manual
-        header-scan pass required.
-        """
         cfg = DOMAIN_CONFIG[domain_key]
         files = self._discover_files(cfg["glob"])
         if not files:
             logger.info("No files matched %s for domain '%s'", cfg["glob"], domain_key)
             return
 
-        frames: list[pl.LazyFrame] = []
-        for file_path in files:
-            lf = self._frame_for(file_path, cfg)
-            if lf is None:
-                continue
-            lf = lf.with_columns(
-                pl.lit(datetime.now().isoformat()).alias("_loaded_at"),
-                pl.lit(file_path.name).alias("_source_file"),
-                pl.lit(domain_key).alias("_domain"),
+        with tempfile.TemporaryDirectory(prefix=f"cde_stage_{domain_key}_") as tmp_dir:
+            target_dir = Path(tmp_dir)
+            frames: list[pl.LazyFrame] = []
+            for file_path in files:
+                lf = self._frame_for(file_path, cfg, stage_dir=target_dir)
+                if lf is None:
+                    continue
+                lf = lf.with_columns(
+                    pl.lit(datetime.now().isoformat()).alias("_loaded_at"),
+                    pl.lit(file_path.name).alias("_source_file"),
+                    pl.lit(domain_key).alias("_domain"),
+                )
+                frames.append(lf)
+
+            if not frames:
+                logger.warning("No readable files for domain '%s'", domain_key)
+                return
+
+            unioned = pl.concat(frames, how="diagonal_relaxed")
+            logger.info(
+                "Domain '%s': %d files, %d union columns",
+                domain_key,
+                len(frames),
+                len(unioned.collect_schema().names()),
             )
-            frames.append(lf)
 
-        if not frames:
-            logger.warning("No readable files for domain '%s'", domain_key)
-            return
-
-        unioned = pl.concat(frames, how="diagonal_relaxed")
-        logger.info(
-            "Domain '%s': %d files, %d union columns",
-            domain_key,
-            len(frames),
-            len(unioned.collect_schema().names()),
-        )
-
-        df = unioned.collect()
-        logger.info("  loaded %s rows from %d files", f"{df.height:,}", len(frames))
-        yield from df.iter_rows(named=True)
+            out = target_dir / f"{domain_key}.parquet"
+            unioned.sink_parquet(out)
+            logger.info("  staged %s to %s", domain_key, out)
+            yield from pl.scan_parquet(out).collect(engine="streaming").to_dicts()
 
     # -- per-domain public loaders ---------------------------------------
 

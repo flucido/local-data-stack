@@ -277,13 +277,10 @@ class AeriesToParquetPipeline:
             if self.verbose:
                 logger.debug(f"Reading CSV: {csv_file}")
 
-            # Scan CSV lazily with Polars (BOM-tolerant, all IDs kept as Utf8)
+            # Scan CSV lazily with Polars and stream to Parquet in a single pass
             lf = self._scan_csv(csv_file, domain)
-            rows_read = lf.select(pl.len()).collect().item()
-
             if self.verbose:
                 columns = lf.collect_schema().names()
-                logger.debug(f"Loaded {rows_read} rows from {csv_file}")
                 logger.debug(f"Columns: {', '.join(columns)}")
 
             # Create parent directories
@@ -296,23 +293,21 @@ class AeriesToParquetPipeline:
                 compression_level=COMPRESSION_LEVEL,
             )
 
-            # Get output file size
+            # Get output file size and read row count from Parquet metadata
             output_size = output_file.stat().st_size
             result["output_size"] = output_size
 
-            # Validate: Check row count in written Parquet
-            try:
-                parquet_rows = pl.scan_parquet(output_file).select(pl.len()).collect().item()
+            import duckdb
 
-                if parquet_rows != rows_read:
-                    logger.warning(
-                        f"Row count mismatch for {domain}/{year}: "
-                        f"CSV={rows_read}, Parquet={parquet_rows}"
-                    )
-                    result["error"] = f"Row count validation failed: {rows_read} vs {parquet_rows}"
-                    return result
-            except Exception as e:
-                logger.warning(f"Could not validate row count: {str(e)}")
+            with duckdb.connect(":memory:") as meta_con:
+                escaped_pq = str(output_file).replace("'", "''")
+                rows_written = int(
+                    meta_con.execute(
+                        f"SELECT COALESCE(SUM(row_group_num_rows), 0) "
+                        f"FROM (SELECT DISTINCT file_name, row_group_id, row_group_num_rows "
+                        f"FROM parquet_metadata('{escaped_pq}'))"
+                    ).fetchone()[0]
+                )
 
             # Calculate compression ratio
             if input_size > 0:
@@ -322,18 +317,18 @@ class AeriesToParquetPipeline:
                 result["compression_ratio"] = 0.0
 
             result["success"] = True
-            result["rows_written"] = rows_read
+            result["rows_written"] = rows_written
 
             # Update statistics
             self.stats["total_files_processed"] += 1
-            self.stats["total_rows_written"] += rows_read
+            self.stats["total_rows_written"] += rows_written
             self.stats["total_input_bytes"] += input_size
             self.stats["total_output_bytes"] += output_size
 
             # Log success
             logger.info(
                 f"✓ {domain:20} {year}  "
-                f"Rows: {rows_read:8}  "
+                f"Rows: {rows_written:8}  "
                 f"Input: {input_size / 1024:8.1f}KB  "
                 f"Output: {output_size / 1024:8.1f}KB  "
                 f"Compression: {compression_ratio * 100:5.1f}%"

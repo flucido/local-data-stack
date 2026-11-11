@@ -573,3 +573,54 @@ def test_phase4_t2_scrypt_kdf_break_glass_decrypt_and_retention(monkeypatch, cap
     assert "PRIVACY_SALT" not in sec_md
     for var_name in ("PII_SALT", "PII_ENCRYPTION_KEY", "DATA_RETENTION_YEARS"):
         assert var_name in sec_md
+
+
+def test_phase5_t3_streaming_cde_zip_and_single_pass_parquet_exports(tmp_path: Path) -> None:
+    import zipfile
+
+    import duckdb
+
+    from oss_framework.pipelines.cde_data_pipeline import CDEDataLoader
+    from scripts.export_to_rill import export_view_to_parquet
+
+    # 1. CDE zip domain streams via zf.open + sink_parquet + collect(engine="streaming")
+    raw_dir = tmp_path / "cde_raw"
+    raw_dir.mkdir()
+    sbac_zip = raw_dir / "sb_ca2024_all_csv_v1.zip"
+    with zipfile.ZipFile(sbac_zip, "w") as zf:
+        zf.writestr(
+            "sb_ca2024_all_csv_v1.txt",
+            "County_Code^District_Code^School_Code^Test_Year^Mean_Scale_Score\n"
+            "19^64733^0000001^2024^2540.5\n"
+            "19^64733^0000002^2024^*\n",
+        )
+
+    loader = CDEDataLoader(data_dir=str(raw_dir))
+    rows = list(loader.load_sbac_caaspp())
+    assert len(rows) == 2
+    assert rows[0]["Mean_Scale_Score"] == "2540.5"
+    assert rows[1]["Mean_Scale_Score"] is None  # '*' cleaned to None
+
+    cde_src = (REPO_ROOT / "oss_framework/pipelines/cde_data_pipeline.py").read_text()
+    assert "zf.read(" not in cde_src
+    assert "sink_parquet" in cde_src
+
+    # 2. aeries_to_parquet writes once without pre-counting CSV rows
+    a2p_src = (REPO_ROOT / "oss_framework/pipelines/aeries_to_parquet.py").read_text()
+    assert "rows_read = lf.select(pl.len()).collect().item()" not in a2p_src
+
+    # 3. export_to_rill reads row_count from parquet_metadata instead of pre-running SELECT COUNT(*)
+    rill_src = (REPO_ROOT / "scripts/export_to_rill.py").read_text()
+    assert "parquet_metadata" in rill_src
+
+    con = duckdb.connect(":memory:")
+    con.execute("CREATE SCHEMA main_analytics")
+    con.execute(
+        "CREATE VIEW main_analytics.test_rill_v AS SELECT 1 AS id, 'A' AS label UNION ALL SELECT 2, 'B'"
+    )
+    out_pq = tmp_path / "rill_out.parquet"
+    res = export_view_to_parquet(con, "main_analytics.test_rill_v", out_pq, dry_run=False)
+    assert res["status"] == "success"
+    assert res["row_count"] == 2
+    assert out_pq.exists()
+    con.close()
