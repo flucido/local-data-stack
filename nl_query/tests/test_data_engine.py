@@ -149,3 +149,52 @@ class TestFormatDataframePercentScale:
         formatted = format_dataframe(df)
         assert list(formatted["suspension_rate"]) == ["0.85%", "4.20%"]
         assert list(formatted["attendance_rate"]) == ["91.00%", "96.00%"]
+
+
+class TestGradioXssCsvAndAccessibility:
+    def test_build_summary_escapes_html_and_converts_bold(self):
+        import pandas as pd
+        from app import build_summary, render_summary_html
+
+        xss_df = pd.DataFrame({"school": ['<img src=x onerror="alert(1)">'], "cnt": [42]})
+        summary = build_summary("Show count", xss_df, 1)
+        rendered = render_summary_html(summary)
+        assert "<img" not in summary
+        assert "&lt;img" in summary
+        assert "**" not in rendered
+        assert "<strong>" in rendered
+
+    def test_write_secure_temp_csv_mode_0600(self):
+        import os
+        import stat
+
+        import pandas as pd
+        from app import write_secure_temp_csv
+
+        df = pd.DataFrame({"school_id": ["1"], "student_count": [25]})
+        csv_path = write_secure_temp_csv(df)
+        try:
+            assert os.path.exists(csv_path)
+            mode = stat.S_IMODE(os.stat(csv_path).st_mode)
+            assert mode == 0o600
+        finally:
+            if os.path.exists(csv_path):
+                os.unlink(csv_path)
+
+    def test_gradio_accessibility_and_ux_contracts(self):
+        from pathlib import Path
+
+        import ui_strings
+
+        assert "javascript:" not in ui_strings.FIRST_VISIT_NUDGE
+        assert '<button type="button"' in ui_strings.FIRST_VISIT_NUDGE
+
+        app_src = (Path(__file__).resolve().parents[1] / "app.py").read_text()
+        assert ".domain-dropdown label { display: none" not in app_src
+        assert "flex-wrap: wrap !important" in app_src
+        assert "#6B7280" not in app_src
+        assert "#4B5563" in app_src
+        assert "default_concurrency_limit=1" in app_src
+        assert "gr.Accordion" in app_src
+        assert "visible=prior_obj is not None" in app_src
+        assert "head=HEAD_HTML" in app_src
