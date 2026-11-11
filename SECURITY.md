@@ -54,20 +54,24 @@ Please provide as much detail as possible:
 **Implementation**:
 
 ```python
-# src/analytics/pseudonymize.py
 import hashlib
 import os
 
-def hash_pii(value: str) -> str:
-    salt = os.getenv('PRIVACY_SALT')
-    return hashlib.sha256(f"{salt}{value}".encode()).hexdigest()
+# dbt macros (hash_pii_secure) hash identifiers with PII_SALT
+# Re-identification lookup encrypts fields with AES-256-GCM + scrypt KDF via PII_ENCRYPTION_KEY
+salt = os.environ["PII_SALT"]  # >= 16 random characters
+key = os.environ["PII_ENCRYPTION_KEY"]  # >= 32 random characters
 ```
 
 **Environment Setup**:
 
 ```bash
-# .env
-PRIVACY_SALT="your-secret-salt-here-DO-NOT-COMMIT"
+# .env (never commit)
+PII_SALT="<32+ char random salt>"
+PII_ENCRYPTION_KEY="<64-hex-char random key>"
+DATA_RETENTION_YEARS=5
+# Break-glass decryption UDF is disabled by default; enable only in audited registrar sessions:
+# LFED_ENABLE_PII_DECRYPT=1
 ```
 
 #### Data Minimization
@@ -100,13 +104,14 @@ DELETE FROM raw_attendance WHERE student_id = 'hashed_student_id';
 -- Cascade to all related tables
 ```
 
-**Automated Retention**:
+**Automated Retention (`DATA_RETENTION_YEARS`)**:
 
-```sql
--- Example operator-managed retention job.
--- Adjust timing and legal basis to your district policy.
-DELETE FROM raw_students
-WHERE withdrawal_date < CURRENT_DATE - INTERVAL '7' YEAR;
+```python
+import duckdb
+from oss_framework.scripts.config import purge_expired_records
+
+with duckdb.connect("oss_framework/data/analytics.duckdb") as conn:
+    deleted = purge_expired_records(conn)  # honors DATA_RETENTION_YEARS
 ```
 
 ---
@@ -409,9 +414,10 @@ rsync -av data/stage1/ backups/stage1_$(date +%Y%m%d)/
 
 ```bash
 # .env (not tracked in Git)
-PRIVACY_SALT="your-secret-salt-here"
-AERIES_API_KEY="your_aeries_api_key"
-RILL_ADMIN_PASSWORD="rill_admin_password"
+PII_SALT="<random-salt-min-16-chars>"
+PII_ENCRYPTION_KEY="<random-key-min-32-chars>"
+AERIES_API_KEY="<aeries-api-cert>"
+DATA_RETENTION_YEARS=5
 ```
 
 **Use `.gitignore`:**

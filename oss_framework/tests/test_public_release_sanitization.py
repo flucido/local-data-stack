@@ -491,3 +491,85 @@ def test_phase4_t1_stage1_and_staging_pii_minimization(tmp_path: Path, monkeypat
     assert "admin_first_name" not in cde_schools_sql
     assert "admin_last_name" not in cde_schools_sql
     assert "phone_number" not in cde_schools_sql
+
+
+def test_phase4_t2_scrypt_kdf_break_glass_decrypt_and_retention(monkeypatch, caplog) -> None:
+    import logging
+    import sys
+
+    import duckdb
+    import pytest
+
+    sys.path.insert(0, str(REPO_ROOT / "oss_framework" / "dbt" / "udfs"))
+    import pii_crypto
+    import pii_crypto_plugin
+
+    from oss_framework.scripts import config as oss_config
+
+    # 1. Weak / placeholder encryption keys rejected; scrypt round-trip + audit log
+    monkeypatch.setenv("PII_ENCRYPTION_KEY", "too_short_key")
+    with pytest.raises((ValueError, RuntimeError)):
+        pii_crypto.aes_encrypt_pii("Alice")
+
+    monkeypatch.setenv("PII_ENCRYPTION_KEY", "replace_with_your_secure_random_salt")
+    with pytest.raises((ValueError, RuntimeError)):
+        pii_crypto.aes_encrypt_pii("Alice")
+
+    monkeypatch.setenv(
+        "PII_ENCRYPTION_KEY",
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    )
+    token = pii_crypto.aes_encrypt_pii("Alice")
+    with caplog.at_level(logging.WARNING):
+        plain = pii_crypto.aes_decrypt_pii(token)
+    assert plain == "Alice"
+    assert any("PII_DECRYPT_AUDIT" in rec.message for rec in caplog.records)
+
+    # 2. Break-glass registration of aes_decrypt_pii
+    plugin = pii_crypto_plugin.Plugin(name="pii_crypto_plugin", plugin_config={})
+    con1 = duckdb.connect(":memory:")
+    monkeypatch.delenv("LFED_ENABLE_PII_DECRYPT", raising=False)
+    plugin.configure_connection(con1)
+    enc_val = con1.execute("SELECT aes_encrypt_pii('Bob')").fetchone()[0]
+    with pytest.raises(duckdb.Error):
+        con1.execute("SELECT aes_decrypt_pii(?)", [enc_val])
+    con1.close()
+
+    con2 = duckdb.connect(":memory:")
+    monkeypatch.setenv("LFED_ENABLE_PII_DECRYPT", "1")
+    plugin.configure_connection(con2)
+    assert con2.execute("SELECT aes_decrypt_pii(?)", [enc_val]).fetchone()[0] == "Bob"
+    con2.close()
+    monkeypatch.delenv("LFED_ENABLE_PII_DECRYPT", raising=False)
+
+    # 3. Config validation for PII_SALT and retention purge helper
+    monkeypatch.setenv("PII_SALT", "replace_with_your_secure_random_salt")
+    with pytest.raises(ValueError, match="PII_SALT"):
+        oss_config.validate_config(require_aeries=False)
+
+    monkeypatch.setenv("PII_SALT", "short")
+    with pytest.raises(ValueError, match="PII_SALT"):
+        oss_config.validate_config(require_aeries=False)
+
+    monkeypatch.setenv("PII_SALT", "test_32_byte_random_hmac_salt_value_2026")
+    assert oss_config.validate_config(require_aeries=False) is True
+
+    ret_con = duckdb.connect(":memory:")
+    ret_con.execute(
+        "CREATE TABLE main_students (student_id_hash VARCHAR, withdrawal_date DATE); "
+        "INSERT INTO main_students VALUES ('old_stu', DATE '2015-06-01'), ('active_stu', NULL), ('recent_stu', CURRENT_DATE - INTERVAL '1 year');"
+    )
+    purged = oss_config.purge_expired_records(ret_con, retention_years=5)
+    assert purged >= 1
+    remaining = [
+        r[0]
+        for r in ret_con.execute("SELECT student_id_hash FROM main_students ORDER BY 1").fetchall()
+    ]
+    assert remaining == ["active_stu", "recent_stu"]
+    ret_con.close()
+
+    # 4. SECURITY.md truthfulness check
+    sec_md = (REPO_ROOT / "SECURITY.md").read_text()
+    assert "PRIVACY_SALT" not in sec_md
+    for var_name in ("PII_SALT", "PII_ENCRYPTION_KEY", "DATA_RETENTION_YEARS"):
+        assert var_name in sec_md
