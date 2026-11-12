@@ -395,6 +395,38 @@ class TestStage1ToStage2Contract:
         finally:
             con.close()
 
+    def test_stage3_selectors_cover_all_model_folders(self):
+        """Every dbt model folder must be built by the pipeline.
+
+        Regression tripwire for the 2026-11-12 Stage-4 failure: models/exports/
+        was not covered by any Stage 2/3 selector, so blue/green builds carried
+        stale rill_* view bodies (referencing the previous catalog name) into
+        the export stage, which then failed to bind.
+        """
+        import inspect
+
+        from scripts.run_pipeline import PipelineOrchestrator
+
+        models_dir = Path(__file__).resolve().parents[1] / "dbt" / "models"
+        folders = {
+            p.name for p in models_dir.iterdir() if p.is_dir() and not p.name.startswith("_")
+        }
+
+        stage2_src = inspect.getsource(PipelineOrchestrator.stage2_refinement)
+        stage3_src = inspect.getsource(PipelineOrchestrator.stage3_analytics)
+
+        # staging models are selected by tag in Stage 2; the exports models by
+        # their rill_export tag in Stage 3; every other folder by bare selector.
+        selector_by_folder = {"exports": "tag:rill_export"}
+        for folder in sorted(folders):
+            if folder == "staging":
+                assert "tag:staging" in stage2_src, "Stage 2 must build the staging tag"
+                continue
+            selector = selector_by_folder.get(folder, folder)
+            assert (
+                selector in stage3_src
+            ), f"Stage 3 selectors do not cover models/{folder} (expected '{selector}')"
+
     def test_run_pipeline_returns_false_when_dbt_tests_fail_by_default(self, monkeypatch):
         from scripts.run_pipeline import PipelineOrchestrator
 

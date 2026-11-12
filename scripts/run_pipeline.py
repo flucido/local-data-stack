@@ -239,10 +239,16 @@ class PipelineOrchestrator:
                 workdir=self.dbt_project_dir,
             )
 
-        # Then features, scoring, and analytics
+        # Then features, scoring, analytics, and the Rill export views. The
+        # exports folder is part of the warehouse contract (Stage 4 reads
+        # main_analytics.rill_* views); leaving it out of Stage 3 means the
+        # blue/green copy carries stale view bodies from the previous build,
+        # which reference the previous catalog name and fail Stage 4 binding.
         if success:
             success = success and self.run_command(
-                self.dbt_command("run --select mart_features mart_scoring mart_analytics"),
+                self.dbt_command(
+                    "run --select mart_features mart_scoring mart_analytics tag:rill_export"
+                ),
                 "dbt analytics models",
                 workdir=self.dbt_project_dir,
             )
