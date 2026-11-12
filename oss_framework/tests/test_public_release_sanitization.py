@@ -672,10 +672,10 @@ def test_main_raw_views_plaintext_allowlist() -> None:
     """Audit the live warehouse: plaintext identifier columns may exist ONLY in
     the Stage-1 raw landing objects — the dlt base tables (``*stage1.raw_*``)
     and the ``main.raw_*`` sync views — and only within the exact allowlist
-    recorded in SECURITY.md ("Accepted Deviation: Plaintext Identifiers in
-    Stage-1 Raw Landing Objects"). Any new plaintext PII column that reaches
-    Stage 1 fails here until the deviation note and this gate are consciously
-    extended."""
+    recorded in SECURITY.md ("Accepted Deviation: Plaintext Source Identifiers
+    in the Landing Zone and Staging"). Any new plaintext PII column that
+    reaches Stage 1 fails here until the deviation note and this gate are
+    consciously extended."""
     import os
     import re
 
@@ -760,3 +760,69 @@ def test_main_raw_views_plaintext_allowlist() -> None:
                 )
 
     assert not violations, "Stage-1 plaintext allowlist violations: " + "; ".join(violations)
+
+
+def test_main_staging_lineage_keys_and_no_other_plaintext_pii() -> None:
+    """Staging may retain ONLY the spec-prescribed ``student_id_raw`` lineage
+    key; facts, marts, and privacy schemas carry HMAC hashes only. Fails when
+    a new plaintext identifier reaches ``main_staging`` or any downstream
+    schema (see SECURITY.md, "Accepted Deviation: Plaintext Source Identifiers
+    in the Landing Zone and Staging")."""
+    import os
+    import re
+
+    import duckdb
+    import pytest
+
+    db_path = os.getenv("DUCKDB_DATABASE_PATH", "./oss_framework/data/analytics.duckdb")
+    if not Path(db_path).exists():
+        pytest.skip("no local warehouse to audit")
+
+    # Same word-edge anchored pattern as the landing-zone audit above.
+    pii_pattern = re.compile(
+        r"(^|_)(first_name|last_name|middle_name|date_of_birth|birth_date|email|"
+        r"phone|address|street|city|zipcode|zip_code|zip|postal|ssn|state_student_id|"
+        r"parent|guardian|contact)(_[0-9]*|[0-9]*$)",
+        re.IGNORECASE,
+    )
+
+    con = duckdb.connect(db_path, read_only=True)
+    try:
+        staging_columns = con.execute(
+            """
+            SELECT table_name, column_name FROM information_schema.columns
+            WHERE table_schema = 'main_staging'
+            ORDER BY table_name, ordinal_position
+            """
+        ).fetchall()
+        downstream = con.execute(
+            """
+            SELECT table_schema || '.' || table_name || '.' || column_name
+            FROM information_schema.columns
+            WHERE column_name IN ('student_id', 'student_id_raw')
+              AND table_schema IN (
+                  'main_core', 'main_features', 'main_scoring',
+                  'main_analytics', 'main_privacy', 'main_privacy_sensitive'
+              )
+            """
+        ).fetchall()
+    finally:
+        con.close()
+
+    # School-level location columns from CDE public downloads describe the
+    # school building (published institutional metadata), not student PII.
+    school_level_public = {
+        ("stg_cde__schools", "street_address"),
+        ("stg_cde__schools", "city"),
+        ("stg_cde__schools", "zip_code"),
+    }
+
+    violations = [
+        f"{table}.{column}"
+        for table, column in staging_columns
+        if column != "student_id_raw"
+        and (table, column) not in school_level_public
+        and pii_pattern.search(column)
+    ]
+    assert not violations, f"main_staging plaintext PII beyond the lineage key: {violations}"
+    assert not downstream, f"hashed-only schemas carrying plaintext source IDs: {downstream}"
