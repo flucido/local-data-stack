@@ -63,7 +63,6 @@ year_end AS (
     FROM daily
     GROUP BY academic_year
 ),
-
 window_metrics AS (
     SELECT
         d.student_key,
@@ -116,6 +115,9 @@ trend AS (
 ),
 
 window_discipline AS (
+    -- Discipline windows inherit the ATTENDANCE year anchors, so discipline
+    -- incidents in academic years that have no attendance data are counted
+    -- as 0 here by construction (agg_discipline_windows covers those years).
     SELECT
         ds.student_key,
         ds.academic_year,

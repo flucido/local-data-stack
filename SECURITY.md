@@ -94,31 +94,35 @@ GROUP BY grade_level
 - **Stage 2**: Pseudonymized analytics views (analyst access)
 - **Stage 3**: Aggregated dashboards (educator access)
 
-#### Accepted Deviation: Plaintext Identifiers in `main.raw_*`
+#### Accepted Deviation: Plaintext Identifiers in Stage-1 Raw Landing Objects
 
 **Status**: Accepted by design (spec P4-T1), reviewed 2026-11-12.
 
 The final `analytics.duckdb` intentionally retains a small, explicitly
-allowlisted set of plaintext identifier columns in the `main.raw_*` Stage-1
-sync views (`main.raw_students`, `main.raw_attendance`,
-`main.raw_academic_records`, `main.raw_discipline`, `main.raw_enrollment`).
+allowlisted set of plaintext identifier columns in the Stage-1 raw landing
+objects: the dlt base tables (`aeries_stage1.raw_students`,
+`raw_attendance`, `raw_academic_records`, `raw_discipline`,
+`raw_enrollment`) and the `main.raw_*` sync views built over them
+(`SELECT *` by design, so the view set mirrors the base tables exactly).
 They are required to build the break-glass re-identification lookup
 (`main_privacy_sensitive.priv_pii_lookup_table`, AES-256-GCM ciphertexts).
 This is the one sanctioned deviation from "no plaintext PII anywhere in the
 final warehouse":
 
-- `main.raw_students`: `student_id`, `first_name`, `last_name`, `date_of_birth`
-- `main.raw_attendance`, `main.raw_academic_records`, `main.raw_discipline`,
-  `main.raw_enrollment`: `student_id` only
+- `raw_students`: `student_id`, `first_name`, `last_name`, `date_of_birth`
+- `raw_attendance`, `raw_academic_records`, `raw_discipline`,
+  `raw_enrollment`: `student_id` only
 
 Every other plaintext PII field (phones, addresses, StateStudentID,
 OldStudentID, …) is dropped at ingestion by the Stage-1 allowlist
 (`STUDENT_STAGE1_ALLOWLIST`), and `main_staging` plus all marts carry hashed
 IDs only. Every query client (desktop validator, NL→SQL engine) must enforce
-the schema/column allowlist; the barrier for `main.raw_*` is procedural by
-design, not absence of data. `oss_framework/tests/test_public_release_sanitization.py::test_main_raw_views_plaintext_allowlist`
-audits live warehouses against this exact allowlist so new plaintext columns
-fail the gate until it is consciously extended.
+the schema/column allowlist; the barrier for the raw landing objects is
+procedural by design, not absence of data.
+`oss_framework/tests/test_public_release_sanitization.py::test_main_raw_views_plaintext_allowlist`
+audits live warehouses (both the `*stage1.raw_*` base tables and the
+`main.raw_*` sync views) against this exact allowlist so new plaintext
+columns fail the gate until it is consciously extended.
 
 #### Right to Be Forgotten
 

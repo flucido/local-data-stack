@@ -668,11 +668,12 @@ def test_final_review_dbt_multiyear_hex_and_chronic_joins() -> None:
 
 
 def test_main_raw_views_plaintext_allowlist() -> None:
-    """Audit the live warehouse: main.raw_* may expose ONLY the allowlisted
-    plaintext identifier columns recorded in SECURITY.md ("Accepted
-    Deviation: Plaintext Identifiers in main.raw_*"). Any new plaintext PII
-    column that reaches Stage 1 fails here until the deviation note and this
-    gate are consciously extended."""
+    """Audit the live warehouse: plaintext identifier columns may exist ONLY in
+    the Stage-1 raw landing objects — the dlt base tables (``*stage1.raw_*``)
+    and the ``main.raw_*`` sync views — and only within the exact allowlist
+    recorded in SECURITY.md ("Accepted Deviation: Plaintext Identifiers in
+    main.raw_*"). Any new plaintext PII column that reaches Stage 1 fails here
+    until the deviation note and this gate are consciously extended."""
     import os
     import re
 
@@ -697,61 +698,62 @@ def test_main_raw_views_plaintext_allowlist() -> None:
     }
     _dlt_meta = re.compile(r"^_dlt")
     # Any column that looks like direct-identifier PII outside the sanctioned set fails.
+    # Word-boundary anchored so compound names (e.g. "ethnicity" containing
+    # "city") do not false-positive.
     pii_pattern = re.compile(
-        r"(first_name|last_name|middle_name|date_of_birth|birth_date|email|phone|"
-        r"address|street|city|zip|postal|ssn|state_student_id|parent|guardian|contact)",
+        r"\b(first_name|last_name|middle_name|date_of_birth|birth_date|email|"
+        r"phone|address|street|city|zipcode|zip_code|postal|ssn|state_student_id|"
+        r"parent|guardian|contact)(\b|_)",
         re.IGNORECASE,
     )
 
     con = duckdb.connect(db_path, read_only=True)
     try:
-        raw_tables = [
-            row[0]
-            for row in con.execute(
-                """
-                SELECT table_name
-                FROM information_schema.tables
-                WHERE table_schema = 'main' AND starts_with(table_name, 'raw_')
-                ORDER BY 1
-                """
-            ).fetchall()
-        ]
-        columns_by_table = {
-            table: [
+        raw_objects = con.execute(
+            """
+            SELECT table_schema, table_name
+            FROM information_schema.tables
+            WHERE starts_with(table_name, 'raw_')
+              AND (table_schema = 'main' OR table_schema LIKE '%stage1')
+            ORDER BY 1, 2
+            """
+        ).fetchall()
+        columns_by_object = {
+            (schema, table): [
                 row[0]
                 for row in con.execute(
                     """
                     SELECT column_name
                     FROM information_schema.columns
-                    WHERE table_schema = 'main' AND table_name = ?
+                    WHERE table_schema = ? AND table_name = ?
                     ORDER BY ordinal_position
                     """,
-                    [table],
+                    [schema, table],
                 ).fetchall()
             ]
-            for table in raw_tables
+            for schema, table in raw_objects
         }
     finally:
         con.close()
 
-    if not raw_tables:
-        pytest.skip("no main.raw_* objects in this warehouse")
+    if not raw_objects:
+        pytest.skip("no Stage-1 raw_* objects in this warehouse")
 
     violations: list[str] = []
-    for table, columns in columns_by_table.items():
+    for (schema, table), columns in columns_by_object.items():
         benign = {c for c in columns if not _dlt_meta.match(c)}
         if table == "raw_students":
             outside_allowlist = benign - set(STUDENT_STAGE1_ALLOWLIST)
             if outside_allowlist:
                 violations.append(
-                    f"{table}: columns outside STUDENT_STAGE1_ALLOWLIST: {sorted(outside_allowlist)}"
+                    f"{schema}.{table}: columns outside STUDENT_STAGE1_ALLOWLIST: {sorted(outside_allowlist)}"
                 )
 
         sanctioned = allowed_plaintext.get(table, set())
         for column in benign:
             if pii_pattern.search(column) and column not in sanctioned:
                 violations.append(
-                    f"{table}.{column}: plaintext PII column not in SECURITY.md allowlist"
+                    f"{schema}.{table}.{column}: plaintext PII column not in SECURITY.md allowlist"
                 )
 
-    assert not violations, "main.raw_* plaintext allowlist violations: " + "; ".join(violations)
+    assert not violations, "Stage-1 plaintext allowlist violations: " + "; ".join(violations)

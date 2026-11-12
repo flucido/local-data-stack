@@ -26,6 +26,7 @@ Value normalization (documented divergence from ``anonymize_aeries.py``):
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import hmac
 
@@ -40,12 +41,15 @@ _PLACEHOLDER_SALTS = {
 }
 
 
+@functools.lru_cache(maxsize=65536)
 def pii_hmac_sha256(value: str | None, salt: str) -> str:
     """Return the HMAC-SHA256 hex digest of ``value`` using ``salt`` as key.
 
     Raises ``ValueError`` when the salt is shorter than 16 characters or is a
     known placeholder, so a misconfigured deployment fails closed instead of
-    silently producing weakly-salted hashes.
+    silently producing weakly-salted hashes. Cached per (value, salt) — the
+    salt is constant within a build and identifier cardinality is small —
+    mirroring ``scripts/anonymize_aeries.py``.
     """
     if (
         len(salt) < 16
