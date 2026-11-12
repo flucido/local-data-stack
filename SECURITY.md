@@ -94,35 +94,48 @@ GROUP BY grade_level
 - **Stage 2**: Pseudonymized analytics views (analyst access)
 - **Stage 3**: Aggregated dashboards (educator access)
 
-#### Accepted Deviation: Plaintext Identifiers in Stage-1 Raw Landing Objects
+#### Accepted Deviation: Plaintext Source Identifiers in the Landing Zone and Staging
 
-**Status**: Accepted by design (spec P4-T1), reviewed 2026-11-12.
+**Status**: Accepted by design (spec P4-T1 and the fact-layer hashing spec),
+reviewed 2026-11-12.
 
-The final `analytics.duckdb` intentionally retains a small, explicitly
-allowlisted set of plaintext identifier columns in the Stage-1 raw landing
-objects: the dlt base tables (`aeries_stage1.raw_students`,
-`raw_attendance`, `raw_academic_records`, `raw_discipline`,
-`raw_enrollment`) and the `main.raw_*` sync views built over them
-(`SELECT *` by design, so the view set mirrors the base tables exactly).
-They are required to build the break-glass re-identification lookup
-(`main_privacy_sensitive.priv_pii_lookup_table`, AES-256-GCM ciphertexts).
-This is the one sanctioned deviation from "no plaintext PII anywhere in the
-final warehouse":
+The final `analytics.duckdb` intentionally retains plaintext SOURCE student
+IDs and a small, explicitly allowlisted set of identifier columns in exactly
+two layers:
 
-- `raw_students`: `student_id`, `first_name`, `last_name`, `date_of_birth`
-- `raw_attendance`, `raw_academic_records`, `raw_discipline`,
-  `raw_enrollment`: `student_id` only
+1. Stage-1 raw landing objects — the dlt base tables
+   (`aeries_stage1.raw_students`, `raw_attendance`, `raw_academic_records`,
+   `raw_discipline`, `raw_enrollment`), the `main.raw_*` sync views built
+   over them (`SELECT *` by design, so the view set mirrors the base tables
+   exactly), and dlt's transient `aeries_stage1_staging` load schema. These
+   are required to build the break-glass re-identification lookup
+   (`main_privacy_sensitive.priv_pii_lookup_table`, AES-256-GCM ciphertexts):
+
+   - `raw_students`: `student_id`, `first_name`, `last_name`, `date_of_birth`
+   - `raw_attendance`, `raw_academic_records`, `raw_discipline`,
+     `raw_enrollment`: `student_id` only
+
+2. `main_staging` — the `stg_aeries__*` models retain `student_id_raw` as
+   the prescribed lineage/join key (facts derive hashed surrogate keys from
+   it via `hash_pii_secure`, per the fact-layer hashing spec); staging holds
+   no names, birth dates, or student contact data. `stg_cde__schools`
+   additionally carries the school building's own public address columns
+   (`street_address`, `city`, `zip_code`) from CDE public downloads —
+   institutional metadata, not student PII.
 
 Every other plaintext PII field (phones, addresses, StateStudentID,
 OldStudentID, …) is dropped at ingestion by the Stage-1 allowlist
-(`STUDENT_STAGE1_ALLOWLIST`), and `main_staging` plus all marts carry hashed
-IDs only. Every query client (desktop validator, NL→SQL engine) must enforce
-the schema/column allowlist; the barrier for the raw landing objects is
-procedural by design, not absence of data.
-`oss_framework/tests/test_public_release_sanitization.py::test_main_raw_views_plaintext_allowlist`
-audits live warehouses (both the `*stage1.raw_*` base tables and the
-`main.raw_*` sync views) against this exact allowlist so new plaintext
-columns fail the gate until it is consciously extended.
+(`STUDENT_STAGE1_ALLOWLIST`). All facts, marts, and
+`main_privacy.priv_student_hashes` carry HMAC-SHA256 hashes only — verified
+on the 2026-11-12 rebuild (no `student_id`/`student_id_raw` column exists
+outside the two layers above). Every query client (desktop validator,
+NL→SQL engine) must enforce the schema/column allowlist AND reject staging
+or raw tokens (`student_id_raw`, `\w+_raw`, staging model names) per the
+spec's query guard; the barrier is procedural by design, not absence of
+data. `oss_framework/tests/test_public_release_sanitization.py` audits live
+warehouses (`*stage1.raw_*` base tables, `main.raw_*` sync views, and the
+`main_staging` lineage-key boundary) against this exact allowlist so new
+plaintext columns fail the gate until it is consciously extended.
 
 #### Right to Be Forgotten
 
