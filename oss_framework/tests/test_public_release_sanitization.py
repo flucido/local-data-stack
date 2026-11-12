@@ -672,8 +672,9 @@ def test_main_raw_views_plaintext_allowlist() -> None:
     the Stage-1 raw landing objects — the dlt base tables (``*stage1.raw_*``)
     and the ``main.raw_*`` sync views — and only within the exact allowlist
     recorded in SECURITY.md ("Accepted Deviation: Plaintext Identifiers in
-    main.raw_*"). Any new plaintext PII column that reaches Stage 1 fails here
-    until the deviation note and this gate are consciously extended."""
+    Stage-1 Raw Landing Objects"). Any new plaintext PII column that reaches
+    Stage 1 fails here until the deviation note and this gate are consciously
+    extended."""
     import os
     import re
 
@@ -698,12 +699,13 @@ def test_main_raw_views_plaintext_allowlist() -> None:
     }
     _dlt_meta = re.compile(r"^_dlt")
     # Any column that looks like direct-identifier PII outside the sanctioned set fails.
-    # Word-boundary anchored so compound names (e.g. "ethnicity" containing
-    # "city") do not false-positive.
+    # Anchored on string/underscore edges so compound names (e.g. "ethnicity"
+    # containing "city") do not false-positive while suffix forms
+    # ("home_address", "cell_phone") still match.
     pii_pattern = re.compile(
-        r"\b(first_name|last_name|middle_name|date_of_birth|birth_date|email|"
-        r"phone|address|street|city|zipcode|zip_code|postal|ssn|state_student_id|"
-        r"parent|guardian|contact)(\b|_)",
+        r"(^|_)(first_name|last_name|middle_name|date_of_birth|birth_date|email|"
+        r"phone|address|street|city|zipcode|zip_code|zip|postal|ssn|state_student_id|"
+        r"parent|guardian|contact)(_[0-9]*|[0-9]*$)",
         re.IGNORECASE,
     )
 
