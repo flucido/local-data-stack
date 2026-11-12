@@ -228,6 +228,83 @@ class TestIcebergMerge:
         assert df2["student_id"].is_unique
 
 
+class TestDuckDbDestinationFullReload:
+    """Orchestrated Stage 1 contract: duckdb destination + refresh="drop_sources".
+
+    On the plain filesystem destination dlt degrades merge to append and the
+    landing dir accumulates one file-set per load; sync_stage1_raw_views_to_duckdb
+    materializes every accumulated file, so a rebuild over an existing warehouse
+    multiplied each row by the number of historical loads (17x observed on
+    2026-11-12). The orchestrated path must reload deterministically instead.
+    """
+
+    def test_reload_with_refresh_is_idempotent(self, tmp_path, monkeypatch):
+        import duckdb
+        from aeries_dlt_pipeline import run_aeries_pipeline
+
+        class _StubClient:
+            @staticmethod
+            def get_students():
+                return [
+                    {
+                        "student_id": f"S{i:03d}",
+                        "first_name": "First",
+                        "last_name": "Last",
+                        "date_of_birth": "2015-01-01",
+                        "grade_level": 3,
+                        "school_id": "101",
+                    }
+                    for i in range(1, 8)
+                ]
+
+            @staticmethod
+            def get_attendance():
+                return []
+
+            @staticmethod
+            def get_grades():
+                return []
+
+            @staticmethod
+            def get_discipline():
+                return []
+
+            @staticmethod
+            def get_enrollment():
+                return [
+                    {
+                        "student_id": f"S{i:03d}",
+                        "school_id": "101",
+                        "school_year": "2024-2025",
+                        "enrollment_id": f"E{i:03d}",
+                        "enrollment_status": "ACTIVE",
+                    }
+                    for i in range(1, 8)
+                ]
+
+        monkeypatch.setattr("aeries_dlt_pipeline.get_sis_connector", lambda **kwargs: _StubClient())
+        monkeypatch.setenv("DUCKDB_DATABASE_PATH", str(tmp_path / "analytics.duckdb"))
+        monkeypatch.setenv("DLT_PIPELINES_DIR", str(tmp_path / "pipelines"))
+
+        for _attempt in (1, 2):
+            info = run_aeries_pipeline(
+                destination_type="duckdb", test_mode=True, refresh="drop_sources"
+            )
+            assert not info.has_failed_jobs
+
+        con = duckdb.connect(str(tmp_path / "analytics.duckdb"), read_only=True)
+        try:
+            rows, distinct, loads = con.execute(
+                """
+                SELECT count(*), count(DISTINCT student_id), count(DISTINCT _dlt_load_id)
+                FROM main.raw_students
+                """
+            ).fetchone()
+        finally:
+            con.close()
+        assert (rows, distinct, loads) == (7, 7, 1)
+
+
 class TestExcelImportsPipeline:
     """Tests for Excel imports dlt pipeline"""
 
