@@ -47,8 +47,8 @@ Please provide as much detail as possible:
 
 **local-data-stack implements pseudonymization by default:**
 
-- **PII Hashing**: Student names, IDs, emails are SHA-256 hashed
-- **Salted Hashing**: Uses environment-specific salt (stored in `.env`)
+- **PII Hashing**: Student names, IDs, emails are HMAC-SHA256 hashed (secret salt as the HMAC key)
+- **Salted HMAC**: Uses the environment-specific `PII_SALT` (stored in `.env`, >= 16 random characters); digests never reveal the salt
 - **Hashed IDs Everywhere**: All analytics use hashed IDs, not raw PII
 
 **Implementation**:
@@ -57,7 +57,8 @@ Please provide as much detail as possible:
 import hashlib
 import os
 
-# dbt macros (hash_pii_secure) hash identifiers with PII_SALT
+# dbt macros (hash_pii_secure) hash identifiers with HMAC-SHA256 keyed by PII_SALT
+# (udfs/pii_hash.py via pii_hash_plugin — matches scripts/anonymize_aeries.py)
 # Re-identification lookup encrypts fields with AES-256-GCM + scrypt KDF via PII_ENCRYPTION_KEY
 salt = os.environ["PII_SALT"]  # >= 16 random characters
 key = os.environ["PII_ENCRYPTION_KEY"]  # >= 32 random characters
@@ -92,6 +93,32 @@ GROUP BY grade_level
 - **Stage 1**: Raw data with full PII (restricted access)
 - **Stage 2**: Pseudonymized analytics views (analyst access)
 - **Stage 3**: Aggregated dashboards (educator access)
+
+#### Accepted Deviation: Plaintext Identifiers in `main.raw_*`
+
+**Status**: Accepted by design (spec P4-T1), reviewed 2026-11-12.
+
+The final `analytics.duckdb` intentionally retains a small, explicitly
+allowlisted set of plaintext identifier columns in the `main.raw_*` Stage-1
+sync views (`main.raw_students`, `main.raw_attendance`,
+`main.raw_academic_records`, `main.raw_discipline`, `main.raw_enrollment`).
+They are required to build the break-glass re-identification lookup
+(`main_privacy_sensitive.priv_pii_lookup_table`, AES-256-GCM ciphertexts).
+This is the one sanctioned deviation from "no plaintext PII anywhere in the
+final warehouse":
+
+- `main.raw_students`: `student_id`, `first_name`, `last_name`, `date_of_birth`
+- `main.raw_attendance`, `main.raw_academic_records`, `main.raw_discipline`,
+  `main.raw_enrollment`: `student_id` only
+
+Every other plaintext PII field (phones, addresses, StateStudentID,
+OldStudentID, …) is dropped at ingestion by the Stage-1 allowlist
+(`STUDENT_STAGE1_ALLOWLIST`), and `main_staging` plus all marts carry hashed
+IDs only. Every query client (desktop validator, NL→SQL engine) must enforce
+the schema/column allowlist; the barrier for `main.raw_*` is procedural by
+design, not absence of data. `oss_framework/tests/test_public_release_sanitization.py::test_main_raw_views_plaintext_allowlist`
+audits live warehouses against this exact allowlist so new plaintext columns
+fail the gate until it is consciously extended.
 
 #### Right to Be Forgotten
 

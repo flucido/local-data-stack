@@ -29,6 +29,7 @@ duckdb_oss:
         - oss_framework/dbt/udfs
       plugins:
         - module: pii_crypto_plugin
+        - module: pii_hash_plugin
 
     prod:
       type: 'duckdb'
@@ -54,3 +55,4 @@ duckdb_oss:
         - oss_framework/dbt/udfs
       plugins:
         - module: pii_crypto_plugin
+        - module: pii_hash_plugin

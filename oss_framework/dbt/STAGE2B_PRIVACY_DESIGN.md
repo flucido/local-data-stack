@@ -31,8 +31,9 @@ section reflects what is shipped:
    - AES-256-GCM authenticated encryption; wire format
      `base64(nonce[12] || ciphertext || tag[16])`
    - Master secret via `PII_ENCRYPTION_KEY` env var, stretched to 256 bits
-     with SHA-256; the UDF **fails fast** when the key is missing, so a
-     misconfigured environment can never write plaintext PII
+     with `hashlib.scrypt` (N=16384, r=8, p=1, dklen=32); the UDF **fails
+     fast** when the key is missing, so a misconfigured environment can never
+     write plaintext PII
    - UDFs registered through the dbt-duckdb plugin API
      (`udfs/pii_crypto_plugin.py`, wired via `module_paths` + `plugins` in
      `profiles.yml`; dbt-duckdb 1.10 has no `udfs:` profile key)
@@ -84,19 +85,32 @@ mart_core (Analytics)
 
 ```sql
 {%- macro hash_pii_secure(column_name, salt=var('salt_pii')) -%}
-    -- SHA256 implementation for DuckDB (native function)
-    -- More secure than MD5, follows FERPA best practices
-    --
-    -- ⚠️ NOTE: DuckDB uses native sha256() function, NOT PostgreSQL's ENCODE()
+    -- HMAC-SHA256 (RFC 2104) with the secret salt as the HMAC key.
+    -- Implemented via the pii_hmac_sha256 UDF (udfs/pii_hash.py, registered
+    -- by pii_hash_plugin) so dbt matches scripts/anonymize_aeries.py.
+    -- NULLs hash as the empty string (constant digest) to preserve the
+    -- record-linkage semantics of the earlier salted-SHA-256 macro.
     -- Output: 64-character hexadecimal string
-    sha256(CONCAT('{{ salt }}', {{ column_name }}))
+    pii_hmac_sha256(COALESCE({{ column_name }}::VARCHAR, ''), '{{ salt }}')
 {%- endmacro -%}
 ```
 
-**Implementation Note**: Earlier versions of this design document used PostgreSQL-style `ENCODE(SHA256(...), 'hex')` syntax, which is incorrect for DuckDB. DuckDB has a native `sha256()` function that directly returns a hex string.
+**Implementation Note**: DuckDB has no built-in `hmac()` scalar, so the hash
+is computed by the `pii_hmac_sha256` Python UDF, registered through the
+dbt-duckdb plugin API (`udfs/pii_hash_plugin.py`, wired via `module_paths` +
+`plugins` in `profiles.yml`). The UDF fails closed when the salt is shorter
+than 16 characters or a known placeholder.
+
+**Normalization & interoperability** (documented divergence from
+`scripts/anonymize_aeries.py`, which strips values and maps blank values to
+`""` before hashing): the dbt macro hashes `COALESCE(col, '')` verbatim —
+NULL becomes a constant digest and whitespace is significant. To reproduce
+`anonymize_aeries.py` digests inside dbt, feed it the same pre-stripped
+identifiers and set `LFED_STUDENT_SALT`/`LFED_STAFF_SALT` to the same
+`PII_SALT` value.
 
 **Security Improvement:**
-- MD5 → HMAC-SHA256
+- MD5 → HMAC-SHA256 (secret salt as HMAC key; the digest never reveals the salt)
 - FIPS 140-2 compliant
 - Aligns with SmarterApp Consortium guidelines
 

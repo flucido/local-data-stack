@@ -9,13 +9,12 @@
 -- windows, which meant attendance_rate_30d == attendance_rate_90d for every
 -- student.  Now we query raw daily attendance so each window reflects actual
 -- attendance over that time span.
+--
+-- Windows are anchored on the last school day of EACH academic year (not a
+-- single global MAX(date)), so historical years get non-empty 30d/90d/term
+-- windows instead of silently reporting 0% attendance / 100% no discipline.
 
-WITH latest AS (
-    SELECT MAX(CAST(attendance_date AS DATE)) AS latest_date
-    FROM {{ source('raw', 'raw_attendance') }}
-),
-
-window_defs AS (
+WITH window_defs AS (
               SELECT '30d'   AS window_type,  30 AS window_days
     UNION ALL SELECT '60d',   60
     UNION ALL SELECT '90d',   90
@@ -55,6 +54,16 @@ discipline_by_student AS (
     GROUP BY fd.student_id_hash, fd.academic_year, fd.incident_date
 ),
 
+-- Anchor each academic year on its own last school day so historical years
+-- keep meaningful rolling windows.
+year_end AS (
+    SELECT
+        academic_year,
+        MAX(attendance_date) AS latest_date
+    FROM daily
+    GROUP BY academic_year
+),
+
 window_metrics AS (
     SELECT
         d.student_key,
@@ -83,8 +92,9 @@ window_metrics AS (
         )                                                          AS tardy_rate
     FROM daily d
     CROSS JOIN window_defs wd
-    JOIN latest l
-        ON d.attendance_date >= l.latest_date - wd.window_days
+    JOIN year_end l
+        ON  d.academic_year = l.academic_year
+        AND d.attendance_date >= l.latest_date - wd.window_days
     GROUP BY d.student_key, d.academic_year, wd.window_type
 ),
 
@@ -113,8 +123,9 @@ window_discipline AS (
         SUM(ds.incident_cnt) AS discipline_incidents
     FROM discipline_by_student ds
     CROSS JOIN window_defs wd
-    JOIN latest l
-        ON ds.incident_date >= l.latest_date - wd.window_days
+    JOIN year_end l
+        ON  ds.academic_year = l.academic_year
+        AND ds.incident_date >= l.latest_date - wd.window_days
     GROUP BY ds.student_key, ds.academic_year, wd.window_type
 )
 
@@ -160,7 +171,8 @@ SELECT
     CURRENT_TIMESTAMP AS _loaded_at
 
 FROM window_metrics wm
-CROSS JOIN latest l
+JOIN year_end l
+    ON wm.academic_year = l.academic_year
 JOIN window_defs wd ON wm.window_type = wd.window_type
 LEFT JOIN trend t
     ON  wm.student_key   = t.student_key

@@ -64,3 +64,19 @@ models:
           arguments:
             column_name: student_count
             min_k: 5
+
+  - name: math_8_enrollment_by_year
+    description: "7th grade Math 8 enrollment by year and demographic cohort with k >= 5 suppression."
+    data_tests:
+      - test_k_anonymity:
+          arguments:
+            column_name: student_count
+            min_k: 5
+
+  - name: lead_enrollment_by_year
+    description: "LEAD program enrollment by year and demographic cohort with k >= 5 suppression."
+    data_tests:
+      - test_k_anonymity:
+          arguments:
+            column_name: student_count
+            min_k: 5

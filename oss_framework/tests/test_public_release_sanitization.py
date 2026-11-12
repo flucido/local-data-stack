@@ -665,3 +665,93 @@ def test_final_review_dbt_multiyear_hex_and_chronic_joins() -> None:
     dim_stu = (REPO_ROOT / "oss_framework/dbt/models/mart_core/core/dim_students.sql").read_text()
     assert "sed_status" in dim_stu
     assert "sped_status" in dim_stu
+
+
+def test_main_raw_views_plaintext_allowlist() -> None:
+    """Audit the live warehouse: main.raw_* may expose ONLY the allowlisted
+    plaintext identifier columns recorded in SECURITY.md ("Accepted
+    Deviation: Plaintext Identifiers in main.raw_*"). Any new plaintext PII
+    column that reaches Stage 1 fails here until the deviation note and this
+    gate are consciously extended."""
+    import os
+    import re
+
+    import duckdb
+    import pytest
+
+    from oss_framework.connectors.mappings.aeries_to_canonical import (
+        STUDENT_STAGE1_ALLOWLIST,
+    )
+
+    db_path = os.getenv("DUCKDB_DATABASE_PATH", "./oss_framework/data/analytics.duckdb")
+    if not Path(db_path).exists():
+        pytest.skip("no local warehouse to audit")
+
+    # Plaintext identifier columns sanctioned by the SECURITY.md deviation note.
+    allowed_plaintext: dict[str, set[str]] = {
+        "raw_students": {"student_id", "first_name", "last_name", "date_of_birth"},
+        "raw_attendance": {"student_id"},
+        "raw_academic_records": {"student_id"},
+        "raw_discipline": {"student_id"},
+        "raw_enrollment": {"student_id"},
+    }
+    _dlt_meta = re.compile(r"^_dlt")
+    # Any column that looks like direct-identifier PII outside the sanctioned set fails.
+    pii_pattern = re.compile(
+        r"(first_name|last_name|middle_name|date_of_birth|birth_date|email|phone|"
+        r"address|street|city|zip|postal|ssn|state_student_id|parent|guardian|contact)",
+        re.IGNORECASE,
+    )
+
+    con = duckdb.connect(db_path, read_only=True)
+    try:
+        raw_tables = [
+            row[0]
+            for row in con.execute(
+                """
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema = 'main' AND starts_with(table_name, 'raw_')
+                ORDER BY 1
+                """
+            ).fetchall()
+        ]
+        columns_by_table = {
+            table: [
+                row[0]
+                for row in con.execute(
+                    """
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_schema = 'main' AND table_name = ?
+                    ORDER BY ordinal_position
+                    """,
+                    [table],
+                ).fetchall()
+            ]
+            for table in raw_tables
+        }
+    finally:
+        con.close()
+
+    if not raw_tables:
+        pytest.skip("no main.raw_* objects in this warehouse")
+
+    violations: list[str] = []
+    for table, columns in columns_by_table.items():
+        benign = {c for c in columns if not _dlt_meta.match(c)}
+        if table == "raw_students":
+            outside_allowlist = benign - set(STUDENT_STAGE1_ALLOWLIST)
+            if outside_allowlist:
+                violations.append(
+                    f"{table}: columns outside STUDENT_STAGE1_ALLOWLIST: {sorted(outside_allowlist)}"
+                )
+
+        sanctioned = allowed_plaintext.get(table, set())
+        for column in benign:
+            if pii_pattern.search(column) and column not in sanctioned:
+                violations.append(
+                    f"{table}.{column}: plaintext PII column not in SECURITY.md allowlist"
+                )
+
+    assert not violations, "main.raw_* plaintext allowlist violations: " + "; ".join(violations)

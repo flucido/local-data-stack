@@ -12,9 +12,14 @@ WITH discipline_base AS (
     FROM {{ ref('fact_discipline') }}
 ),
 
-latest AS (
-    SELECT MAX(DATE(incident_date)) AS max_incident_date
+-- Anchor each academic year on its own last incident date so historical
+-- years get meaningful windows instead of anchoring on a single global max.
+year_end AS (
+    SELECT
+        academic_year,
+        MAX(DATE(incident_date)) AS max_incident_date
     FROM discipline_base
+    GROUP BY academic_year
 ),
 
 -- 30-day window
@@ -27,7 +32,8 @@ window_30d AS (
         COUNT(*) AS incident_count,
         COUNT(*) AS incident_frequency_rate
     FROM discipline_base db
-    CROSS JOIN latest l
+    JOIN year_end l
+        ON db.academic_year = l.academic_year
     WHERE db.incident_date >= l.max_incident_date - 30
         AND db.incident_date <= l.max_incident_date
     GROUP BY db.student_key, db.academic_year, l.max_incident_date
@@ -43,7 +49,8 @@ window_90d AS (
         COUNT(*) AS incident_count,
         COUNT(*) AS incident_frequency_rate
     FROM discipline_base db
-    CROSS JOIN latest l
+    JOIN year_end l
+        ON db.academic_year = l.academic_year
     WHERE db.incident_date >= l.max_incident_date - 90
         AND db.incident_date <= l.max_incident_date
     GROUP BY db.student_key, db.academic_year, l.max_incident_date
@@ -59,7 +66,8 @@ window_term AS (
         COUNT(*) AS incident_count,
         COUNT(*) AS incident_frequency_rate
     FROM discipline_base db
-    CROSS JOIN latest l
+    JOIN year_end l
+        ON db.academic_year = l.academic_year
     WHERE db.incident_date >= DATE_TRUNC('quarter', l.max_incident_date)
         AND db.incident_date <= l.max_incident_date
     GROUP BY db.student_key, db.academic_year, l.max_incident_date
