@@ -156,8 +156,15 @@ class PipelineOrchestrator:
         success = True
 
         if aeries_pipeline.exists():
+            # Orchestrated rebuilds must be idempotent: on the filesystem
+            # destination dlt's write_disposition="merge" degrades to append for
+            # plain Parquet, the landing dir accumulates one file-set per load,
+            # and the sync materializes ALL of them (observed: a 17x-duplicated
+            # rebuild). The duckdb destination merges on primary keys and
+            # refresh="drop_sources" makes Stage 1 a deterministic full reload.
             success = success and self.run_command(
-                f"{self.python_executable} {aeries_pipeline}", "Aeries API ingestion (dlt)"
+                f"{self.python_executable} {aeries_pipeline} duckdb --refresh",
+                "Aeries API ingestion (dlt)",
             )
         else:
             self.log(f"Skipping: {aeries_pipeline} not found", "WARNING")

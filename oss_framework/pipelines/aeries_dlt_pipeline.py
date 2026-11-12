@@ -115,6 +115,34 @@ def sync_stage1_raw_views_to_duckdb(
     return synced
 
 
+def _drop_derived_raw_views(db_path: str | Path) -> list[str]:
+    """Drop the derived main.raw_* views (sync recreates them at end of run).
+
+    DuckDB refuses to drop a base table that has dependent views, so dlt's
+    refresh="drop_sources" on the aeries_stage1 landing tables requires the
+    main.raw_* views to be dropped first. Views only — legacy main.raw_* base
+    tables are handled by sync_stage1_raw_views_to_duckdb itself.
+    """
+    con = duckdb.connect(str(db_path))
+    try:
+        views = [
+            row[0]
+            for row in con.execute(
+                """
+                SELECT table_name FROM information_schema.tables
+                WHERE table_schema = 'main' AND table_type = 'VIEW'
+                  AND starts_with(table_name, 'raw_')
+                """
+            ).fetchall()
+        ]
+        for view in views:
+            quoted = '"' + view.replace('"', '""') + '"'
+            con.execute(f"DROP VIEW main.{quoted}")
+        return views
+    finally:
+        con.close()
+
+
 # dlt source definition
 @dlt.source(name="aeries")
 def aeries_source(
@@ -205,6 +233,7 @@ def run_aeries_pipeline(
     dataset_name: str = "aeries_stage1",
     test_mode: bool | None = None,
     table_format: str | None = None,
+    refresh: str | None = None,
 ) -> LoadInfo:
     """
     Run the Aeries dlt pipeline
@@ -217,6 +246,13 @@ def run_aeries_pipeline(
             primary-key merge (upsert) loads; default (None) writes immutable
             date-partitioned Parquet with append semantics. Also settable via
             the STAGE1_TABLE_FORMAT env var.
+        refresh: Optional dlt refresh mode passed to pipeline.run (e.g.
+            "drop_sources" for a deterministic full reload). Orchestrated full
+            rebuilds should use destination_type="duckdb" + refresh: on the
+            plain filesystem destination dlt degrades merge to append and the
+            landing directory accumulates one file-set per load, which the
+            sync step materializes wholesale — every rebuild would multiply
+            the warehouse by the number of historical loads.
     """
 
     api_key = os.getenv("AERIES_API_KEY")
@@ -258,6 +294,12 @@ def run_aeries_pipeline(
     else:
         db_path = os.getenv("DUCKDB_DATABASE_PATH", "./oss_framework/data/analytics.duckdb")
 
+        if refresh == "drop_sources":
+            # The sync step derives main.raw_* views over the aeries_stage1
+            # tables; DuckDB blocks dropping a table with dependent views, so
+            # the derived views must go before dlt drops the landing tables.
+            _drop_derived_raw_views(db_path)
+
         pipeline = dlt.pipeline(
             pipeline_name="aeries_to_duckdb",
             destination=dlt.destinations.duckdb(credentials=db_path),
@@ -271,7 +313,7 @@ def run_aeries_pipeline(
         # Iceberg tables enable true primary-key merge (upsert) loads
         for resource in source.resources.values():
             resource.apply_hints(table_format="iceberg")
-    info = pipeline.run(source, loader_file_format=loader_file_format)
+    info = pipeline.run(source, loader_file_format=loader_file_format, refresh=refresh)
 
     target_db = os.getenv("DUCKDB_DATABASE_PATH", "./oss_framework/data/analytics.duckdb")
     stage1_root = os.getenv("STAGE1_PATH", "./oss_framework/data/stage1")
@@ -297,4 +339,8 @@ if __name__ == "__main__":
     destination = sys.argv[1] if len(sys.argv) > 1 else "filesystem"
     test_mode = "--test" in sys.argv or "--test-mode" in sys.argv
 
-    run_aeries_pipeline(destination_type=destination, test_mode=test_mode)
+    run_aeries_pipeline(
+        destination_type=destination,
+        test_mode=test_mode,
+        refresh="drop_sources" if "--refresh" in sys.argv else None,
+    )
