@@ -19,7 +19,9 @@ math_8_7th_graders AS (
         d.is_multi_racial,
         'Math 8' as pathway_7th_grade
     FROM {{ ref('fact_academic_records') }} ar
-    JOIN {{ ref('dim_students') }} d ON ar.student_id_hash = d.student_id_hash
+    JOIN {{ ref('dim_students') }} d
+        ON ar.student_id_hash = d.student_id_hash
+        AND ar.school_year = d.academic_year
     WHERE ar.course_id = '325'
       AND d.grade_level = 7
 ),
@@ -34,7 +36,9 @@ apex_math_8_7th_graders AS (
         d.is_multi_racial,
         'Apex Math 8' as pathway_7th_grade
     FROM {{ ref('fact_academic_records') }} ar
-    JOIN {{ ref('dim_students') }} d ON ar.student_id_hash = d.student_id_hash
+    JOIN {{ ref('dim_students') }} d
+        ON ar.student_id_hash = d.student_id_hash
+        AND ar.school_year = d.academic_year
     WHERE ar.course_id = '329'
       AND d.grade_level = 7
 ),
@@ -108,10 +112,11 @@ SELECT
     algebra_1_gpa,
     algebra_1_passing,
     algebra_1_term,
-    COUNT(*) as student_count,
+    COUNT(DISTINCT student_id_hash) as student_count,
     CURRENT_TIMESTAMP as _loaded_at
 FROM cohort_tracking
 GROUP BY
     year_7th_grade, pathway_7th_grade, primary_race, gender, is_multi_racial,
     took_algebra_1_in_8th, algebra_1_grade, algebra_1_gpa, algebra_1_passing, algebra_1_term
+HAVING COUNT(DISTINCT student_id_hash) >= 5
 ORDER BY year_7th_grade, pathway_7th_grade, primary_race, gender

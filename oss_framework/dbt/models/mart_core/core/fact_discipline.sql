@@ -18,9 +18,9 @@ SELECT
 
     -- Incident tracking
     sd.incident_date,
-    sd.short_description as incident_type,
+    COALESCE(sd.incident_type, sd.short_description) as incident_type,
     sd.severity_category as severity,
-    sd.disposition_code as resolution,
+    COALESCE(sd.resolution, sd.disposition_code) as resolution,
 
     -- Consequence
     sd.suspension_days,

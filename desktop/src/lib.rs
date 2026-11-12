@@ -61,7 +61,8 @@ mod tests {
             ),
             Err(err) => assert!(
                 err.message.to_lowercase().contains("permission")
-                    || err.message.to_lowercase().contains("external access"),
+                    || err.message.to_lowercase().contains("external access")
+                    || err.message.to_lowercase().contains("disabled by configuration"),
                 "expected a permission failure from the DuckDB sandbox, got: {} ({})",
                 err.error_type,
                 err.message
@@ -69,6 +70,267 @@ mod tests {
         }
 
         let _ = std::fs::remove_file(&secret);
+        let _ = std::fs::remove_file(&bronze_path);
+    }
+
+    #[test]
+    fn test_sql_execution_time_schema_and_column_allowlists() {
+        use super::medallion::validate_read_only_sql;
+
+        let blocked_queries = [
+            "SELECT * FROM edu_wh.main_privacy_sensitive.priv_pii_lookup_table",
+            "SELECT * FROM \"edu_wh\".main.raw_students",
+            "SELECT * FROM edu_wh . aeries_stage1 . raw_students",
+            "SELECT * FROM \"main_features\".\"analytics_for_hex\"",
+            "SELECT * FROM raw_students",
+            "SELECT \"s\".* FROM main_core.dim_students \"s\"",
+            "SELECT s FROM main_core.dim_students s",
+            "SELECT * FROM main_privacy_sensitive.priv_pii_lookup_table",
+            "SELECT * FROM main_staging.stg_aeries__students",
+            "SELECT * FROM stg_aeries__students",
+            "SELECT student_id_raw FROM main_core.dim_students",
+            "SELECT first_name, last_name FROM main_core.dim_students",
+            "SELECT date_of_birth FROM main_core.dim_students",
+            "SELECT ALL * FROM main_core.dim_students",
+            "SELECT COLUMNS(*) FROM main_core.dim_students",
+            "SELECT * FROM _dlt_loads",
+        ];
+        for q in blocked_queries {
+            assert!(
+                validate_read_only_sql(q).is_err(),
+                "Expected validate_read_only_sql to reject: {q}"
+            );
+        }
+
+        assert!(validate_read_only_sql(
+            "SELECT student_id_hash, grade_level FROM main_core.dim_students"
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn test_education_warehouse_snapshot_releases_lock_on_source_db() {
+        let bronze_path = temp_bronze_db();
+        let src_edu = std::env::temp_dir().join(format!(
+            "edu_lock_test_{}.duckdb",
+            Uuid::new_v4().simple()
+        ));
+        let py = repo_root().join(".venv").join("bin").join("python");
+        if py.exists() {
+            let init_status = std::process::Command::new(&py)
+                .args([
+                    "-c",
+                    &format!(
+                        "import duckdb; c = duckdb.connect(r'{}'); c.execute(\"CREATE SCHEMA main_analytics; CREATE TABLE main_analytics.custom_cohort (cohort_name VARCHAR, student_count BIGINT); INSERT INTO main_analytics.custom_cohort VALUES ('Cohort A', 12); CREATE TABLE main_analytics.school_summary (academic_year VARCHAR, school_id VARCHAR, school_name VARCHAR, total_students BIGINT, student_count BIGINT, avg_gpa DOUBLE, avg_attendance_rate DOUBLE); INSERT INTO main_analytics.school_summary VALUES ('2024-2025', '1', 'Real Warehouse High', 512, 512, 3.21, 94.5);\"); c.close()",
+                        src_edu.display()
+                    ),
+                ])
+                .status()
+                .unwrap();
+            assert!(init_status.success());
+        } else {
+            let c = duckdb::Connection::open(&src_edu).unwrap();
+            c.execute_batch(
+                "CREATE SCHEMA main_analytics; CREATE TABLE main_analytics.custom_cohort (cohort_name VARCHAR, student_count BIGINT); INSERT INTO main_analytics.custom_cohort VALUES ('Cohort A', 12); CREATE TABLE main_analytics.school_summary (academic_year VARCHAR, school_id VARCHAR, school_name VARCHAR, total_students BIGINT, student_count BIGINT, avg_gpa DOUBLE, avg_attendance_rate DOUBLE); INSERT INTO main_analytics.school_summary VALUES ('2024-2025', '1', 'Real Warehouse High', 512, 512, 3.21, 94.5);",
+            )
+            .unwrap();
+        }
+
+        let engine = MedallionEngine::new(&bronze_path, Some(&src_edu)).unwrap();
+
+        // Cross-process RW open + write on src_edu must succeed without DuckDB fcntl lock contention
+        if py.exists() {
+            let status = std::process::Command::new(&py)
+                .args([
+                    "-c",
+                    &format!(
+                        "import duckdb; c = duckdb.connect(r'{}', read_only=False); c.execute(\"INSERT INTO main_analytics.custom_cohort VALUES ('Cohort B', 18)\"); c.close()",
+                        src_edu.display()
+                    ),
+                ])
+                .status()
+                .unwrap();
+            assert!(
+                status.success(),
+                "Child process failed to acquire RW DuckDB lock on source warehouse while desktop engine was running"
+            );
+        }
+
+        let res = engine
+            .execute_and_cache_arrow(
+                "SELECT cohort_name, student_count FROM main_analytics.custom_cohort",
+                None,
+            )
+            .unwrap();
+        assert_eq!(res.summary.row_count, 1);
+
+        // Attached warehouse school_summary (1 row) must override the 16-row synthetic Bronze table
+        let sum_override = engine
+            .execute_and_cache_arrow(
+                "SELECT academic_year, school_name, total_students FROM main_analytics.school_summary",
+                None,
+            )
+            .unwrap();
+        assert_eq!(sum_override.summary.row_count, 1);
+
+        drop(engine);
+        let _ = std::fs::remove_file(&src_edu);
+        let _ = std::fs::remove_file(&bronze_path);
+    }
+
+    #[test]
+    fn test_dim_students_and_school_summary_dual_column_contracts() {
+        let bronze_path = temp_bronze_db();
+        let engine = MedallionEngine::new(&bronze_path, None).unwrap();
+
+        let stu_res = engine
+            .execute_and_cache_arrow(
+                "SELECT student_id_hash, sed_status, sped_status, free_reduced_lunch_flag, special_education_flag FROM main_core.dim_students LIMIT 5",
+                None,
+            )
+            .unwrap();
+        assert!(stu_res.summary.row_count >= 1);
+
+        let sum_res = engine
+            .execute_and_cache_arrow(
+                "SELECT academic_year, school_id, school_name, total_students, student_count, avg_attendance_rate, avg_gpa FROM main_analytics.school_summary LIMIT 5",
+                None,
+            )
+            .unwrap();
+        assert!(sum_res.summary.row_count >= 1);
+
+        let _ = std::fs::remove_file(&bronze_path);
+    }
+
+    #[test]
+    fn test_arrow_cache_lru_eviction_and_arc_sharing() {
+        use super::medallion::{ArrowCache, CachedQueryEntry, DuckDBResultSummary};
+
+        let cache = ArrowCache::new();
+        for i in 0..70 {
+            let qid = format!("q_lru_{i:03}");
+            let entry = CachedQueryEntry {
+                query_id: qid.clone(),
+                base_sql: "SELECT 1".to_string(),
+                arrow_ipc_bytes: Arc::new(vec![42u8; 1024]),
+                summary: DuckDBResultSummary {
+                    status: "ok".to_string(),
+                    query_id: qid,
+                    row_count: 1,
+                    columns: Vec::new(),
+                    sample_rows: Vec::new(),
+                },
+            };
+            cache.insert(entry);
+        }
+
+        // Capped at 64 entries: oldest 6 (000..005) evicted, newest (069) retained
+        assert_eq!(cache.len(), 64);
+        assert!(cache.get("q_lru_000").is_none());
+        let first = cache.get("q_lru_069").unwrap();
+        let second = cache.get("q_lru_069").unwrap();
+        assert!(Arc::ptr_eq(&first.arrow_ipc_bytes, &second.arrow_ipc_bytes));
+    }
+
+    #[test]
+    fn test_local_slm_backend_loopback_and_demo_fallback() {
+        use super::agent_loop::{GenerationHop, LocalSlmBackend, SlmBackend};
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+
+        // 1. Non-loopback endpoint must be rejected (Zero Network Egress invariant)
+        let remote = LocalSlmBackend::new(Some("http://example.com:8080".to_string()));
+        assert_eq!(remote.active_mode(), "deterministic_demo");
+
+        // 2. Unreachable loopback port falls back cleanly to deterministic_demo mode
+        let fallback = LocalSlmBackend::new(Some("http://127.0.0.1:9".to_string()));
+        let demo_out = fallback
+            .generate_with_grammar(
+                "<|im_start|>user\nShow enrollment<|im_end|>\n<|im_start|>assistant\n",
+                "root ::= ...",
+                GenerationHop::Hop1Sql { retry_attempt: 0 },
+            )
+            .unwrap();
+        assert!(demo_out.contains("execute_duckdb_query"));
+        assert_eq!(fallback.active_mode(), "deterministic_demo");
+
+        // 3. Live loopback llama-server socket serves real completion and sets mode="local_slm"
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            if let Ok((mut stream, _)) = listener.accept() {
+                let mut buf = [0u8; 4096];
+                let _ = stream.read(&mut buf);
+                let body = r#"{"content":"{\"tool\":\"execute_duckdb_query\",\"arguments\":{\"explanation\":\"From local llama-server\",\"sql\":\"SELECT school_id, total_students FROM main_analytics.school_summary\"}}"}"#;
+                let resp = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+                let _ = stream.write_all(resp.as_bytes());
+            }
+        });
+
+        let live = LocalSlmBackend::new(Some(format!("http://127.0.0.1:{}", addr.port())));
+        let slm_out = live
+            .generate_with_grammar(
+                "prompt",
+                "grammar",
+                GenerationHop::Hop1Sql { retry_attempt: 0 },
+            )
+            .unwrap();
+        server.join().unwrap();
+        assert!(slm_out.contains("From local llama-server"));
+        assert_eq!(live.active_mode(), "local_slm");
+    }
+
+    #[test]
+    fn test_webview_csp_script_escaping_navigation_and_arrow_cors() {
+        use super::ipc::{
+            build_webview_html_from_dist, handle_arrow_protocol_request,
+            is_allowed_webview_navigation,
+        };
+
+        // 1. Deterministic asset sorting + </script escaping + CSP meta tag
+        let tmp_dist = std::env::temp_dir().join(format!("ui_dist_{}", Uuid::new_v4().simple()));
+        let assets = tmp_dist.join("assets");
+        std::fs::create_dir_all(&assets).unwrap();
+        std::fs::write(assets.join("b.js"), "console.log('second </script><script>evil()');").unwrap();
+        std::fs::write(assets.join("a.js"), "console.log('first');").unwrap();
+        std::fs::write(assets.join("style.css"), "body { color: #fff; }").unwrap();
+
+        let html = build_webview_html_from_dist(&tmp_dist);
+        assert!(html.contains("Content-Security-Policy"));
+        assert!(html.contains("default-src 'self' arrow: http://arrow.localhost"));
+        assert!(!html.contains("</script><script>evil()"));
+        assert!(html.contains("<\\/script><script>evil()"));
+        assert!(html.find("console.log('first')").unwrap() < html.find("console.log('second").unwrap());
+        let _ = std::fs::remove_dir_all(&tmp_dist);
+
+        // 2. Navigation policy blocks external HTTPS/HTTP URLs and host-prefix/data: bypasses
+        assert!(is_allowed_webview_navigation("about:blank"));
+        assert!(is_allowed_webview_navigation("arrow://q_123"));
+        assert!(is_allowed_webview_navigation("http://localhost:5173"));
+        assert!(is_allowed_webview_navigation("http://127.0.0.1:8080"));
+        assert!(!is_allowed_webview_navigation("https://evil.example.com"));
+        assert!(!is_allowed_webview_navigation("http://10.0.0.1/exfil"));
+        assert!(!is_allowed_webview_navigation("http://localhost.evil.com"));
+        assert!(!is_allowed_webview_navigation("http://127.0.0.1.evil.com"));
+        assert!(!is_allowed_webview_navigation("http://localhost@evil.com"));
+        assert!(!is_allowed_webview_navigation("data:text/html,<script>evil()</script>"));
+
+        // 3. arrow:// custom protocol restricts Access-Control-Allow-Origin from * to null
+        let bronze_path = temp_bronze_db();
+        let engine = Arc::new(MedallionEngine::new(&bronze_path, None).unwrap());
+        let req = Request::builder()
+            .uri("arrow://q_nonexistent")
+            .body(Vec::new())
+            .unwrap();
+        let resp = handle_arrow_protocol_request(req, &engine);
+        assert_eq!(
+            resp.headers().get("Access-Control-Allow-Origin").unwrap(),
+            "null"
+        );
         let _ = std::fs::remove_file(&bronze_path);
     }
 

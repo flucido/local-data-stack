@@ -26,7 +26,7 @@ flowchart TD
         Edu_DuckDB["Read-Only Analytics Warehouse (analytics.duckdb)"]
     end
 
-    UI_Input -->|window.sendRustRpc| IPC_Bridge
+    UI_Input -->|"window.sendRustRpc({cmd: 'run_prompt'})"| IPC_Bridge
     IPC_Bridge --> Agent_Loop
     Agent_Loop --> Schema_Pruner
     Agent_Loop --> Silver_Gold_DuckDB
@@ -38,6 +38,8 @@ flowchart TD
     Bronze_SQLite -->|Reactive Sync| Silver_Gold_DuckDB
     Edu_DuckDB -.->|ATTACH READ_ONLY| Silver_Gold_DuckDB
 ```
+
+An interactive, source-linked version of this hot path (question → `run_prompt` IPC → two-hop agent loop → DuckDB → `arrow://` render) is available as the [desktop two-hop sequence diagram](../docs/diagrams/sequence-desktop-two-hop.html), also listed in the [diagram index](https://flucido.github.io/local-data-stack/diagrams/).
 
 1. **Native Host (`desktop/src/`)**:
    - **Tao + Wry**: Native macOS windowing with cross-platform WebKit integration.
@@ -75,6 +77,8 @@ cargo run --manifest-path desktop/Cargo.toml
 ```
 
 **What to test as a human user**:
+- **Ask a Question**: Type a plain-English question in the "Ask a question" box and press **Get answer** (or ⌘/Ctrl+Enter). The frontend sends `{cmd: "run_prompt", prompt}` over the Wry bridge; the Rust host runs the full two-hop agent loop (schema pruning → Hop 1 SQL → self-healing → Hop 2 GenUI) and streams the result back over `arrow://`.
+  > **Note**: `ipc.rs` currently routes `run_prompt` through the `DeterministicTwoHopBackend` (a keyword-matching stub in `agent_loop.rs`). No llama-server/GGUF backend is attached to the desktop host yet, so free-text questions produce deterministic SQL until a real `SlmBackend` is wired in. Preset scenarios are unaffected.
 - **Analytical Scenarios**: Click preset buttons (`Multi-Year School Enrollment`, `Equity Outcomes by Race`, `CDE Subgroup Accountability`).
 - **Two-Hop Protocol Inspector**: Click **"Inspect Hop 1 SQL & Hop 2 JSON"** to view the exact Hop 1 SQL query, DuckDB result summary, and Hop 2 component payload.
 - **Zero-LLM Filter Interaction**: Click a pill or adjust a slider in the `FilterBar` and observe the instantaneous filter latency badge (`<15ms`).

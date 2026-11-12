@@ -12,6 +12,8 @@ venv/
 
 # Local databases and generated data
 *.duckdb
+*.duckdb.building
+*.duckdb.building.wal
 *.db
 *.db.wal
 *.parquet

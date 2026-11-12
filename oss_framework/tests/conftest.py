@@ -224,6 +224,10 @@ def batch_processor():
 @pytest.fixture
 def pseudonymizer():
     """Pseudonymizer fixture"""
+    import os
+
     from oss_framework import Pseudonymizer
 
-    return Pseudonymizer()
+    return Pseudonymizer(
+        salt=os.environ.get("PII_SALT", "test_32_byte_random_hmac_salt_value_2026")
+    )

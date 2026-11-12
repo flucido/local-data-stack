@@ -9,13 +9,12 @@
 -- windows, which meant attendance_rate_30d == attendance_rate_90d for every
 -- student.  Now we query raw daily attendance so each window reflects actual
 -- attendance over that time span.
+--
+-- Windows are anchored on the last school day of EACH academic year (not a
+-- single global MAX(date)), so historical years get non-empty 30d/90d/term
+-- windows instead of silently reporting 0% attendance / 100% no discipline.
 
-WITH latest AS (
-    SELECT MAX(CAST(attendance_date AS DATE)) AS latest_date
-    FROM {{ source('raw', 'raw_attendance') }}
-),
-
-window_defs AS (
+WITH window_defs AS (
               SELECT '30d'   AS window_type,  30 AS window_days
     UNION ALL SELECT '60d',   60
     UNION ALL SELECT '90d',   90
@@ -24,10 +23,16 @@ window_defs AS (
 
 daily AS (
     SELECT
-        sha256(CONCAT(
-            COALESCE(ra.student_id::VARCHAR, ''),
-            'oea_2026'
-        )) AS student_key,
+        {{ hash_pii_secure('ra.student_id') }} AS student_key,
+        CASE
+            WHEN TRY_CAST(ra.attendance_date AS DATE) IS NOT NULL THEN
+                CASE
+                    WHEN MONTH(TRY_CAST(ra.attendance_date AS DATE)) >= 7
+                        THEN CAST(YEAR(TRY_CAST(ra.attendance_date AS DATE)) AS VARCHAR) || '-' || CAST(YEAR(TRY_CAST(ra.attendance_date AS DATE)) + 1 AS VARCHAR)
+                    ELSE CAST(YEAR(TRY_CAST(ra.attendance_date AS DATE)) - 1 AS VARCHAR) || '-' || CAST(YEAR(TRY_CAST(ra.attendance_date AS DATE)) AS VARCHAR)
+                END
+            ELSE '2024-2025'
+        END AS academic_year,
         CAST(ra.attendance_date AS DATE) AS attendance_date,
         CAST(ra.present_flag   AS BOOLEAN) AS present_flag,
         CAST(ra.absent_flag    AS BOOLEAN) AS absent_flag,
@@ -42,15 +47,26 @@ daily AS (
 discipline_by_student AS (
     SELECT
         fd.student_id_hash AS student_key,
+        fd.academic_year,
         fd.incident_date,
         COUNT(*) AS incident_cnt
     FROM {{ ref('fact_discipline') }} fd
-    GROUP BY fd.student_id_hash, fd.incident_date
+    GROUP BY fd.student_id_hash, fd.academic_year, fd.incident_date
 ),
 
+-- Anchor each academic year on its own last school day so historical years
+-- keep meaningful rolling windows.
+year_end AS (
+    SELECT
+        academic_year,
+        MAX(attendance_date) AS latest_date
+    FROM daily
+    GROUP BY academic_year
+),
 window_metrics AS (
     SELECT
         d.student_key,
+        d.academic_year,
         wd.window_type,
         COUNT(*)                                                   AS total_school_days,
         SUM(CASE WHEN d.present_flag   THEN 1 ELSE 0 END)          AS present_days,
@@ -75,14 +91,16 @@ window_metrics AS (
         )                                                          AS tardy_rate
     FROM daily d
     CROSS JOIN window_defs wd
-    JOIN latest l
-        ON d.attendance_date >= l.latest_date - wd.window_days
-    GROUP BY d.student_key, wd.window_type
+    JOIN year_end l
+        ON  d.academic_year = l.academic_year
+        AND d.attendance_date >= l.latest_date - wd.window_days
+    GROUP BY d.student_key, d.academic_year, wd.window_type
 ),
 
 trend AS (
     SELECT
         m30.student_key,
+        m30.academic_year,
         CASE
             WHEN m30.attendance_rate < m90.attendance_rate - 2 THEN 'declining'
             WHEN m30.attendance_rate > m90.attendance_rate + 2 THEN 'improving'
@@ -91,24 +109,31 @@ trend AS (
     FROM window_metrics m30
     JOIN window_metrics m90
         ON  m30.student_key = m90.student_key
+        AND m30.academic_year = m90.academic_year
         AND m30.window_type = '30d'
         AND m90.window_type = '90d'
 ),
 
 window_discipline AS (
+    -- Discipline windows inherit the ATTENDANCE year anchors, so discipline
+    -- incidents in academic years that have no attendance data are absent
+    -- from this model (agg_discipline_windows covers those years).
     SELECT
         ds.student_key,
+        ds.academic_year,
         wd.window_type,
         SUM(ds.incident_cnt) AS discipline_incidents
     FROM discipline_by_student ds
     CROSS JOIN window_defs wd
-    JOIN latest l
-        ON ds.incident_date >= l.latest_date - wd.window_days
-    GROUP BY ds.student_key, wd.window_type
+    JOIN year_end l
+        ON  ds.academic_year = l.academic_year
+        AND ds.incident_date >= l.latest_date - wd.window_days
+    GROUP BY ds.student_key, ds.academic_year, wd.window_type
 )
 
 SELECT
     wm.student_key,
+    wm.academic_year,
     l.latest_date - wd.window_days AS window_start_date,
     wm.window_type,
 
@@ -148,11 +173,15 @@ SELECT
     CURRENT_TIMESTAMP AS _loaded_at
 
 FROM window_metrics wm
-CROSS JOIN latest l
+JOIN year_end l
+    ON wm.academic_year = l.academic_year
 JOIN window_defs wd ON wm.window_type = wd.window_type
-LEFT JOIN trend t          ON wm.student_key = t.student_key
+LEFT JOIN trend t
+    ON  wm.student_key   = t.student_key
+    AND wm.academic_year = t.academic_year
 LEFT JOIN window_discipline wdsc
-    ON  wm.student_key  = wdsc.student_key
-    AND wm.window_type  = wdsc.window_type
+    ON  wm.student_key   = wdsc.student_key
+    AND wm.academic_year = wdsc.academic_year
+    AND wm.window_type   = wdsc.window_type
 
-ORDER BY wm.student_key, wm.window_type
+ORDER BY wm.student_key, wm.academic_year, wm.window_type

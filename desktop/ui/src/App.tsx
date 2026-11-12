@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   applyZeroLlmFilterBarMutation,
   PRESET_SCENARIOS,
@@ -20,18 +20,43 @@ export const App: React.FC = () => {
   const [showInspector, setShowInspector] = useState<boolean>(false);
   const [question, setQuestion] = useState("");
   const [isAsking, setIsAsking] = useState(false);
+  const [isLoadingPreset, setIsLoadingPreset] = useState(false);
   const [askError, setAskError] = useState<string | null>(null);
+  const [isFiltering, setIsFiltering] = useState(false);
+  const [filterError, setFilterError] = useState<string | null>(null);
+  const [statusAnnouncement, setStatusAnnouncement] = useState("");
+  const filterSeqRef = useRef(0);
 
   useEffect(() => {
     if (!activeScenario) return;
     let cancelled = false;
-    runPresetOrPromptScenario(activeScenario).then((state) => {
-      if (!cancelled) {
-        setTurnState(state);
-        setBaseRows(state.dataset.rows);
-        setFilterLatencyMs(null);
-      }
-    });
+    setIsLoadingPreset(true);
+    setAskError(null);
+    runPresetOrPromptScenario(activeScenario)
+      .then((state) => {
+        if (!cancelled) {
+          setTurnState(state);
+          setBaseRows(state.dataset.rows);
+          setFilterLatencyMs(null);
+          setStatusAnnouncement(
+            `Loaded ${state.hop2Call.arguments.title} (${state.dataset.rows.length} rows).`
+          );
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setAskError(
+            err instanceof Error
+              ? err.message
+              : "Could not load the selected report."
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoadingPreset(false);
+        }
+      });
     return () => {
       cancelled = true;
     };
@@ -48,6 +73,9 @@ export const App: React.FC = () => {
       setTurnState(state);
       setBaseRows(state.dataset.rows);
       setFilterLatencyMs(null);
+      setStatusAnnouncement(
+        `Answer ready: ${state.hop2Call.arguments.title} (${state.dataset.rows.length} rows).`
+      );
     } catch (err) {
       setAskError(err instanceof Error ? err.message : "Asking failed.");
     } finally {
@@ -55,46 +83,71 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleApplyFilters = async (filters: FilterMutation[]) => {
-    if (!turnState) return;
-    const { dataset, filterLatencyMs: elapsed } =
-      await applyZeroLlmFilterBarMutation(turnState, baseRows, filters);
-    setTurnState({
-      ...turnState,
-      dataset,
-    });
-    setFilterLatencyMs(elapsed);
-  };
+  const handleApplyFilters = useCallback(
+    async (filters: FilterMutation[]) => {
+      if (!turnState) return;
+      const reqId = ++filterSeqRef.current;
+      setIsFiltering(true);
+      setFilterError(null);
+      try {
+        const { dataset, filterLatencyMs: elapsed } =
+          await applyZeroLlmFilterBarMutation(turnState, baseRows, filters);
+        if (reqId !== filterSeqRef.current) {
+          return;
+        }
+        setTurnState((prev) => (prev ? { ...prev, dataset } : prev));
+        setFilterLatencyMs(elapsed);
+        setStatusAnnouncement(
+          `Updated view to ${dataset.rows.length} matching records.`
+        );
+      } catch (err) {
+        if (reqId === filterSeqRef.current) {
+          setFilterError(
+            err instanceof Error ? err.message : "Could not apply filters."
+          );
+        }
+      } finally {
+        if (reqId === filterSeqRef.current) {
+          setIsFiltering(false);
+        }
+      }
+    },
+    [turnState, baseRows]
+  );
 
   return (
     <main className="app-shell">
       <header className="app-header">
         <div>
-          <h1 className="brand-title">
-            Sovereign Local-First Analytics &amp; Generative UI Engine
-          </h1>
+          <h1 className="brand-title">District Student Analytics Workspace</h1>
           <p className="brand-subtitle">
-            Tao + Wry Native Host • Medallion SQLite→DuckDB • Zero-Copy{" "}
-            <code>arrow://</code> IPC • Two-Hop GBNF Agent
+            Private, on-device school &amp; student insights — student names are
+            never shown or sent online
           </p>
         </div>
         {turnState && (
           <div className="telemetry-pills">
+            {turnState.mode === "deterministic_demo" && (
+              <span className="telemetry-badge demo-mode-badge">
+                <strong>Demo Mode</strong> (Offline Sample Assistant)
+              </span>
+            )}
             <span className="telemetry-badge">
-              Stream: <strong>arrow://{turnState.dataset.queryId}</strong> (
-              {turnState.dataset.byteLength.toLocaleString()} B)
+              Records shown:{" "}
+              <strong>{turnState.dataset.rows.length.toLocaleString()}</strong>
             </span>
             <span className="telemetry-badge">
-              Arrow Decode: <strong>{turnState.dataset.decodeTimeMs}ms</strong>
-            </span>
-            <span className="telemetry-badge">
-              Turn Latency: <strong>{turnState.latencyMs}ms</strong>
+              Response time: <strong>{turnState.latencyMs}ms</strong>
             </span>
           </div>
         )}
       </header>
 
-      <nav className="scenario-bar" aria-label="Analytical Trajectories">
+      <div role="status" aria-live="polite" className="sr-only">
+        {statusAnnouncement}
+      </div>
+
+      <nav className="scenario-bar" aria-label="Starter Reports and Question Box">
         <form
           className="ask-block"
           aria-label="Ask a question"
@@ -104,7 +157,7 @@ export const App: React.FC = () => {
           }}
         >
           <label className="ask-label" htmlFor="ask-question">
-            Ask a question
+            Ask a question about your schools
           </label>
           <div className="ask-input-row">
             <textarea
@@ -127,12 +180,12 @@ export const App: React.FC = () => {
               className="ask-submit"
               disabled={isAsking || !question.trim()}
             >
-              {isAsking ? "Asking…" : "Get answer"}
+              {isAsking ? "Looking up…" : "Get answer"}
             </button>
           </div>
           <p className="ask-hint">
-            ⌘/Ctrl + Enter to ask. If the desktop host is running, your question
-            drives the two-hop SQL → UI agent loop.
+            Press ⌘/Ctrl + Enter to submit, or choose one of the starter
+            reports below.
           </p>
           {askError && (
             <p className="ask-error" role="alert">
@@ -140,49 +193,60 @@ export const App: React.FC = () => {
             </p>
           )}
         </form>
-        <div className="preset-row">
-          {PRESET_SCENARIOS.map((scen) => (
-            <button
-              key={scen.id}
-              type="button"
-              className={`scenario-btn ${
-                activeScenario?.id === scen.id ? "scenario-btn-active" : ""
-              }`}
-              onClick={() => {
-                setAskError(null);
-                setActiveScenario(scen);
-              }}
-            >
-              [K-12] {scen.label}
-            </button>
-          ))}
+        <div className="preset-row" role="group" aria-label="Starter reports">
+          {PRESET_SCENARIOS.map((scen) => {
+            const isSelected = activeScenario?.id === scen.id;
+            return (
+              <button
+                key={scen.id}
+                type="button"
+                aria-pressed={isSelected}
+                className={`scenario-btn ${
+                  isSelected ? "scenario-btn-active" : ""
+                }`}
+                onClick={() => {
+                  setAskError(null);
+                  setActiveScenario(scen);
+                }}
+              >
+                {scen.label}
+              </button>
+            );
+          })}
         </div>
 
         <button
           type="button"
+          aria-expanded={showInspector}
           className="scenario-btn inspector-toggle"
           onClick={() => setShowInspector((prev) => !prev)}
         >
-          {showInspector ? "Hide Two-Hop Inspector" : "Inspect Hop 1 SQL & Hop 2 JSON"}
+          {showInspector ? "Hide technical details" : "Show technical details"}
         </button>
       </nav>
 
+      {isLoadingPreset && !turnState && (
+        <div className="workspace-panel" role="status">
+          Loading report…
+        </div>
+      )}
+
       {showInspector && turnState && (
-        <section className="inspector-drawer" aria-label="Two-Hop Protocol Inspector">
+        <section className="inspector-drawer" aria-label="Technical query details">
           <div>
-            <strong>Hop 1 Tool Call (execute_duckdb_query):</strong>
+            <strong>Generated SQL Query:</strong>
             <pre className="inspector-code">
               {JSON.stringify(turnState.hop1Call, null, 2)}
             </pre>
           </div>
           <div>
-            <strong>Turn 2 Tool Input (duckdb_result_summary):</strong>
+            <strong>Result Summary:</strong>
             <pre className="inspector-code">
               {JSON.stringify(turnState.resultSummary, null, 2)}
             </pre>
           </div>
           <div>
-            <strong>Hop 2 Tool Call (render_workspace_ui):</strong>
+            <strong>Layout Specification:</strong>
             <pre className="inspector-code">
               {JSON.stringify(turnState.hop2Call, null, 2)}
             </pre>
@@ -190,15 +254,25 @@ export const App: React.FC = () => {
         </section>
       )}
 
+      {filterError && (
+        <p className="ask-error" role="alert">
+          {filterError}
+        </p>
+      )}
+
       {turnState && (
-        <WorkspaceRenderer
-          uiPayload={turnState.hop2Call}
-          resultSummary={turnState.resultSummary}
-          rows={turnState.dataset.rows}
-          baseRows={baseRows}
-          onApplyFilters={handleApplyFilters}
-          filterLatencyMs={filterLatencyMs}
-        />
+        <div aria-busy={isFiltering || isAsking || isLoadingPreset}>
+          <WorkspaceRenderer
+            uiPayload={turnState.hop2Call}
+            resultSummary={turnState.resultSummary}
+            explanation={turnState.hop1Call.arguments.explanation}
+            sql={turnState.hop1Call.arguments.sql}
+            rows={turnState.dataset.rows}
+            baseRows={baseRows}
+            onApplyFilters={handleApplyFilters}
+            filterLatencyMs={filterLatencyMs}
+          />
+        </div>
       )}
     </main>
   );

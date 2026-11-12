@@ -99,11 +99,11 @@ INPUT_HELPER = (
 INPUT_PROMPT_EMPTY = "Type a question above, or pick one from the suggestions to get started."
 
 FIRST_VISIT_NUDGE = (
-    '<a href="javascript:openAboutModal()" class="first-visit-link">'
+    '<button type="button" onclick="openAboutModal(this)" class="first-visit-link">'
     "First time here?"
-    "</a>"
-    " Type a question in plain English, or click any of the "
-    "suggestions above to see how it works."
+    "</button>"
+    " Type a question in plain English, or choose any of the "
+    "starter questions above to see how it works."
 )
 
 # ── About / FAQ modal content (HTML) ─────────────────────────────────

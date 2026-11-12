@@ -5,7 +5,7 @@
 {{ config(
     materialized='table',
     schema='core',
-    unique_key='student_id_hash',
+    unique_key=['student_id_hash', 'academic_year'],
     tags=['core', 'dimensions', 'students']
 ) }}
 
@@ -46,10 +46,12 @@ SELECT
     psh.academic_year,
     psh.home_language,
 
-    -- Program participation flags
+    -- Program participation flags (including Desktop aliases sed_status and sped_status)
     psh.special_education_flag,
+    psh.special_education_flag as sped_status,
     psh.ell_status,
     psh.free_reduced_lunch_flag,
+    psh.free_reduced_lunch_flag as sed_status,
     psh.homeless_flag,
     psh.foster_care_flag,
     psh.section_504_flag,

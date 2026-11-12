@@ -42,6 +42,8 @@ from typing import Any
 
 import polars as pl
 
+from oss_framework.connectors.mappings.aeries_to_canonical import STUDENT_STAGE1_ALLOWLIST
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -84,8 +86,6 @@ DTYPE_MAPPINGS = {
     "students": {
         # Student identifiers - preserve leading zeros
         "StudentID": str,
-        "OldStudentID": str,
-        "StateStudentID": str,
         "StudentNumber": str,
         # School codes - preserve leading zeros
         "SchoolCode": str,
@@ -93,28 +93,6 @@ DTYPE_MAPPINGS = {
         # Language and counselor codes
         "CorrespondenceLanguageCode": str,
         "CounselorNumber": str,
-        # Address zip codes and extensions - preserve leading zeros
-        "MailingAddressZipCode": str,
-        "MailingAddressZipExt": str,
-        "ResidenceAddressZipCode": str,
-        "ResidenceAddressZipExt": str,
-        # Phone numbers - preserve leading zeros
-        "HomePhone": str,
-        "StudentMobilePhone": str,
-        # User codes - preserve leading zeros
-        "UserCode1": str,
-        "UserCode2": str,
-        "UserCode3": str,
-        "UserCode4": str,
-        "UserCode5": str,
-        "UserCode6": str,
-        "UserCode7": str,
-        "UserCode8": str,
-        "UserCode9": str,
-        "UserCode10": str,
-        "UserCode11": str,
-        "UserCode12": str,
-        "UserCode13": str,
         # Race codes - preserve leading zeros
         "RaceCode1": str,
         "RaceCode2": str,
@@ -122,14 +100,12 @@ DTYPE_MAPPINGS = {
         "RaceCode4": str,
         "RaceCode5": str,
         # Additional student codes - preserve leading zeros
-        "NetworkLoginID": str,
         "RecordsReleaseCode": str,
         "LanguageFluencyCode": str,
         "HomeLanguageCode": str,
         "AttendanceProgramCodePrimary": str,
         "AttendanceProgramCodeAdditional1": str,
         "AttendanceProgramCodeAdditional2": str,
-        "LockerNumber": str,
         "ElementaryTeacherNumber": str,
     },
     "attendance": {
@@ -224,7 +200,7 @@ class AeriesToParquetPipeline:
         ``truncate_ragged_lines`` absorbs trailing-delimiter drift.
         """
         overrides = dict.fromkeys(DTYPE_MAPPINGS.get(domain, {}), pl.Utf8)
-        return pl.scan_csv(
+        lf = pl.scan_csv(
             csv_file,
             schema_overrides=overrides,
             encoding="utf8-lossy",
@@ -232,6 +208,17 @@ class AeriesToParquetPipeline:
             infer_schema_length=10_000,
             truncate_ragged_lines=True,
         )
+        if domain == "students":
+            schema_names = lf.collect_schema().names()
+            allowed_cols = [
+                c
+                for c in schema_names
+                if c in STUDENT_STAGE1_ALLOWLIST
+                and not c.startswith(("MailingAddress", "ResidenceAddress"))
+                and c not in {"HomePhone", "StudentMobilePhone", "StateStudentID", "OldStudentID"}
+            ]
+            lf = lf.select(allowed_cols)
+        return lf
 
     def convert(self, domain: str, year: str) -> dict[str, Any]:
         """
@@ -290,13 +277,10 @@ class AeriesToParquetPipeline:
             if self.verbose:
                 logger.debug(f"Reading CSV: {csv_file}")
 
-            # Scan CSV lazily with Polars (BOM-tolerant, all IDs kept as Utf8)
+            # Scan CSV lazily with Polars and stream to Parquet in a single pass
             lf = self._scan_csv(csv_file, domain)
-            rows_read = lf.select(pl.len()).collect().item()
-
             if self.verbose:
                 columns = lf.collect_schema().names()
-                logger.debug(f"Loaded {rows_read} rows from {csv_file}")
                 logger.debug(f"Columns: {', '.join(columns)}")
 
             # Create parent directories
@@ -309,23 +293,21 @@ class AeriesToParquetPipeline:
                 compression_level=COMPRESSION_LEVEL,
             )
 
-            # Get output file size
+            # Get output file size and read row count from Parquet metadata
             output_size = output_file.stat().st_size
             result["output_size"] = output_size
 
-            # Validate: Check row count in written Parquet
-            try:
-                parquet_rows = pl.scan_parquet(output_file).select(pl.len()).collect().item()
+            import duckdb
 
-                if parquet_rows != rows_read:
-                    logger.warning(
-                        f"Row count mismatch for {domain}/{year}: "
-                        f"CSV={rows_read}, Parquet={parquet_rows}"
-                    )
-                    result["error"] = f"Row count validation failed: {rows_read} vs {parquet_rows}"
-                    return result
-            except Exception as e:
-                logger.warning(f"Could not validate row count: {str(e)}")
+            with duckdb.connect(":memory:") as meta_con:
+                escaped_pq = str(output_file).replace("'", "''")
+                rows_written = int(
+                    meta_con.execute(
+                        f"SELECT COALESCE(SUM(row_group_num_rows), 0) "
+                        f"FROM (SELECT DISTINCT file_name, row_group_id, row_group_num_rows "
+                        f"FROM parquet_metadata('{escaped_pq}'))"
+                    ).fetchone()[0]
+                )
 
             # Calculate compression ratio
             if input_size > 0:
@@ -335,18 +317,18 @@ class AeriesToParquetPipeline:
                 result["compression_ratio"] = 0.0
 
             result["success"] = True
-            result["rows_written"] = rows_read
+            result["rows_written"] = rows_written
 
             # Update statistics
             self.stats["total_files_processed"] += 1
-            self.stats["total_rows_written"] += rows_read
+            self.stats["total_rows_written"] += rows_written
             self.stats["total_input_bytes"] += input_size
             self.stats["total_output_bytes"] += output_size
 
             # Log success
             logger.info(
                 f"✓ {domain:20} {year}  "
-                f"Rows: {rows_read:8}  "
+                f"Rows: {rows_written:8}  "
                 f"Input: {input_size / 1024:8.1f}KB  "
                 f"Output: {output_size / 1024:8.1f}KB  "
                 f"Compression: {compression_ratio * 100:5.1f}%"

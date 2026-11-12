@@ -148,27 +148,51 @@ summarized AS (
         SUM(students_tested) as students_tested,
         SUM(students_with_scores) as students_with_scores,
 
-        -- Score & percentage metrics: AVG across grades
-        AVG(mean_scale_score) as mean_scale_score,
-        AVG(pct_standard_exceeded) as pct_standard_exceeded,
-        AVG(pct_standard_met) as pct_standard_met,
-        AVG(pct_standard_met_and_above) as pct_standard_met_and_above,
-        AVG(pct_standard_nearly_met) as pct_standard_nearly_met,
-        AVG(pct_standard_not_met) as pct_standard_not_met,
+        -- Score & percentage metrics: weighted by students_with_scores across grades
+        COALESCE(
+            SUM(mean_scale_score * COALESCE(students_with_scores, 0))
+            / NULLIF(SUM(CASE WHEN mean_scale_score IS NOT NULL THEN COALESCE(students_with_scores, 0) ELSE 0 END), 0),
+            AVG(mean_scale_score)
+        ) as mean_scale_score,
+        COALESCE(
+            SUM(pct_standard_exceeded * COALESCE(students_with_scores, 0))
+            / NULLIF(SUM(CASE WHEN pct_standard_exceeded IS NOT NULL THEN COALESCE(students_with_scores, 0) ELSE 0 END), 0),
+            AVG(pct_standard_exceeded)
+        ) as pct_standard_exceeded,
+        COALESCE(
+            SUM(pct_standard_met * COALESCE(students_with_scores, 0))
+            / NULLIF(SUM(CASE WHEN pct_standard_met IS NOT NULL THEN COALESCE(students_with_scores, 0) ELSE 0 END), 0),
+            AVG(pct_standard_met)
+        ) as pct_standard_met,
+        COALESCE(
+            SUM(pct_standard_met_and_above * COALESCE(students_with_scores, 0))
+            / NULLIF(SUM(CASE WHEN pct_standard_met_and_above IS NOT NULL THEN COALESCE(students_with_scores, 0) ELSE 0 END), 0),
+            AVG(pct_standard_met_and_above)
+        ) as pct_standard_met_and_above,
+        COALESCE(
+            SUM(pct_standard_nearly_met * COALESCE(students_with_scores, 0))
+            / NULLIF(SUM(CASE WHEN pct_standard_nearly_met IS NOT NULL THEN COALESCE(students_with_scores, 0) ELSE 0 END), 0),
+            AVG(pct_standard_nearly_met)
+        ) as pct_standard_nearly_met,
+        COALESCE(
+            SUM(pct_standard_not_met * COALESCE(students_with_scores, 0))
+            / NULLIF(SUM(CASE WHEN pct_standard_not_met IS NOT NULL THEN COALESCE(students_with_scores, 0) ELSE 0 END), 0),
+            AVG(pct_standard_not_met)
+        ) as pct_standard_not_met,
 
-        -- Area-level percentages: AVG across grades
-        AVG(area_1_pct_above_standard) as area_1_pct_above_standard,
-        AVG(area_1_pct_near_standard) as area_1_pct_near_standard,
-        AVG(area_1_pct_below_standard) as area_1_pct_below_standard,
-        AVG(area_2_pct_above_standard) as area_2_pct_above_standard,
-        AVG(area_2_pct_near_standard) as area_2_pct_near_standard,
-        AVG(area_2_pct_below_standard) as area_2_pct_below_standard,
-        AVG(area_3_pct_above_standard) as area_3_pct_above_standard,
-        AVG(area_3_pct_near_standard) as area_3_pct_near_standard,
-        AVG(area_3_pct_below_standard) as area_3_pct_below_standard,
-        AVG(area_4_pct_above_standard) as area_4_pct_above_standard,
-        AVG(area_4_pct_near_standard) as area_4_pct_near_standard,
-        AVG(area_4_pct_below_standard) as area_4_pct_below_standard,
+        -- Area-level percentages: weighted by students_with_scores across grades
+        COALESCE(SUM(area_1_pct_above_standard * COALESCE(students_with_scores, 0)) / NULLIF(SUM(CASE WHEN area_1_pct_above_standard IS NOT NULL THEN COALESCE(students_with_scores, 0) ELSE 0 END), 0), AVG(area_1_pct_above_standard)) as area_1_pct_above_standard,
+        COALESCE(SUM(area_1_pct_near_standard * COALESCE(students_with_scores, 0)) / NULLIF(SUM(CASE WHEN area_1_pct_near_standard IS NOT NULL THEN COALESCE(students_with_scores, 0) ELSE 0 END), 0), AVG(area_1_pct_near_standard)) as area_1_pct_near_standard,
+        COALESCE(SUM(area_1_pct_below_standard * COALESCE(students_with_scores, 0)) / NULLIF(SUM(CASE WHEN area_1_pct_below_standard IS NOT NULL THEN COALESCE(students_with_scores, 0) ELSE 0 END), 0), AVG(area_1_pct_below_standard)) as area_1_pct_below_standard,
+        COALESCE(SUM(area_2_pct_above_standard * COALESCE(students_with_scores, 0)) / NULLIF(SUM(CASE WHEN area_2_pct_above_standard IS NOT NULL THEN COALESCE(students_with_scores, 0) ELSE 0 END), 0), AVG(area_2_pct_above_standard)) as area_2_pct_above_standard,
+        COALESCE(SUM(area_2_pct_near_standard * COALESCE(students_with_scores, 0)) / NULLIF(SUM(CASE WHEN area_2_pct_near_standard IS NOT NULL THEN COALESCE(students_with_scores, 0) ELSE 0 END), 0), AVG(area_2_pct_near_standard)) as area_2_pct_near_standard,
+        COALESCE(SUM(area_2_pct_below_standard * COALESCE(students_with_scores, 0)) / NULLIF(SUM(CASE WHEN area_2_pct_below_standard IS NOT NULL THEN COALESCE(students_with_scores, 0) ELSE 0 END), 0), AVG(area_2_pct_below_standard)) as area_2_pct_below_standard,
+        COALESCE(SUM(area_3_pct_above_standard * COALESCE(students_with_scores, 0)) / NULLIF(SUM(CASE WHEN area_3_pct_above_standard IS NOT NULL THEN COALESCE(students_with_scores, 0) ELSE 0 END), 0), AVG(area_3_pct_above_standard)) as area_3_pct_above_standard,
+        COALESCE(SUM(area_3_pct_near_standard * COALESCE(students_with_scores, 0)) / NULLIF(SUM(CASE WHEN area_3_pct_near_standard IS NOT NULL THEN COALESCE(students_with_scores, 0) ELSE 0 END), 0), AVG(area_3_pct_near_standard)) as area_3_pct_near_standard,
+        COALESCE(SUM(area_3_pct_below_standard * COALESCE(students_with_scores, 0)) / NULLIF(SUM(CASE WHEN area_3_pct_below_standard IS NOT NULL THEN COALESCE(students_with_scores, 0) ELSE 0 END), 0), AVG(area_3_pct_below_standard)) as area_3_pct_below_standard,
+        COALESCE(SUM(area_4_pct_above_standard * COALESCE(students_with_scores, 0)) / NULLIF(SUM(CASE WHEN area_4_pct_above_standard IS NOT NULL THEN COALESCE(students_with_scores, 0) ELSE 0 END), 0), AVG(area_4_pct_above_standard)) as area_4_pct_above_standard,
+        COALESCE(SUM(area_4_pct_near_standard * COALESCE(students_with_scores, 0)) / NULLIF(SUM(CASE WHEN area_4_pct_near_standard IS NOT NULL THEN COALESCE(students_with_scores, 0) ELSE 0 END), 0), AVG(area_4_pct_near_standard)) as area_4_pct_near_standard,
+        COALESCE(SUM(area_4_pct_below_standard * COALESCE(students_with_scores, 0)) / NULLIF(SUM(CASE WHEN area_4_pct_below_standard IS NOT NULL THEN COALESCE(students_with_scores, 0) ELSE 0 END), 0), AVG(area_4_pct_below_standard)) as area_4_pct_below_standard,
 
         -- Metadata (take from any row in the group)
         MIN(dlt_loaded_at) as dlt_loaded_at,

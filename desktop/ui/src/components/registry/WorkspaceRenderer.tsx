@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   DuckDBResultSummary,
   FilterMutation,
@@ -12,28 +12,51 @@ import { BudgetVarianceChart } from "./BudgetVarianceChart";
 import { DataTable } from "./DataTable";
 import { FilterBar } from "./FilterBar";
 
+const MemoKPIGrid = React.memo(KPIGrid);
+const MemoTimeSeriesChart = React.memo(TimeSeriesChart);
+const MemoCategoryBarChart = React.memo(CategoryBarChart);
+const MemoBudgetVarianceChart = React.memo(BudgetVarianceChart);
+const MemoDataTable = React.memo(DataTable);
+const MemoFilterBar = React.memo(FilterBar);
+
 interface WorkspaceRendererProps {
   uiPayload: unknown;
   resultSummary?: DuckDBResultSummary;
+  explanation?: string;
+  sql?: string;
   rows: Record<string, unknown>[];
   baseRows: Record<string, unknown>[];
   onApplyFilters: (filters: FilterMutation[]) => void;
   filterLatencyMs?: number | null;
 }
 
-export const WorkspaceRenderer: React.FC<WorkspaceRendererProps> = ({
+const WorkspaceRendererInner: React.FC<WorkspaceRendererProps> = ({
   uiPayload,
   resultSummary,
+  explanation,
+  sql,
   rows,
   baseRows,
   onApplyFilters,
   filterLatencyMs,
 }) => {
-  const parsed = RenderWorkspaceUISchema.safeParse(uiPayload);
+  const parsed = useMemo(
+    () => RenderWorkspaceUISchema.safeParse(uiPayload),
+    [uiPayload]
+  );
+
+  const semanticCheck = useMemo(
+    () =>
+      parsed.success
+        ? validateWorkspaceUISemantics(parsed.data, resultSummary)
+        : { valid: false, errors: [] },
+    [parsed, resultSummary]
+  );
+
   if (!parsed.success) {
     return (
       <div className="validation-error-banner" role="alert">
-        <strong>Hop 2 UI Schema Validation Failed:</strong>
+        <strong>Unable to display this answer layout:</strong>
         <ul>
           {parsed.error.issues.map((issue, idx) => (
             <li key={idx}>
@@ -45,8 +68,8 @@ export const WorkspaceRenderer: React.FC<WorkspaceRendererProps> = ({
     );
   }
 
-  const semanticCheck = validateWorkspaceUISemantics(parsed.data, resultSummary);
   const { title, narrative_summary, components } = parsed.data.arguments;
+  const turnSignature = `${title}-${resultSummary?.query_id ?? baseRows.length}`;
 
   return (
     <div className="workspace-container" data-testid="workspace-renderer">
@@ -54,31 +77,42 @@ export const WorkspaceRenderer: React.FC<WorkspaceRendererProps> = ({
         <div>
           <h2 className="workspace-title">{title}</h2>
           <p className="workspace-narrative">{narrative_summary}</p>
+          {(explanation || sql) && (
+            <details className="explanation-disclosure">
+              <summary>How this answer was computed</summary>
+              {explanation && (
+                <p className="explanation-text">{explanation}</p>
+              )}
+              {sql && <pre className="inspector-code">{sql}</pre>}
+            </details>
+          )}
         </div>
         {!semanticCheck.valid && (
           <div className="semantic-warning">
-            Semantic Notice: {semanticCheck.errors.join("; ")}
+            Layout note: {semanticCheck.errors.join("; ")}
           </div>
         )}
       </div>
 
       <div className="workspace-panels-stack">
         {components.map((comp, idx) => {
-          const key = `${comp.component}-${idx}`;
+          const key = `${turnSignature}-${comp.component}-${idx}`;
           switch (comp.component) {
             case "KPIGrid":
-              return <KPIGrid key={key} spec={comp} rows={rows} />;
+              return <MemoKPIGrid key={key} spec={comp} rows={rows} />;
             case "TimeSeriesChart":
-              return <TimeSeriesChart key={key} spec={comp} rows={rows} />;
+              return <MemoTimeSeriesChart key={key} spec={comp} rows={rows} />;
             case "CategoryBarChart":
-              return <CategoryBarChart key={key} spec={comp} rows={rows} />;
+              return <MemoCategoryBarChart key={key} spec={comp} rows={rows} />;
             case "BudgetVarianceChart":
-              return <BudgetVarianceChart key={key} spec={comp} rows={rows} />;
+              return (
+                <MemoBudgetVarianceChart key={key} spec={comp} rows={rows} />
+              );
             case "DataTable":
-              return <DataTable key={key} spec={comp} rows={rows} />;
+              return <MemoDataTable key={key} spec={comp} rows={rows} />;
             case "FilterBar":
               return (
-                <FilterBar
+                <MemoFilterBar
                   key={key}
                   spec={comp}
                   baseRows={baseRows}
@@ -94,3 +128,5 @@ export const WorkspaceRenderer: React.FC<WorkspaceRendererProps> = ({
     </div>
   );
 };
+
+export const WorkspaceRenderer = React.memo(WorkspaceRendererInner);

@@ -3,11 +3,11 @@
   Macro: hash_pii
 
   Deterministically hashes PII for pseudonymization.
-  Uses SHA-256 with a salt to create reproducible hashes
-  that enable record linkage while protecting identity.
+  Uses HMAC-SHA256 with a secret salt as the HMAC key to create reproducible
+  hashes that enable record linkage while protecting identity.
 
   Security Improvements:
-  - Upgraded from MD5 to SHA-256 (256-bit vs 128-bit)
+  - Upgraded from MD5 to HMAC-SHA256 (256-bit, salt never revealed)
   - FIPS 140-2 aligned
   - Aligns with SmarterApp Consortium guidelines
 
@@ -24,5 +24,5 @@
 #}
 
 {%- macro hash_pii(column_name, salt=var('salt_pii')) -%}
-    sha256(CONCAT(COALESCE({{ column_name }}::VARCHAR, ''), '{{ salt }}'))
+    {{ hash_pii_secure(column_name, salt) }}
 {%- endmacro -%}

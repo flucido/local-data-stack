@@ -11,7 +11,7 @@
 
 SELECT
     -- Composite primary key (no enrollment_id in source)
-    {{ dbt_utils.generate_surrogate_key(['se.student_id_raw', 'se.school_year', 'se.school_id', 'se.enrollment_date']) }} as enrollment_sk,
+    {{ dbt_utils.generate_surrogate_key([hash_pii_secure('se.student_id_raw'), 'se.school_year', 'se.school_id', 'se.enrollment_date']) }} as enrollment_sk,
     -- Foreign keys
     {{ hash_pii_secure('se.student_id_raw') }} as student_id_hash,
     se.school_id,

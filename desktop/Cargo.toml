@@ -13,7 +13,7 @@ name = "local-data-stack-desktop"
 path = "src/main.rs"
 
 [features]
-default = []
+default = ["bundled-duckdb"]
 bundled-duckdb = ["duckdb/bundled"]
 
 [dependencies]

@@ -1,4 +1,4 @@
-use crate::agent_loop::{run_two_hop_agent_loop, DeterministicTwoHopBackend};
+use crate::agent_loop::{run_two_hop_agent_loop, LocalSlmBackend};
 use crate::medallion::{BronzeAttendanceInput, FilterSpec, MedallionEngine};
 use crate::schema_pruner::{
     compile_hop1_gbnf, compile_hop2_gbnf, format_pruned_ddl, select_top_k_tables, SchemaCatalog,
@@ -90,7 +90,7 @@ pub fn handle_ipc_message(
             top_k,
             max_retries,
         } => {
-            let slm = DeterministicTwoHopBackend;
+            let slm = LocalSlmBackend::from_env();
             match run_two_hop_agent_loop(
                 &prompt,
                 engine,
@@ -99,7 +99,15 @@ pub fn handle_ipc_message(
                 top_k.unwrap_or(5),
                 max_retries.unwrap_or(2),
             ) {
-                Ok(trace) => serde_json::to_value(trace).unwrap_or_else(|_| json!({"status": "error"})),
+                Ok(trace) => {
+                    let mut val =
+                        serde_json::to_value(&trace).unwrap_or_else(|_| json!({"status": "error"}));
+                    if let Some(obj) = val.as_object_mut() {
+                        obj.insert("status".to_string(), json!("ok"));
+                        obj.insert("mode".to_string(), json!(trace.mode));
+                    }
+                    val
+                }
                 Err(e) => json!({
                     "status": "error",
                     "error_type": "AgentLoopError",
@@ -245,10 +253,10 @@ pub fn handle_arrow_protocol_request(
         Response::builder()
             .status(StatusCode::OK)
             .header("Content-Type", "application/vnd.apache.arrow.stream")
-            .header("Access-Control-Allow-Origin", "*")
+            .header("Access-Control-Allow-Origin", "null")
             .header("X-Query-Id", entry.query_id)
             .header("X-Row-Count", entry.summary.row_count.to_string())
-            .body(Cow::Owned(entry.arrow_ipc_bytes))
+            .body(Cow::Owned((*entry.arrow_ipc_bytes).clone()))
             .unwrap()
     } else {
         let body = serde_json::to_vec(&json!({
@@ -260,8 +268,182 @@ pub fn handle_arrow_protocol_request(
         Response::builder()
             .status(StatusCode::NOT_FOUND)
             .header("Content-Type", "application/json")
-            .header("Access-Control-Allow-Origin", "*")
+            .header("Access-Control-Allow-Origin", "null")
             .body(Cow::Owned(body))
             .unwrap()
     }
+}
+
+pub const WEBVIEW_CSP_META: &str = r#"<meta http-equiv="Content-Security-Policy" content="default-src 'self' arrow: http://arrow.localhost; connect-src arrow: http://arrow.localhost; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';" />"#;
+
+pub fn is_allowed_webview_navigation(uri: &str) -> bool {
+    let trimmed = uri.trim();
+    if trimmed == "about:blank" {
+        return true;
+    }
+    if let Some(rest) = trimmed.strip_prefix("arrow://") {
+        return !rest.is_empty() && !rest.contains('@');
+    }
+    if !trimmed.starts_with("http://") {
+        return false;
+    }
+    let Ok(parsed) = trimmed.parse::<http::Uri>() else {
+        return false;
+    };
+    if parsed.scheme_str() != Some("http") {
+        return false;
+    }
+    if let Some(auth) = parsed.authority() {
+        if auth.as_str().contains('@') {
+            return false;
+        }
+    }
+    matches!(
+        parsed.host(),
+        Some("localhost") | Some("127.0.0.1") | Some("arrow.localhost")
+    )
+}
+
+pub fn build_webview_html_from_dist(ui_dist_dir: &std::path::Path) -> String {
+    let assets_dir = ui_dist_dir.join("assets");
+    if let Ok(entries) = std::fs::read_dir(&assets_dir) {
+        let mut paths: Vec<std::path::PathBuf> =
+            entries.flatten().map(|e| e.path()).collect();
+        paths.sort();
+
+        let mut css_bundle = String::new();
+        let mut js_bundle = String::new();
+        for path in paths {
+            if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                if ext == "css" {
+                    if let Ok(c) = std::fs::read_to_string(&path) {
+                        css_bundle.push_str(&c);
+                    }
+                } else if ext == "js" {
+                    if let Ok(j) = std::fs::read_to_string(&path) {
+                        let escaped = j.replace("</script", "<\\/script");
+                        js_bundle.push_str(&escaped);
+                        js_bundle.push('\n');
+                    }
+                }
+            }
+        }
+        if !js_bundle.is_empty() {
+            return format!(
+                r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  {WEBVIEW_CSP_META}
+  <title>District Student Analytics Workspace</title>
+  <style>{css_bundle}</style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module">{js_bundle}</script>
+</body>
+</html>"#
+            );
+        }
+    }
+    default_bootstrap_html().to_string()
+}
+
+pub fn default_bootstrap_html() -> &'static str {
+    r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' arrow: http://arrow.localhost; connect-src arrow: http://arrow.localhost; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';" />
+  <title>District Student Analytics Workspace</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0b0f19;
+      color: #e2e8f0;
+      padding: 24px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #1e293b;
+      padding-bottom: 16px;
+      margin-bottom: 20px;
+    }
+    .badge {
+      background: #065f46;
+      color: #a7f3d0;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    pre {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 8px;
+      padding: 16px;
+      overflow-x: auto;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h2 style="margin: 0;">District Student Analytics Workspace</h2>
+      <p style="margin: 4px 0 0; color: #94a3b8; font-size: 14px;">
+        Private on-device school &amp; student insights
+      </p>
+    </div>
+    <span class="badge">Offline • Ready</span>
+  </div>
+  <div id="app">
+    <pre id="status">Initializing local data engine...</pre>
+  </div>
+  <script>
+    window.__ipcCallbacks = {};
+    window.__onRustIpcResponse = function(payload) {
+      const statusEl = document.getElementById('status');
+      if (statusEl) {
+        statusEl.textContent = JSON.stringify(payload, null, 2);
+      }
+      if (payload && payload.request_id && window.__ipcCallbacks[payload.request_id]) {
+        window.__ipcCallbacks[payload.request_id](payload);
+        delete window.__ipcCallbacks[payload.request_id];
+      }
+      window.dispatchEvent(new CustomEvent('rust-ipc-message', { detail: payload }));
+    };
+
+    window.sendRustRpc = function(cmdObj) {
+      const requestId = cmdObj.request_id || ('req_' + Math.random().toString(36).slice(2));
+      const msg = Object.assign({}, cmdObj, { request_id: requestId });
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          delete window.__ipcCallbacks[requestId];
+          reject(new Error('Desktop query timed out after 30 seconds.'));
+        }, 30000);
+        window.__ipcCallbacks[requestId] = function(payload) {
+          clearTimeout(timer);
+          resolve(payload);
+        };
+        if (window.ipc && window.ipc.postMessage) {
+          window.ipc.postMessage(JSON.stringify(msg));
+        }
+      });
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+      window.sendRustRpc({
+        cmd: 'execute_duckdb_query',
+        sql: 'SELECT academic_year, school_name, total_students, avg_gpa, avg_attendance_rate FROM main_analytics.school_summary ORDER BY academic_year ASC, total_students DESC'
+      });
+    });
+  </script>
+</body>
+</html>"#
 }

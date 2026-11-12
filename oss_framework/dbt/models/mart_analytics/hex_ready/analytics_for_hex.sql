@@ -3,15 +3,16 @@
 -- Includes race_code_1 (primary race) for equity analysis
 
 {{ config(
-    materialized='table',
-    schema='analytics',
-    tags=['analytics', 'hex', 'motherduck']
+    schema='features',
+    materialized='view',
+    tags=['features', 'hex', 'motherduck']
 ) }}
 
 -- Main student analytics with race breakdown
 SELECT
     -- Identifiers
     d.student_id_hash,
+    d.academic_year,
 
     -- Demographics
     d.gender,
@@ -41,28 +42,33 @@ SELECT
     d.enrollment_status,
     d.cohort,
 
-    -- Attendance metrics (from fact_attendance)
-    COALESCE(a.attendance_rate, 0) as attendance_rate,
+    -- Attendance metrics (normalized to 0..100 percentage scale)
+    CASE
+      WHEN COALESCE(a.attendance_rate, 0) <= 1.0 THEN ROUND(COALESCE(a.attendance_rate, 0) * 100.0, 2)
+      ELSE ROUND(COALESCE(a.attendance_rate, 0), 2)
+    END as attendance_rate,
     COALESCE(a.days_absent, 0) as days_absent,
     COALESCE(a.days_present, 0) as days_present,
     COALESCE(a.days_tardy, 0) as days_tardy,
 
     -- Discipline metrics (from fact_discipline)
     COALESCE(dis.incident_count, 0) as discipline_incidents,
+    COALESCE(dis.incident_count, 0) as discipline_incident_count,
     COALESCE(dis.suspension_count, 0) as suspension_count,
 
     -- Academic metrics (from fact_academic_records)
     COALESCE(acad.avg_gpa_points, 0) as avg_gpa,
+    COALESCE(acad.avg_gpa_points, 0) as gpa_unweighted,
     COALESCE(acad.total_credits, 0) as credits_earned,
     COALESCE(acad.course_count, 0) as course_count,
 
-    -- Derived risk score
+    -- Derived risk score (operates on normalized 0..100 attendance_rate)
     CASE
-        WHEN COALESCE(a.attendance_rate, 0) < 90
+        WHEN (CASE WHEN COALESCE(a.attendance_rate, 0) <= 1.0 THEN COALESCE(a.attendance_rate, 0) * 100.0 ELSE COALESCE(a.attendance_rate, 0) END) < 90
              OR COALESCE(dis.incident_count, 0) > 2
              OR COALESCE(acad.avg_gpa_points, 0) < 2.0
         THEN 'High Risk'
-        WHEN COALESCE(a.attendance_rate, 0) < 95
+        WHEN (CASE WHEN COALESCE(a.attendance_rate, 0) <= 1.0 THEN COALESCE(a.attendance_rate, 0) * 100.0 ELSE COALESCE(a.attendance_rate, 0) END) < 95
              OR COALESCE(dis.incident_count, 0) > 0
              OR COALESCE(acad.avg_gpa_points, 0) < 2.5
         THEN 'Moderate Risk'
@@ -75,27 +81,30 @@ FROM {{ ref('dim_students') }} d
 LEFT JOIN (
     SELECT
         student_id_hash,
+        academic_year,
         AVG(attendance_rate) as attendance_rate,
         SUM(days_absent) as days_absent,
         SUM(days_present) as days_present,
         SUM(days_tardy) as days_tardy
     FROM {{ ref('fact_attendance') }}
-    GROUP BY student_id_hash
-) a ON d.student_id_hash = a.student_id_hash
+    GROUP BY student_id_hash, academic_year
+) a ON d.student_id_hash = a.student_id_hash AND d.academic_year = a.academic_year
 LEFT JOIN (
     SELECT
         student_id_hash,
+        academic_year,
         COUNT(*) as incident_count,
         SUM(suspension_flag) as suspension_count
     FROM {{ ref('fact_discipline') }}
-    GROUP BY student_id_hash
-) dis ON d.student_id_hash = dis.student_id_hash
+    GROUP BY student_id_hash, academic_year
+) dis ON d.student_id_hash = dis.student_id_hash AND d.academic_year = dis.academic_year
 LEFT JOIN (
     SELECT
         student_id_hash,
+        school_year,
         AVG(COALESCE(gpa_points, 0)) as avg_gpa_points,
         SUM(COALESCE(credit_earned, 0)) as total_credits,
         COUNT(DISTINCT course_id) as course_count
     FROM {{ ref('fact_academic_records') }}
-    GROUP BY student_id_hash
-) acad ON d.student_id_hash = acad.student_id_hash
+    GROUP BY student_id_hash, school_year
+) acad ON d.student_id_hash = acad.student_id_hash AND d.academic_year = acad.school_year

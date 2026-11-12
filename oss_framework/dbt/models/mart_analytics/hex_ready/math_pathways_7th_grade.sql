@@ -18,7 +18,9 @@ WITH math_8 AS (
         d.is_multi_racial,
         'Math 8' as pathway
     FROM {{ ref('fact_academic_records') }} ar
-    JOIN {{ ref('dim_students') }} d ON ar.student_id_hash = d.student_id_hash
+    JOIN {{ ref('dim_students') }} d
+        ON ar.student_id_hash = d.student_id_hash
+        AND ar.school_year = d.academic_year
     WHERE ar.course_id = '325' AND d.grade_level = 7
 ),
 apex_math_8 AS (
@@ -31,7 +33,9 @@ apex_math_8 AS (
         d.is_multi_racial,
         'Apex Math 8' as pathway
     FROM {{ ref('fact_academic_records') }} ar
-    JOIN {{ ref('dim_students') }} d ON ar.student_id_hash = d.student_id_hash
+    JOIN {{ ref('dim_students') }} d
+        ON ar.student_id_hash = d.student_id_hash
+        AND ar.school_year = d.academic_year
     WHERE ar.course_id = '329' AND d.grade_level = 7
 ),
 combined AS (
@@ -50,4 +54,5 @@ SELECT
     CURRENT_TIMESTAMP as _loaded_at
 FROM combined
 GROUP BY school_year, pathway, primary_race, gender, is_multi_racial
+HAVING COUNT(DISTINCT student_id_hash) >= 5
 ORDER BY school_year, pathway, student_count DESC

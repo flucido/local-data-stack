@@ -14,11 +14,17 @@ and injects its live schema into the prompt.
 
 from __future__ import annotations
 
+import html
 import os
+import re
+import tempfile
 import threading
 from dataclasses import dataclass, field
 
-import gradio as gr
+try:
+    import gradio as gr
+except ImportError:  # pragma: no cover - optional extra when testing pure helpers
+    gr = None  # type: ignore[assignment]
 
 # spaces.GPU is only available on HF Spaces — use a no-op locally
 try:
@@ -134,13 +140,14 @@ def format_result_df(df):
         if not pd.api.types.is_numeric_dtype(df[col]):
             continue
         if is_pct:
+            non_null = df[col].dropna()
+            col_is_ratio = len(non_null) > 0 and float(non_null.abs().max()) <= 1.0
 
-            def _fmt(v):
+            def _fmt(v, _scale=col_is_ratio):
                 if pd.isna(v):
                     return v
                 val = float(v)
-                # Scale only if the value looks like a 0-1 proportion.
-                if 0 <= val <= 1:
+                if _scale:
                     val *= 100
                 return f"{round(val, 2):.2f}%"
 
@@ -152,21 +159,40 @@ def format_result_df(df):
     return df
 
 
-def build_summary(question: str, df, row_count: int) -> str:
-    """One-sentence plain-English summary of a result.
+format_dataframe = format_result_df
 
-    Best-effort heuristic — falls back to a neutral 'N rows returned' line
-    when the shape doesn't match any pattern.
-    """
+
+_BOLD_MD_RE = re.compile(r"\*\*(.+?)\*\*")
+
+
+def render_summary_html(summary_text: str) -> str:
+    """Safely render a summary string (already HTML-escaped on DB values) with **bold** markers."""
+    with_bold = _BOLD_MD_RE.sub(r"<strong>\1</strong>", summary_text or "")
+    return f'<p class="result-summary">{with_bold}</p>'
+
+
+def write_secure_temp_csv(df) -> str:
+    """Write query results to an unpredictable mode-0600 temporary CSV file."""
+    fd, csv_path = tempfile.mkstemp(prefix="lfed_result_", suffix=".csv")
+    try:
+        os.chmod(csv_path, 0o600)
+    finally:
+        os.close(fd)
+    df.to_csv(csv_path, index=False)
+    return csv_path
+
+
+def build_summary(question: str, df, row_count: int) -> str:
+    """One-sentence plain-English summary of a result with HTML-escaped cell values."""
     if df is None or row_count == 0:
         return "I didn't find anything that matches that question."
     cols = list(df.columns)
     if row_count == 1 and len(cols) == 1:
-        val = df.iloc[0, 0]
+        val = html.escape(str(df.iloc[0, 0]))
         return SUMMARY_TEMPLATES["single_value"].format(value=val)
     if row_count == 1 and len(cols) == 2:
-        label = df.iloc[0, 0]
-        val = df.iloc[0, 1]
+        label = html.escape(str(df.iloc[0, 0]))
+        val = html.escape(str(df.iloc[0, 1]))
         return SUMMARY_TEMPLATES["single_pair"].format(label=label, value=val)
     if len(cols) == 2 and ("school_id" in cols or "school_name" in cols):
         return SUMMARY_TEMPLATES["by_school"].format(n=row_count)
@@ -290,7 +316,7 @@ def bring_back_prior(prior_state: dict | None) -> tuple:
         "",  # clear ribbon text
         prior.sql,
         df,
-        f'<p class="result-summary">{prior.summary}</p>',
+        render_summary_html(prior.summary),
         prior_state,
         gr.update(visible=False),  # hide the bring-back button
     )
@@ -298,22 +324,26 @@ def bring_back_prior(prior_state: dict | None) -> tuple:
 
 # ── UI Theme & Styles ──────────────────────────────────────────────────
 
-catalyst_theme = gr.themes.Base(
-    primary_hue="zinc",
-    neutral_hue="zinc",
-    font=[gr.themes.GoogleFont("Inter"), "ui-sans-serif", "system-ui", "sans-serif"],
-).set(
-    body_background_fill="#F3F4F6",
-    body_text_color="#111827",
-    background_fill_primary="#FFFFFF",
-    background_fill_secondary="#F9FAFB",
-    input_background_fill="#FFFFFF",
-    input_border_color="rgba(17, 24, 39, 0.10)",
-    input_border_color_focus="#111827",
-    button_primary_background_fill="#111827",
-    button_primary_text_color="#FFFFFF",
-    border_color_primary="rgba(17, 24, 39, 0.10)",
-    block_border_width="0px",
+catalyst_theme = (
+    gr.themes.Base(
+        primary_hue="zinc",
+        neutral_hue="zinc",
+        font=[gr.themes.GoogleFont("Inter"), "ui-sans-serif", "system-ui", "sans-serif"],
+    ).set(
+        body_background_fill="#F3F4F6",
+        body_text_color="#111827",
+        background_fill_primary="#FFFFFF",
+        background_fill_secondary="#F9FAFB",
+        input_background_fill="#FFFFFF",
+        input_border_color="rgba(17, 24, 39, 0.10)",
+        input_border_color_focus="#111827",
+        button_primary_background_fill="#111827",
+        button_primary_text_color="#FFFFFF",
+        border_color_primary="rgba(17, 24, 39, 0.10)",
+        block_border_width="0px",
+    )
+    if gr is not None
+    else None
 )
 
 
@@ -356,7 +386,7 @@ html.dark body, .dark body, html.dark .gradio-container, .dark .gradio-container
     letter-spacing: -0.01em;
 }
 .app-header .tagline {
-    color: #6B7280;
+    color: #4B5563;
     margin: 0;
     line-height: 1.5;
     max-width: 60ch;
@@ -374,6 +404,7 @@ html.dark body, .dark body, html.dark .gradio-container, .dark .gradio-container
 .domain-row {
     display: flex !important;
     flex-direction: row !important;
+    flex-wrap: wrap !important;
     margin-top: 1.25rem !important;
     gap: 1rem !important;
     align-items: stretch !important;
@@ -385,17 +416,20 @@ html.dark body, .dark body, html.dark .gradio-container, .dark .gradio-container
     padding: 0.875rem 1rem 0.75rem 1rem !important;
     display: flex !important;
     flex-direction: column !important;
+    flex: 1 1 260px !important;
     gap: 0.5rem !important;
     height: 100% !important;
     min-height: 7.5rem !important;
 }
-.domain-col-title {
-    font-weight: 500 !important;
-    margin: 0 0 0.25rem 0 !important;
-    line-height: 1.4 !important;
-    min-height: 2.8rem !important;
+.first-visit-link {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #1D4ED8;
+    text-decoration: underline;
+    cursor: pointer;
+    font: inherit;
 }
-.domain-dropdown label { display: none !important; }
 
 /* ── Result region ─────────────────────────────────────────────────── */
 .result-summary {
@@ -410,7 +444,7 @@ html.dark body, .dark body, html.dark .gradio-container, .dark .gradio-container
     margin-top: 2.5rem;
     padding: 1rem 0 1.25rem 0;
     border-top: 1px solid rgba(17, 24, 39, 0.05);
-    color: #6B7280;
+    color: #4B5563;
     line-height: 1.6;
 }
 .app-footer h4 { font-weight: 600; margin: 0 0 0.25rem 0; }
@@ -456,24 +490,31 @@ html.dark body, .dark body, html.dark .gradio-container, .dark .gradio-container
     border: none;
     font-size: 1.5rem;
     cursor: pointer;
-    color: #6B7280;
+    color: #4B5563;
 }
 """
 
 HEAD_HTML = """
 <script>
-function openAboutModal() {
+window.__aboutModalTrigger = null;
+function openAboutModal(triggerEl) {
     const modal = document.getElementById('about-modal');
     if (modal) {
+        window.__aboutModalTrigger = triggerEl || document.activeElement;
         modal.classList.add('visible');
         document.body.style.overflow = 'hidden';
+        const closeBtn = modal.querySelector('.about-modal-close');
+        if (closeBtn) closeBtn.focus();
     }
 }
 function closeAboutModal() {
     const modal = document.getElementById('about-modal');
-    if (modal) {
+    if (modal && modal.classList.contains('visible')) {
         modal.classList.remove('visible');
         document.body.style.overflow = '';
+        if (window.__aboutModalTrigger && typeof window.__aboutModalTrigger.focus === 'function') {
+            window.__aboutModalTrigger.focus();
+        }
     }
 }
 document.addEventListener('click', function (e) {
@@ -553,6 +594,7 @@ def build_demo() -> gr.Blocks:
         title="Local First Education Data Framework",
         theme=catalyst_theme,
         css=CUSTOM_CSS,
+        head=HEAD_HTML,
     ) as demo:
         prior_state = gr.State(value=None)
         has_asked = gr.State(value=False)
@@ -585,12 +627,11 @@ def build_demo() -> gr.Blocks:
         with gr.Row(elem_classes="domain-row"):
             for section in DOMAIN_SECTIONS:
                 with gr.Column(elem_classes="domain-col", scale=1):
-                    gr.HTML(f'<div class="domain-col-title">{section["title"]}</div>')
                     dropdown = gr.Dropdown(
                         choices=section["questions"],
                         value=None,
-                        label=None,
-                        show_label=False,
+                        label=section["title"],
+                        show_label=True,
                         elem_classes="domain-dropdown",
                     )
                     starter_buttons.append((dropdown, section["questions"]))
@@ -616,7 +657,13 @@ def build_demo() -> gr.Blocks:
             elem_classes="download-csv",
             interactive=False,
         )
-        sql_output = gr.Code(visible=False, language="sql", label=SQL_DISCLOSURE_LABEL)
+        with gr.Accordion(SQL_DISCLOSURE_LABEL, open=False, visible=False) as sql_accordion:
+            sql_output = gr.Code(
+                visible=True,
+                language="sql",
+                label=SQL_DISCLOSURE_LABEL,
+                interactive=False,
+            )
         status = gr.Markdown("", elem_classes="status-line")
 
         gr.HTML(build_footer_html())
@@ -652,17 +699,22 @@ def build_demo() -> gr.Blocks:
                     gr.update(visible=False),
                     None,
                     gr.update(visible=False),
+                    gr.update(value=""),
                     INPUT_PROMPT_EMPTY,
                     gr.update(visible=not first_time),
                     prior,
                     has_asked_val,
                     gr.update(visible=False),
+                    gr.update(interactive=True),
                     *clear_dropdowns(),
                 )
                 return
+
+            csv_path = None
             for prior_obj, sql_text, df, emoji, status_text, new_state in handle_query(
                 question, prior
             ):
+                is_terminal = emoji in ("✅", "⚠️", "⏱️", "❌")
                 ribbon_text = (
                     PREVIOUS_RIBBON_TEMPLATE.format(summary=prior_obj.summary)
                     if prior_obj is not None
@@ -671,40 +723,55 @@ def build_demo() -> gr.Blocks:
                 summary_visible = bool(status_text and emoji in ("✅",))
                 has_data = df is not None
 
-                csv_path = None
-                if has_data:
-                    import datetime as _dt
-                    import tempfile
-
-                    csv_path = os.path.join(
-                        tempfile.gettempdir(),
-                        f"lfed_result_{_dt.datetime.now(_dt.UTC).strftime('%Y%m%d_%H%M%S')}.csv",
-                    )
-                    df.to_csv(csv_path, index=False)
+                if has_data and is_terminal and csv_path is None:
+                    csv_path = write_secure_temp_csv(df)
 
                 yield (
                     ribbon_text,
                     gr.update(
-                        value=(
-                            f'<p class="result-summary">{status_text}</p>'
-                            if summary_visible
-                            else ""
-                        ),
+                        value=(render_summary_html(status_text) if summary_visible else ""),
                         visible=summary_visible,
                     ),
                     gr.update(value=df, visible=has_data),
-                    gr.update(value=csv_path, visible=has_data),
-                    gr.update(value=sql_text, visible=bool(sql_text)),
+                    gr.update(value=csv_path, visible=has_data and csv_path is not None),
+                    gr.update(visible=bool(sql_text)),
+                    gr.update(value=sql_text),
                     f"{emoji} {status_text}",
                     gr.update(visible=False),
                     new_state,
                     has_asked_val,
-                    gr.update(visible=False),
+                    gr.update(visible=prior_obj is not None),
+                    gr.update(interactive=is_terminal),
                     *clear_dropdowns(),
                 )
 
+        def on_starter_select(selected_q, prior, first_time):
+            if not selected_q:
+                return
+            yield from on_submit(selected_q, prior, first_time)
+
+        submit_outputs = [
+            previous_ribbon,
+            result_summary,
+            data_output,
+            download_output,
+            sql_accordion,
+            sql_output,
+            status,
+            first_visit,
+            prior_state,
+            has_asked,
+            bring_back_btn,
+            submit_btn,
+            *[dd for dd, _ in starter_buttons],
+        ]
+
         for dropdown, _questions in starter_buttons:
-            dropdown.change(fn=fill_input, inputs=[dropdown], outputs=user_input)
+            dropdown.change(fn=fill_input, inputs=[dropdown], outputs=user_input).then(
+                fn=on_starter_select,
+                inputs=[dropdown, prior_state, has_asked],
+                outputs=submit_outputs,
+            )
 
         footer_help_btn.click(
             fn=lambda: (build_explainer_html(), gr.update(visible=True)),
@@ -729,19 +796,6 @@ def build_demo() -> gr.Blocks:
             ],
         )
 
-        submit_outputs = [
-            previous_ribbon,
-            result_summary,
-            data_output,
-            download_output,
-            sql_output,
-            status,
-            first_visit,
-            prior_state,
-            has_asked,
-            bring_back_btn,
-            *[dd for dd, _ in starter_buttons],
-        ]
         submit_btn.click(
             fn=on_submit,
             inputs=[user_input, prior_state, has_asked],
@@ -753,6 +807,7 @@ def build_demo() -> gr.Blocks:
             outputs=submit_outputs,
         )
 
+    demo.queue(default_concurrency_limit=1)
     return demo
 
 
@@ -761,4 +816,4 @@ if __name__ == "__main__":
     llm = load_model()
     print("✅ Ready.")
     demo = build_demo()
-    demo.launch(css=CUSTOM_CSS, head=HEAD_HTML)
+    demo.launch(server_name="127.0.0.1")

@@ -26,8 +26,10 @@ duckdb_oss:
       # registered via the dbt-duckdb plugin API (no `udfs:` key in 1.10).
       module_paths:
         - udfs
+        - oss_framework/dbt/udfs
       plugins:
         - module: pii_crypto_plugin
+        - module: pii_hash_plugin
 
     prod:
       type: 'duckdb'
@@ -50,5 +52,7 @@ duckdb_oss:
       # registered via the dbt-duckdb plugin API (no `udfs:` key in 1.10).
       module_paths:
         - udfs
+        - oss_framework/dbt/udfs
       plugins:
         - module: pii_crypto_plugin
+        - module: pii_hash_plugin

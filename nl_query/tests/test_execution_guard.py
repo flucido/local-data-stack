@@ -52,6 +52,15 @@ class TestExtractSql:
         result = extract_sql('{"sql": "SELECT 1"')
         assert "SELECT 1" in result
 
+    def test_extract_json_with_escaped_quotes_and_surrounding_prose(self):
+        prose = (
+            'Here is the tool call: {"tool": "execute_duckdb_query", "arguments": '
+            '{"explanation": "quoted {brace}", "sql": "SELECT \\"school_name\\" FROM main_analytics.school_summary WHERE school_name != \'A\\"B\'"}} Done.'
+        )
+        extracted = extract_sql(prose)
+        assert extracted.startswith('SELECT "school_name"')
+        assert "Done." not in extracted
+
 
 # ── Static validation ──────────────────────────────────────────────────
 
@@ -132,6 +141,67 @@ class TestValidateSqlStatic:
     def test_rejects_glob(self):
         with pytest.raises(ValueError, match="file-reading function"):
             validate_sql("SELECT * FROM glob('/tmp/**')")
+
+    def test_rejects_main_staging_schema(self):
+        with pytest.raises(ValueError, match="outside the exposed schemas"):
+            validate_sql("SELECT * FROM main_staging.stg_aeries__students")
+
+    def test_rejects_aeries_stage1_schema(self):
+        with pytest.raises(ValueError, match="outside the exposed schemas"):
+            validate_sql("SELECT StudentID FROM aeries_stage1.students")
+
+    def test_rejects_edu_wh_catalog_reference(self):
+        with pytest.raises(ValueError, match="outside the exposed schemas"):
+            validate_sql("SELECT * FROM edu_wh.main_core.fact_attendance")
+
+    @pytest.mark.parametrize(
+        "forbidden_sql",
+        [
+            "SELECT student_id_raw FROM main_core.dim_students",
+            "SELECT first_name FROM main_core.dim_students",
+            "SELECT last_name FROM main_core.dim_students",
+            "SELECT date_of_birth FROM main_core.dim_students",
+            "SELECT email_raw FROM main_core.dim_students",
+            "SELECT * FROM stg_aeries__students",
+            "SELECT * FROM stg_cde__schools",
+            "SELECT COLUMNS(*) FROM main_core.dim_students",
+        ],
+    )
+    def test_rejects_pii_columns_raw_tokens_and_columns_star(self, forbidden_sql):
+        with pytest.raises(ValueError):
+            validate_sql(forbidden_sql)
+
+    def test_system_prompt_does_not_advertise_main_staging(self):
+        from prompts import SYSTEM_PROMPT
+
+        assert "main_staging" not in SYSTEM_PROMPT
+
+    @pytest.mark.parametrize(
+        "bypass_sql",
+        [
+            "SELECT * FROM raw_students",
+            'SELECT * FROM "aeries_stage1"."students"',
+            'SELECT * FROM "main_features"."analytics_for_hex"',
+            "SELECT * FROM (SELECT 1) AS aeries_stage1, aeries_stage1.raw_students",
+            'SELECT "s".* FROM main_core.dim_students "s"',
+            "SELECT s FROM main_core.dim_students s",
+        ],
+    )
+    def test_blocks_quoted_schema_raw_unqualified_and_struct_bypasses(self, bypass_sql):
+        with pytest.raises(ValueError):
+            validate_sql(bypass_sql)
+
+    def test_all_few_shots_and_default_schema_pass_validate_sql(self):
+        from data_engine import get_exposed_schemas
+        from prompts import DEFAULT_SCHEMA, get_all_few_shot_examples
+
+        exposed = {s.lower() for s in get_exposed_schemas()}
+        for tbl in DEFAULT_SCHEMA:
+            sch = tbl.split(".")[0].lower()
+            assert sch in exposed, f"DEFAULT_SCHEMA table {tbl} uses unexposed schema {sch}"
+
+        for ex in get_all_few_shot_examples():
+            validate_sql(ex["sql"])
 
 
 # ── Schema-aware validation ────────────────────────────────────────────

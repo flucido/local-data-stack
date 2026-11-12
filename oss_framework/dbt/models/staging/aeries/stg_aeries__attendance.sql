@@ -9,19 +9,34 @@
     tags=['staging', 'attendance']
 ) }}
 
+{% set raw_cols = (adapter.get_columns_in_relation(source('raw', 'raw_attendance')) | map(attribute='name') | map('lower') | list) if execute else [] %}
+
 WITH daily AS (
     SELECT
         CAST(student_id AS VARCHAR) as student_id_raw,
         CAST(school_id AS VARCHAR) as school_id,
-        '2024-2025' as academic_year,
+        COALESCE(
+            {% if 'academic_year' in raw_cols %}NULLIF(CAST(academic_year AS VARCHAR), ''),{% endif %}
+            {% if 'school_year' in raw_cols %}NULLIF(CAST(school_year AS VARCHAR), ''),{% endif %}
+            CASE
+                WHEN TRY_CAST(NULLIF(CAST(attendance_date AS VARCHAR), '') AS DATE) IS NOT NULL THEN
+                    CASE
+                        WHEN MONTH(TRY_CAST(NULLIF(CAST(attendance_date AS VARCHAR), '') AS DATE)) >= 7
+                            THEN CAST(YEAR(TRY_CAST(NULLIF(CAST(attendance_date AS VARCHAR), '') AS DATE)) AS VARCHAR) || '-' || CAST(YEAR(TRY_CAST(NULLIF(CAST(attendance_date AS VARCHAR), '') AS DATE)) + 1 AS VARCHAR)
+                        ELSE CAST(YEAR(TRY_CAST(NULLIF(CAST(attendance_date AS VARCHAR), '') AS DATE)) - 1 AS VARCHAR) || '-' || CAST(YEAR(TRY_CAST(NULLIF(CAST(attendance_date AS VARCHAR), '') AS DATE)) AS VARCHAR)
+                    END
+                ELSE NULL
+            END,
+            '2024-2025'
+        ) as academic_year,
         CAST(present_flag AS BOOLEAN) as present_flag,
         CAST(absent_flag AS BOOLEAN) as absent_flag,
         CAST(tardy_flag AS BOOLEAN) as tardy_flag,
         CAST(excused_flag AS BOOLEAN) as excused_flag,
         CAST(unexcused_flag AS BOOLEAN) as unexcused_flag,
-        CAST(NULLIF(attendance_date, '') AS DATE) as attendance_date
+        TRY_CAST(NULLIF(CAST(attendance_date AS VARCHAR), '') AS DATE) as attendance_date
     FROM {{ source('raw', 'raw_attendance') }}
-    WHERE DAYOFWEEK(CAST(NULLIF(attendance_date, '') AS DATE)) NOT IN (0, 6)  -- exclude weekends
+    WHERE DAYOFWEEK(TRY_CAST(NULLIF(CAST(attendance_date AS VARCHAR), '') AS DATE)) NOT IN (0, 6)  -- exclude weekends
 ),
 
 aggregated AS (

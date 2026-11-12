@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -34,6 +35,12 @@ logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).parent.parent
 DUCKDB_PATH = PROJECT_ROOT / "oss_framework" / "data" / "analytics.duckdb"
 RILL_DATA_DIR = PROJECT_ROOT / "rill_project" / "data"
+
+
+def resolve_duckdb_path() -> Path:
+    env_db = os.getenv("DUCKDB_DATABASE_PATH")
+    return Path(env_db).resolve() if env_db else DUCKDB_PATH
+
 
 # Analytics views to export
 # Format: {view_name: output_parquet_filename}
@@ -91,29 +98,22 @@ def export_view_to_parquet(
     """
     logger.info(f"Exporting {view_name} → {output_path.name}")
 
-    # Get row count first
-    try:
-        result = con.execute(f"SELECT COUNT(*) FROM {view_name}").fetchone()
-        row_count = result[0] if result else 0
-    except Exception as e:
-        logger.error(f"Failed to count rows in {view_name}: {e}")
-        return {"status": "error", "error": str(e)}
-
-    if row_count == 0:
-        logger.warning(f"View {view_name} is empty (0 rows)")
-        return {"status": "skipped", "reason": "empty_view", "row_count": 0}
-
     if dry_run:
+        try:
+            result = con.execute(f"SELECT COUNT(*) FROM {view_name}").fetchone()
+            row_count = result[0] if result else 0
+        except Exception as e:
+            logger.error(f"Failed to count rows in {view_name}: {e}")
+            return {"status": "error", "error": str(e)}
+        if row_count == 0:
+            logger.warning(f"View {view_name} is empty (0 rows)")
+            return {"status": "skipped", "reason": "empty_view", "row_count": 0}
         logger.info(f"[DRY RUN] Would export {row_count} rows from {view_name}")
         return {"status": "dry_run", "row_count": row_count}
 
-    # Export to Parquet
+    # Export to Parquet in a single query pass and read row_count from parquet_metadata
     try:
-        # Ensure output directory exists
         output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # When partitioning, DuckDB creates a directory structure
-        # Remove existing file/directory to avoid conflicts
         import shutil
 
         if output_path.exists():
@@ -122,23 +122,39 @@ def export_view_to_parquet(
             else:
                 output_path.unlink()
 
-        # Execute COPY TO command
-        # Execute COPY TO command with partitioning optimization
-        # Partition by school_id for 40-60% faster queries when filtering by school
-        # See: DuckDB partitioning docs and Definite.app case study
         partition_cols = get_partition_columns(view_name)
         partition_clause = f", PARTITION_BY ({', '.join(partition_cols)})" if partition_cols else ""
+        escaped_out = str(output_path).replace("'", "''")
 
         copy_sql = f"""
         COPY (SELECT * FROM {view_name})
-        TO '{output_path}'
+        TO '{escaped_out}'
         (FORMAT PARQUET, COMPRESSION ZSTD{partition_clause})
         """
         con.execute(copy_sql)
 
-        # Get file/directory size
+        meta_glob = (
+            str(output_path / "**" / "*.parquet").replace("'", "''")
+            if output_path.is_dir()
+            else escaped_out
+        )
+        row_count = int(
+            con.execute(
+                f"SELECT COALESCE(SUM(row_group_num_rows), 0) "
+                f"FROM (SELECT DISTINCT file_name, row_group_id, row_group_num_rows "
+                f"FROM parquet_metadata('{meta_glob}'))"
+            ).fetchone()[0]
+        )
+
+        if row_count == 0:
+            if output_path.is_dir():
+                shutil.rmtree(output_path)
+            elif output_path.exists():
+                output_path.unlink()
+            logger.warning(f"View {view_name} is empty (0 rows)")
+            return {"status": "skipped", "reason": "empty_view", "row_count": 0}
+
         if output_path.is_dir():
-            # Sum all files in partitioned directory
             file_size_mb = sum(f.stat().st_size for f in output_path.rglob("*.parquet")) / (
                 1024 * 1024
             )
@@ -170,10 +186,11 @@ def export_all_views(dry_run: bool = False, filter_view: str | None = None) -> d
     Returns:
         Summary dictionary with export results
     """
+    db_path = resolve_duckdb_path()
     logger.info("=" * 80)
     logger.info("DuckDB → Parquet Export for Rill Dashboards")
     logger.info("=" * 80)
-    logger.info(f"DuckDB Database: {DUCKDB_PATH}")
+    logger.info(f"DuckDB Database: {db_path}")
     logger.info(f"Rill Data Directory: {RILL_DATA_DIR}")
     logger.info(f"Views to Export: {len(ANALYTICS_VIEWS)}")
 
@@ -184,14 +201,14 @@ def export_all_views(dry_run: bool = False, filter_view: str | None = None) -> d
         logger.info(f"📌 Filter: Only exporting views matching '{filter_view}'")
 
     # Validate DuckDB exists
-    if not DUCKDB_PATH.exists():
-        error_msg = f"DuckDB database not found: {DUCKDB_PATH}"
+    if not db_path.exists():
+        error_msg = f"DuckDB database not found: {db_path}"
         logger.error(error_msg)
         return {"status": "error", "error": error_msg}
 
     # Connect to DuckDB
     logger.info("\n📊 Connecting to DuckDB...")
-    con = duckdb.connect(str(DUCKDB_PATH), read_only=True)
+    con = duckdb.connect(str(db_path), read_only=True)
 
     # Export each view
     results = {}

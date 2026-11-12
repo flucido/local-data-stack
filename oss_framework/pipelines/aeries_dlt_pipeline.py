@@ -16,14 +16,103 @@ Features:
 import os
 from collections.abc import Iterator
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import dlt
+import duckdb
 from dlt.common.pipeline import LoadInfo
 from dlt.sources import DltResource
 
 from oss_framework.connectors import get_sis_connector
+from oss_framework.connectors.mappings.aeries_to_canonical import STUDENT_STAGE1_ALLOWLIST
 from oss_framework.pipelines.dlt_state import pipeline_kwargs
+
+
+def filter_student_record(record: dict[str, Any]) -> dict[str, Any]:
+    """Filter a student record through the canonical Stage 1 allowlist."""
+    return {
+        k: v
+        for k, v in record.items()
+        if k in STUDENT_STAGE1_ALLOWLIST
+        and not k.startswith(("MailingAddress", "ResidenceAddress"))
+        and k not in {"HomePhone", "StudentMobilePhone", "StateStudentID", "OldStudentID"}
+    }
+
+
+RAW_TABLES = (
+    "raw_students",
+    "raw_attendance",
+    "raw_academic_records",
+    "raw_discipline",
+    "raw_enrollment",
+)
+
+
+def sync_stage1_raw_views_to_duckdb(
+    db_path: str | Path,
+    dataset_name: str,
+    destination_type: str,
+    stage1_path: str | Path | None = None,
+) -> list[str]:
+    """Ensure main.raw_* views exist in DuckDB over Stage 1 dlt tables or Parquet files."""
+    db_file = Path(db_path)
+    db_file.parent.mkdir(parents=True, exist_ok=True)
+    synced: list[str] = []
+
+    con = duckdb.connect(str(db_file))
+    try:
+        quoted_ds = f'"{dataset_name.replace(chr(34), chr(34) * 2)}"'
+        con.execute(f"CREATE SCHEMA IF NOT EXISTS {quoted_ds}")
+
+        for tbl in RAW_TABLES:
+            quoted_tbl = f'"{tbl.replace(chr(34), chr(34) * 2)}"'
+            if destination_type == "filesystem":
+                s1_root = Path(stage1_path or "./oss_framework/data/stage1").resolve()
+                table_dir = s1_root / "transactional" / "aeries" / dataset_name / tbl
+                parquet_files = sorted(table_dir.rglob("*.parquet")) if table_dir.exists() else []
+                if not parquet_files:
+                    continue
+                escaped_files = ", ".join(
+                    "'" + str(p).replace("'", "''") + "'" for p in parquet_files
+                )
+                con.execute(
+                    f"CREATE OR REPLACE TABLE {quoted_ds}.{quoted_tbl} AS "
+                    f"SELECT * FROM read_parquet([{escaped_files}], union_by_name=true)"
+                )
+
+            existing_base = con.execute(
+                """
+                SELECT COUNT(*)
+                FROM information_schema.tables
+                WHERE table_schema = 'main'
+                  AND table_name = ?
+                  AND table_type = 'BASE TABLE'
+                """,
+                [tbl],
+            ).fetchone()[0]
+            if existing_base:
+                con.execute(f"DROP TABLE IF EXISTS main.{quoted_tbl}")
+
+            has_source = con.execute(
+                """
+                SELECT COUNT(*)
+                FROM information_schema.tables
+                WHERE table_schema = ?
+                  AND table_name = ?
+                """,
+                [dataset_name, tbl],
+            ).fetchone()[0]
+            if has_source:
+                con.execute(
+                    f"CREATE OR REPLACE VIEW main.{quoted_tbl} AS "
+                    f"SELECT * FROM {quoted_ds}.{quoted_tbl}"
+                )
+                synced.append(tbl)
+    finally:
+        con.close()
+
+    return synced
 
 
 # dlt source definition
@@ -52,14 +141,20 @@ def aeries_source(
         test_mode=test_mode,
     )
 
-    @dlt.resource(name="raw_students", write_disposition="merge", primary_key=["student_id"])
+    @dlt.resource(
+        name="raw_students",
+        write_disposition="merge",
+        primary_key=["student_id"],
+        columns={"withdrawal_date": {"data_type": "text"}},
+    )
     def students() -> Iterator[dict[str, Any]]:
-        """Extract student data"""
+        """Extract student data filtered through Stage 1 PII-minimized allowlist"""
         data = client.get_students()
         for record in data:
-            record["created_at"] = datetime.now().isoformat()
-            record["updated_at"] = datetime.now().isoformat()
-            yield record
+            clean = filter_student_record(record)
+            clean["created_at"] = datetime.now().isoformat()
+            clean["updated_at"] = datetime.now().isoformat()
+            yield clean
 
     @dlt.resource(
         name="raw_attendance",
@@ -89,7 +184,12 @@ def aeries_source(
             record["created_at"] = datetime.now().isoformat()
             yield record
 
-    @dlt.resource(name="raw_enrollment", write_disposition="merge", primary_key=["enrollment_id"])
+    @dlt.resource(
+        name="raw_enrollment",
+        write_disposition="merge",
+        primary_key=["enrollment_id"],
+        columns={"withdrawal_date": {"data_type": "text"}},
+    )
     def enrollment() -> Iterator[dict[str, Any]]:
         """Extract enrollment data"""
         data = client.get_enrollment()
@@ -172,6 +272,15 @@ def run_aeries_pipeline(
         for resource in source.resources.values():
             resource.apply_hints(table_format="iceberg")
     info = pipeline.run(source, loader_file_format=loader_file_format)
+
+    target_db = os.getenv("DUCKDB_DATABASE_PATH", "./oss_framework/data/analytics.duckdb")
+    stage1_root = os.getenv("STAGE1_PATH", "./oss_framework/data/stage1")
+    sync_stage1_raw_views_to_duckdb(
+        db_path=target_db,
+        dataset_name=dataset_name,
+        destination_type=destination_type,
+        stage1_path=stage1_root,
+    )
 
     print("\n✅ Pipeline completed successfully")
     print(f"   Pipeline: {info.pipeline.pipeline_name}")

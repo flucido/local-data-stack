@@ -1,17 +1,13 @@
 """
 Entry points for pip-installable CLI commands.
 
-When the project is installed via pip, these functions are registered
-as console_scripts in the user's PATH. They delegate to the existing
-scripts that live in the top-level scripts/ directory (which is not
-itself a Python package).
-
 Usage after pip install:
     export-to-rill                    # Export all views
     export-to-rill --view chronic     # Export specific view
     export-to-rill --dry-run          # Preview
 """
 
+import importlib
 import importlib.util
 import sys
 from pathlib import Path
@@ -23,7 +19,14 @@ def export_to_rill() -> None:
 
 
 def _run_script(name: str) -> None:
-    """Import and run a top-level script by file path."""
+    """Import and run a script from the installed `scripts` package or repo path."""
+    try:
+        module = importlib.import_module(f"scripts.{name}")
+        module.main()
+        return
+    except ModuleNotFoundError:
+        pass
+
     repo_root = Path(__file__).resolve().parent.parent
     script_path = repo_root / "scripts" / f"{name}.py"
 

@@ -70,7 +70,7 @@ dev = [
     "pytest>=9.0.3",
     "pytest-cov>=4.1.0",
     "pytest-asyncio>=0.21.0",
-    "black>=23.0.0",
+    "black>=24.0.0,<26.0.0",
     "ruff>=0.1.0",
     "mypy>=1.5.0",
     "pre-commit>=3.5.0",
@@ -106,7 +106,7 @@ all = [
     "pytest>=9.0.3",
     "pytest-cov>=4.1.0",
     "pytest-asyncio>=0.21.0",
-    "black>=23.0.0",
+    "black>=24.0.0,<26.0.0",
     "ruff>=0.1.0",
     "mypy>=1.5.0",
     "pre-commit>=3.5.0",
@@ -125,15 +125,21 @@ Issues = "https://github.com/flucido/local-data-stack/issues"
 # setuptools configuration
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["oss_framework*"]
+include = ["oss_framework*", "nl_query*", "scripts*", "training*"]
 exclude = ["tests*", "*.tests*"]
 
 # pytest configuration
 [tool.pytest.ini_options]
-testpaths = ["oss_framework/tests", "."]
+testpaths = ["oss_framework/tests", "nl_query/tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
-addopts = "-v --tb=short --cov=oss_framework --cov-report=term-missing --cov-report=xml"
+addopts = "-v --tb=short"
+markers = [
+    "unit: Unit tests for individual functions",
+    "integration: Integration tests for components",
+    "education: Education-specific validation tests",
+    "slow: Slow running tests",
+]
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]
@@ -174,6 +180,7 @@ exclude = '''
     | _build
     | buck-out
     | build
+    | dbt_packages
     | dist
     | venv
 )/

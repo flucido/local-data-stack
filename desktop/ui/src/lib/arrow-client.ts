@@ -79,15 +79,35 @@ export async function fetchArrowDataset(
   fallbackRows?: Record<string, unknown>[],
   fallbackColumns?: string[]
 ): Promise<DecodedArrowDataset> {
+  let response: Response | null = null;
   try {
-    const response = await fetch(`arrow://${queryId}`);
+    response = await fetch(`arrow://${queryId}`);
+  } catch (err) {
+    if (fallbackRows === undefined && !(err instanceof TypeError)) {
+      throw err instanceof Error
+        ? err
+        : new Error(`Failed to fetch dataset for ${queryId}`);
+    }
+  }
+
+  if (response !== null) {
     if (response.ok) {
       const buf = await response.arrayBuffer();
       return decodeArrowIPCStream(new Uint8Array(buf), queryId);
     }
-  } catch {
-    // When running outside the native Wry shell (e.g., Vite browser dev server or unit tests),
-    // encode the fallback rows into a real Apache Arrow IPC stream and decode via tableFromIPC.
+    if (fallbackRows === undefined) {
+      let detail = "";
+      try {
+        detail = await response.text();
+      } catch {
+        detail = "";
+      }
+      throw new Error(
+        `Failed to load results from local data engine (HTTP ${response.status}${
+          detail ? `: ${detail}` : ""
+        }).`
+      );
+    }
   }
 
   const ipcBytes = encodeRowsToArrowIPC(fallbackRows ?? [], fallbackColumns);

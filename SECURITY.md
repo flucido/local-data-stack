@@ -47,27 +47,32 @@ Please provide as much detail as possible:
 
 **local-data-stack implements pseudonymization by default:**
 
-- **PII Hashing**: Student names, IDs, emails are SHA-256 hashed
-- **Salted Hashing**: Uses environment-specific salt (stored in `.env`)
+- **PII Hashing**: Student names, IDs, emails are HMAC-SHA256 hashed (secret salt as the HMAC key)
+- **Salted HMAC**: Uses the environment-specific `PII_SALT` (stored in `.env`, >= 16 random characters); digests never reveal the salt
 - **Hashed IDs Everywhere**: All analytics use hashed IDs, not raw PII
 
 **Implementation**:
 
 ```python
-# src/analytics/pseudonymize.py
 import hashlib
 import os
 
-def hash_pii(value: str) -> str:
-    salt = os.getenv('PRIVACY_SALT')
-    return hashlib.sha256(f"{salt}{value}".encode()).hexdigest()
+# dbt macros (hash_pii_secure) hash identifiers with HMAC-SHA256 keyed by PII_SALT
+# (udfs/pii_hash.py via pii_hash_plugin — matches scripts/anonymize_aeries.py)
+# Re-identification lookup encrypts fields with AES-256-GCM + scrypt KDF via PII_ENCRYPTION_KEY
+salt = os.environ["PII_SALT"]  # >= 16 random characters
+key = os.environ["PII_ENCRYPTION_KEY"]  # >= 32 random characters
 ```
 
 **Environment Setup**:
 
 ```bash
-# .env
-PRIVACY_SALT="your-secret-salt-here-DO-NOT-COMMIT"
+# .env (never commit)
+PII_SALT="<32+ char random salt>"
+PII_ENCRYPTION_KEY="<64-hex-char random key>"
+DATA_RETENTION_YEARS=5
+# Break-glass decryption UDF is disabled by default; enable only in audited registrar sessions:
+# LFED_ENABLE_PII_DECRYPT=1
 ```
 
 #### Data Minimization
@@ -89,6 +94,36 @@ GROUP BY grade_level
 - **Stage 2**: Pseudonymized analytics views (analyst access)
 - **Stage 3**: Aggregated dashboards (educator access)
 
+#### Accepted Deviation: Plaintext Identifiers in Stage-1 Raw Landing Objects
+
+**Status**: Accepted by design (spec P4-T1), reviewed 2026-11-12.
+
+The final `analytics.duckdb` intentionally retains a small, explicitly
+allowlisted set of plaintext identifier columns in the Stage-1 raw landing
+objects: the dlt base tables (`aeries_stage1.raw_students`,
+`raw_attendance`, `raw_academic_records`, `raw_discipline`,
+`raw_enrollment`) and the `main.raw_*` sync views built over them
+(`SELECT *` by design, so the view set mirrors the base tables exactly).
+They are required to build the break-glass re-identification lookup
+(`main_privacy_sensitive.priv_pii_lookup_table`, AES-256-GCM ciphertexts).
+This is the one sanctioned deviation from "no plaintext PII anywhere in the
+final warehouse":
+
+- `raw_students`: `student_id`, `first_name`, `last_name`, `date_of_birth`
+- `raw_attendance`, `raw_academic_records`, `raw_discipline`,
+  `raw_enrollment`: `student_id` only
+
+Every other plaintext PII field (phones, addresses, StateStudentID,
+OldStudentID, …) is dropped at ingestion by the Stage-1 allowlist
+(`STUDENT_STAGE1_ALLOWLIST`), and `main_staging` plus all marts carry hashed
+IDs only. Every query client (desktop validator, NL→SQL engine) must enforce
+the schema/column allowlist; the barrier for the raw landing objects is
+procedural by design, not absence of data.
+`oss_framework/tests/test_public_release_sanitization.py::test_main_raw_views_plaintext_allowlist`
+audits live warehouses (both the `*stage1.raw_*` base tables and the
+`main.raw_*` sync views) against this exact allowlist so new plaintext
+columns fail the gate until it is consciously extended.
+
 #### Right to Be Forgotten
 
 **Delete student data:**
@@ -100,13 +135,14 @@ DELETE FROM raw_attendance WHERE student_id = 'hashed_student_id';
 -- Cascade to all related tables
 ```
 
-**Automated Retention**:
+**Automated Retention (`DATA_RETENTION_YEARS`)**:
 
-```sql
--- Example operator-managed retention job.
--- Adjust timing and legal basis to your district policy.
-DELETE FROM raw_students
-WHERE withdrawal_date < CURRENT_DATE - INTERVAL '7' YEAR;
+```python
+import duckdb
+from oss_framework.scripts.config import purge_expired_records
+
+with duckdb.connect("oss_framework/data/analytics.duckdb") as conn:
+    deleted = purge_expired_records(conn)  # honors DATA_RETENTION_YEARS
 ```
 
 ---
@@ -409,9 +445,10 @@ rsync -av data/stage1/ backups/stage1_$(date +%Y%m%d)/
 
 ```bash
 # .env (not tracked in Git)
-PRIVACY_SALT="your-secret-salt-here"
-AERIES_API_KEY="your_aeries_api_key"
-RILL_ADMIN_PASSWORD="rill_admin_password"
+PII_SALT="<random-salt-min-16-chars>"
+PII_ENCRYPTION_KEY="<random-key-min-32-chars>"
+AERIES_API_KEY="<aeries-api-cert>"
+DATA_RETENTION_YEARS=5
 ```
 
 **Use `.gitignore`:**

@@ -33,24 +33,20 @@ AERIES_DATASET = "aeries_stage1"
 
 DLT_PIPELINES_DIR_ENV = "DLT_PIPELINES_DIR"
 STAGE1_PATH_ENV = "STAGE1_PATH"
+DUCKDB_DATABASE_PATH_ENV = "DUCKDB_DATABASE_PATH"
 
 
 @pytest.fixture(scope="module")
 def isolated_stage1(tmp_path_factory):
-    """Point dlt state and the Stage 1 bucket at a throwaway directory.
-
-    dlt persists pipeline state in ~/.dlt/pipelines/<name> by default, and the
-    pipelines read the bucket location from STAGE1_PATH. Left at their defaults,
-    a run on a warm machine resumes from a previous run's state and writes to
-    whatever bucket it recorded then — which is why these tests used to fail
-    with "Missing load_date partition for raw_students" on a clean worktree.
-    Pinning both makes the run self-contained, so the tests read exactly the
-    files they just wrote.
-    """
+    """Point dlt state, Stage 1 bucket, and DuckDB at a throwaway directory."""
     root = tmp_path_factory.mktemp("stage1")
-    previous = {key: os.environ.get(key) for key in (DLT_PIPELINES_DIR_ENV, STAGE1_PATH_ENV)}
+    previous = {
+        key: os.environ.get(key)
+        for key in (DLT_PIPELINES_DIR_ENV, STAGE1_PATH_ENV, DUCKDB_DATABASE_PATH_ENV)
+    }
     os.environ[DLT_PIPELINES_DIR_ENV] = str(root / "pipelines")
     os.environ[STAGE1_PATH_ENV] = str(root / "stage1")
+    os.environ[DUCKDB_DATABASE_PATH_ENV] = str(root / "analytics.duckdb")
     try:
         yield root / "stage1"
     finally:
@@ -297,3 +293,80 @@ class TestIntegration:
 
         assert aeries_dir.exists(), "Aeries directory missing"
         assert excel_dir.exists(), "Excel directory missing"
+
+
+class TestStage1ToStage2Contract:
+    """Verify Stage 1 -> Stage 2 DuckDB raw_* views, test failure handling, and setup script safety."""
+
+    def test_stage1_creates_main_raw_views_in_duckdb(self, aeries_pipeline_run):
+        import duckdb
+
+        db_path = Path(os.environ[DUCKDB_DATABASE_PATH_ENV])
+        assert db_path.exists(), f"Expected DuckDB warehouse at {db_path}"
+
+        con = duckdb.connect(str(db_path), read_only=True)
+        try:
+            for tbl in (
+                "raw_students",
+                "raw_attendance",
+                "raw_academic_records",
+                "raw_discipline",
+                "raw_enrollment",
+            ):
+                count = con.execute(f"SELECT COUNT(*) FROM main.{tbl}").fetchone()[0]
+                assert count > 0, f"Expected rows in main.{tbl}"
+        finally:
+            con.close()
+
+    def test_run_pipeline_returns_false_when_dbt_tests_fail_by_default(self, monkeypatch):
+        from scripts.run_pipeline import PipelineOrchestrator
+
+        orch = PipelineOrchestrator()
+        monkeypatch.setattr(orch, "stage1_ingestion", lambda: True)
+        monkeypatch.setattr(orch, "stage2_refinement", lambda: True)
+        monkeypatch.setattr(orch, "stage3_analytics", lambda: True)
+        monkeypatch.setattr(orch, "stage4_export", lambda: True)
+        monkeypatch.setattr(orch, "run_tests", lambda: False)
+
+        assert orch.run_full_pipeline(skip_tests=False) is False
+        assert orch.run_full_pipeline(skip_tests=False, allow_test_failures=True) is True
+
+    def test_setup_week1_script_does_not_overwrite_tracked_modules(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        setup_script = (
+            repo_root / "oss_framework" / "scripts" / "setup_week1_automated.sh"
+        ).read_text()
+        assert 'cat > "$SCRIPTS_DIR/' not in setup_script
+        assert ".venv" in setup_script
+        assert 'pip install -e ".[dev,nl-query]"' in setup_script
+
+    def test_blue_green_atomic_duckdb_build_and_swap(self, tmp_path, monkeypatch):
+        from scripts.run_pipeline import PipelineOrchestrator
+
+        prod_db = tmp_path / "analytics.duckdb"
+        prod_db.write_bytes(b"prod_v1")
+
+        orch = PipelineOrchestrator(db_path=prod_db)
+        observed_env_paths: list[str] = []
+
+        def fake_stage1() -> bool:
+            observed_env_paths.append(orch.active_db_path_str())
+            Path(orch.active_db_path_str()).write_bytes(b"building_v2")
+            return True
+
+        monkeypatch.setattr(orch, "stage1_ingestion", fake_stage1)
+        monkeypatch.setattr(orch, "stage2_refinement", lambda: True)
+        monkeypatch.setattr(orch, "stage3_analytics", lambda: True)
+        monkeypatch.setattr(orch, "stage4_export", lambda: True)
+
+        # Failed test run must NOT swap building -> prod
+        monkeypatch.setattr(orch, "run_tests", lambda: False)
+        assert orch.run_full_pipeline(skip_tests=False) is False
+        assert prod_db.read_bytes() == b"prod_v1"
+
+        # Passing run must build against .building and atomically swap into prod_db
+        monkeypatch.setattr(orch, "run_tests", lambda: True)
+        assert orch.run_full_pipeline(skip_tests=False) is True
+        assert observed_env_paths[-1].endswith(".duckdb.building")
+        assert prod_db.read_bytes() == b"building_v2"
+        assert not Path(f"{prod_db}.building").exists()

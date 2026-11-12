@@ -293,9 +293,11 @@ class Pseudonymizer:
         Initialize pseudonymizer
 
         Args:
-            salt: Optional salt for hashing (for consistency across runs)
+            salt: Explicit salt (>= 16 chars) for deterministic hashing across runs
         """
-        self.salt = salt or "default_oss_framework_salt"
+        if salt is None or len(salt) < 16:
+            raise ValueError("Explicit non-empty salt is required")
+        self.salt = salt
 
     def pseudonymize(self, df: pd.DataFrame, entity: str = "") -> pd.DataFrame:
         """Pseudonymize a DataFrame with auto-detected rules from column names.

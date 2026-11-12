@@ -75,7 +75,6 @@ renamed AS (
         City AS city,
         Zip AS zip_code,
         State AS state_code,
-        Phone AS phone_number,
         WebSite AS website_url,
         CASE
             WHEN OpenDate = 'No Data' OR OpenDate IS NULL THEN NULL
@@ -101,8 +100,6 @@ renamed AS (
         Magnet AS is_magnet,
         Latitude AS latitude,
         Longitude AS longitude,
-        AdmFName AS admin_first_name,
-        AdmLName AS admin_last_name,
         CASE
             WHEN LastUpDate = 'No Data' OR LastUpDate IS NULL THEN NULL
             ELSE TRY_CAST(LastUpDate AS DATE)

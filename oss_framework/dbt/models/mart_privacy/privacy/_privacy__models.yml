@@ -25,16 +25,6 @@ models:
         data_tests:
           - not_null
 
-      - name: first_name_masked
-        description: "Masked first name (first character + asterisks)"
-        data_tests:
-          - not_null
-
-      - name: last_name_masked
-        description: "Masked last name (first character + asterisks)"
-        data_tests:
-          - not_null
-
       - name: age_at_event
         description: "Age in years at event time (derived from DOB, not PII)"
         data_tests:
@@ -101,9 +91,15 @@ models:
 
       - name: first_name_enc
         description: "⚠️ SENSITIVE: Student first name, AES-256-GCM encrypted (base64 token)"
+        data_tests:
+          - not_null
 
       - name: last_name_enc
         description: "⚠️ SENSITIVE: Student last name, AES-256-GCM encrypted (base64 token)"
+        data_tests:
+          - not_null
 
       - name: date_of_birth_enc
         description: "⚠️ SENSITIVE: Student date of birth, AES-256-GCM encrypted (base64 token)"
+        data_tests:
+          - not_null

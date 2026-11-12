@@ -17,6 +17,11 @@
   box-sizing: border-box;
 }
 
+:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -216,7 +221,7 @@ body {
   border-radius: 0.75rem;
   padding: 1.15rem;
   content-visibility: auto;
-  contain-intrinsic-size: auto 320px auto 260px;
+  contain-intrinsic-size: auto 320px;
 }
 
 @supports not (content-visibility: auto) {
@@ -243,6 +248,43 @@ body {
   color: var(--text-secondary);
   font-size: 0.92rem;
   line-height: 1.45;
+}
+
+.explanation-disclosure {
+  margin-block-start: 0.65rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.explanation-disclosure summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--accent-blue);
+}
+
+.explanation-text {
+  margin: 0.4rem 0;
+  color: var(--text-primary);
+}
+
+.sort-header-btn {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-weight: 600;
+  inline-size: 100%;
+}
+
+.empty-table-cell {
+  text-align: center;
+  padding: 1.5rem !important;
+  color: var(--text-secondary);
+}
+
+.demo-mode-badge strong {
+  color: #fbbf24;
 }
 
 .panel-header {
@@ -311,7 +353,7 @@ body {
 
 .kpi-delta-neg {
   background: rgba(248, 113, 113, 0.15);
-  color: var(--accent-red);
+  color: #fca5a5;
 }
 
 /* FilterBar */
@@ -535,7 +577,7 @@ body {
 
 .variance-over {
   background: rgba(248, 113, 113, 0.18);
-  color: var(--accent-red);
+  color: #fca5a5;
 }
 
 .variance-under {

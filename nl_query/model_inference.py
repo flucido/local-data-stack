@@ -141,9 +141,11 @@ DEFAULT_MAX_TOKENS = 256
 DEFAULT_TEMPERATURE = 0.0
 STOP_SEQUENCES = ["\n\n", "Question:", "User:", "<|im_end|>", "<|im_start|>"]
 
-# Thread-safe model cache
+# Thread-safe model cache and inference mutex
 _lock = threading.Lock()
+_infer_lock = threading.Lock()
 _llm: TransformersLLM | LlamaCppLLM | None = None
+_unified_schema_cache: dict | None = None
 
 
 # ── Shared helpers ─────────────────────────────────────────────────────
@@ -251,15 +253,19 @@ class TransformersLLM:
         temperature: float = DEFAULT_TEMPERATURE,
         echo: bool = False,
         stream: bool = False,
+        grammar: str | None = None,
     ):
         if stream:
             return self._stream(prompt, max_tokens, stop, temperature)
 
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
-        with self.torch.inference_mode():
-            output_ids = self.model.generate(**inputs, **self._gen_kwargs(max_tokens, temperature))
-        new_ids = output_ids[0][inputs["input_ids"].shape[1] :]
-        text = self.tokenizer.decode(new_ids, skip_special_tokens=True)
+        with _infer_lock:
+            inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
+            with self.torch.inference_mode():
+                output_ids = self.model.generate(
+                    **inputs, **self._gen_kwargs(max_tokens, temperature)
+                )
+            new_ids = output_ids[0][inputs["input_ids"].shape[1] :]
+            text = self.tokenizer.decode(new_ids, skip_special_tokens=True)
         text, _ = _truncate_on_stop(text, stop)
         return {"choices": [{"text": text}]}
 
@@ -272,14 +278,17 @@ class TransformersLLM:
     ) -> Generator[dict, None, None]:
         from transformers import TextIteratorStreamer
 
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
-        streamer = TextIteratorStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=True)
-        kwargs = dict(inputs, streamer=streamer, **self._gen_kwargs(max_tokens, temperature))
-        thread = threading.Thread(target=self.model.generate, kwargs=kwargs)
-        thread.start()
-        for piece in streamer:
-            yield {"choices": [{"text": piece}]}
-        thread.join()
+        with _infer_lock:
+            inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
+            streamer = TextIteratorStreamer(
+                self.tokenizer, skip_prompt=True, skip_special_tokens=True
+            )
+            kwargs = dict(inputs, streamer=streamer, **self._gen_kwargs(max_tokens, temperature))
+            thread = threading.Thread(target=self.model.generate, kwargs=kwargs)
+            thread.start()
+            for piece in streamer:
+                yield {"choices": [{"text": piece}]}
+            thread.join()
 
 
 # ── llama.cpp + GGUF backend ───────────────────────────────────────────
@@ -335,17 +344,29 @@ class LlamaCppLLM:
         temperature: float = DEFAULT_TEMPERATURE,
         echo: bool = False,
         stream: bool = False,
+        grammar: str | None = None,
     ):
         if stream:
             return self._stream(prompt, max_tokens, stop, temperature)
 
-        response = self.llm(
-            prompt,
-            max_tokens=max_tokens,
-            stop=stop or [],
-            temperature=temperature,
-            echo=echo,
-        )
+        extra_kwargs: dict = {}
+        if grammar:
+            try:
+                from llama_cpp import LlamaGrammar
+
+                extra_kwargs["grammar"] = LlamaGrammar.from_string(grammar)
+            except Exception:
+                pass
+
+        with _infer_lock:
+            response = self.llm(
+                prompt,
+                max_tokens=max_tokens,
+                stop=stop or [],
+                temperature=temperature,
+                echo=echo,
+                **extra_kwargs,
+            )
         text = response["choices"][0]["text"]
         text, _ = _truncate_on_stop(text, stop)
         return {"choices": [{"text": text}]}
@@ -357,16 +378,17 @@ class LlamaCppLLM:
         stop: list[str] | None,
         temperature: float,
     ) -> Generator[dict, None, None]:
-        for chunk in self.llm(
-            prompt,
-            max_tokens=max_tokens,
-            stop=stop or [],
-            temperature=temperature,
-            stream=True,
-        ):
-            text = chunk["choices"][0].get("text", "")
-            if text:
-                yield {"choices": [{"text": text}]}
+        with _infer_lock:
+            for chunk in self.llm(
+                prompt,
+                max_tokens=max_tokens,
+                stop=stop or [],
+                temperature=temperature,
+                stream=True,
+            ):
+                text = chunk["choices"][0].get("text", "")
+                if text:
+                    yield {"choices": [{"text": text}]}
 
 
 # ── Model loading ──────────────────────────────────────────────────────
@@ -683,11 +705,37 @@ def generate_two_hop_turn(
         if llm is None:
             llm = load_model()
 
-    full_schema = schema if schema is not None else load_unified_schema(include_finance=True)
+    global _unified_schema_cache
+    if schema is not None:
+        full_schema = schema
+    else:
+        if _unified_schema_cache is None:
+            _unified_schema_cache = load_unified_schema(include_finance=True)
+        full_schema = _unified_schema_cache
+
     pruned_schema = select_top_k_tables(user_question, full_schema, k=k_tables)
     pruned_ddl = format_pruned_ddl(pruned_schema)
     chatml_prompt = build_two_hop_prompt(user_question, pruned_ddl)
     hop1_gbnf = compile_hop1_gbnf()
+
+    def _invoke_with_optional_grammar(prompt_text: str, gbnf_text: str):
+        try:
+            return llm(
+                prompt_text,
+                max_tokens=max_tokens,
+                stop=STOP_SEQUENCES,
+                temperature=0.0,
+                echo=False,
+                grammar=gbnf_text,
+            )
+        except TypeError:
+            return llm(
+                prompt_text,
+                max_tokens=max_tokens,
+                stop=STOP_SEQUENCES,
+                temperature=0.0,
+                echo=False,
+            )
 
     self_healing_errors: list[dict] = []
     final_sql = ""
@@ -695,13 +743,7 @@ def generate_two_hop_turn(
     result_summary: dict | None = None
 
     for attempt in range(max_retries + 1):
-        resp = llm(
-            chatml_prompt,
-            max_tokens=max_tokens,
-            stop=STOP_SEQUENCES,
-            temperature=0.0,
-            echo=False,
-        )
+        resp = _invoke_with_optional_grammar(chatml_prompt, hop1_gbnf)
         raw_hop1 = resp["choices"][0]["text"]
         try:
             final_sql, _df, result_summary = compute_result_summary(
@@ -721,8 +763,30 @@ def generate_two_hop_turn(
     assert result_summary is not None
     output_cols = [c["name"] for c in result_summary.get("columns", [])]
     hop2_gbnf = compile_hop2_gbnf(output_cols)
-    hop2_call = synthesize_semantic_hop2_ui(user_question, result_summary)
-    hop2_valid, hop2_errors = validate_hop2_call(hop2_call, result_summary=result_summary)
+
+    hop2_call: dict | None = None
+    hop2_valid = False
+    hop2_errors: list[str] = []
+    try:
+        import json
+
+        hop2_resp = _invoke_with_optional_grammar(chatml_prompt, hop2_gbnf)
+        raw_hop2 = hop2_resp["choices"][0]["text"].strip()
+        brace_idx = raw_hop2.find("{")
+        if brace_idx != -1:
+            candidate_hop2, _ = json.JSONDecoder().raw_decode(raw_hop2, brace_idx)
+            if isinstance(candidate_hop2, dict):
+                ok, errs = validate_hop2_call(candidate_hop2, result_summary=result_summary)
+                if ok:
+                    hop2_call = candidate_hop2
+                    hop2_valid = True
+                    hop2_errors = []
+    except Exception:
+        hop2_call = None
+
+    if hop2_call is None:
+        hop2_call = synthesize_semantic_hop2_ui(user_question, result_summary)
+        hop2_valid, hop2_errors = validate_hop2_call(hop2_call, result_summary=result_summary)
 
     return {
         "question": user_question,

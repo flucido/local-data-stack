@@ -32,7 +32,7 @@ CANONICAL_COMPONENTS = (
 )
 
 VALUE_FORMATS = ("currency", "percent", "integer", "decimal", "raw")
-FILTER_CONTROL_TYPES = ("date_range", "multi_select", " single_select", "numeric_range", "search")
+FILTER_CONTROL_TYPES = ("date_range", "multi_select", "single_select", "numeric_range", "search")
 FILTER_CONTROL_TYPES_CLEAN = (
     "date_range",
     "multi_select",

@@ -115,3 +115,30 @@ AERIES_COLUMN_MAPPING = {
     "enrollment": ENROLLMENT_MAPPING,
     "programs": PROGRAMS_MAPPING,
 }
+
+# Explicit Stage 1 student column allowlist (excludes phones, addresses, StateStudentID, OldStudentID)
+STUDENT_STAGE1_ALLOWLIST: frozenset[str] = frozenset(
+    {
+        *(k for k in STUDENTS_MAPPING if not k.startswith("NULL_")),
+        *STUDENTS_MAPPING.values(),
+        # Analytical / synthetic equivalents permitted in Stage 1
+        "Ethnicity",
+        "ethnicity",
+        "RaceCode1",
+        "RaceCode2",
+        "RaceCode3",
+        "RaceCode4",
+        "RaceCode5",
+        "race_code_1",
+        "race_code_2",
+        "race_code_3",
+        "race_code_4",
+        "race_code_5",
+        "special_education",
+        "free_reduced_lunch",
+        "homeless",
+        "foster_care",
+        "section_504",
+        "updated_at",
+    }
+)

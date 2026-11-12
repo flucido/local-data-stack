@@ -85,8 +85,17 @@ renamed AS (
         TRY_CAST(suspension_count_defiance_only AS INTEGER) as suspension_count_defiance_only,
         TRY_CAST(suspension_count_other_reasons AS INTEGER) as suspension_count_other_reasons,
 
-        -- Suppression flags (check enrollment column for '*' and < 11)
-        {{ cde_suppression_flags(['cumulative_enrollment']) }},
+        -- Suppression flags (handle both '*' strings and pipeline-nulled suppression)
+        CASE
+            WHEN cumulative_enrollment = '*' OR total_suspensions = '*' THEN TRUE
+            WHEN TRY_CAST(total_suspensions AS INTEGER) IS NULL
+                 AND TRY_CAST(cumulative_enrollment AS INTEGER) IS NULL THEN TRUE
+            ELSE FALSE
+        END as is_suppressed,
+        CASE
+            WHEN TRY_CAST(cumulative_enrollment AS INTEGER) < 11 THEN TRUE
+            ELSE FALSE
+        END as is_small_n,
 
         -- Metadata
         _loaded_at,

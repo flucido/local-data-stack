@@ -26,9 +26,21 @@ sys.path.insert(0, str(project_root))
 class PipelineOrchestrator:
     """Simple orchestrator for the local data pipeline."""
 
-    def __init__(self, dbt_project_dir: str | None = None):
+    def __init__(
+        self, dbt_project_dir: str | Path | None = None, db_path: str | Path | None = None
+    ):
         self.project_root = project_root
-        self.dbt_project_dir = dbt_project_dir or self.project_root / "oss_framework" / "dbt"
+        self.dbt_project_dir = (
+            Path(dbt_project_dir)
+            if dbt_project_dir
+            else (self.project_root / "oss_framework" / "dbt")
+        )
+        default_db = self.project_root / "oss_framework" / "data" / "analytics.duckdb"
+        self.prod_db_path = Path(
+            db_path or os.getenv("DUCKDB_DATABASE_PATH") or default_db
+        ).resolve()
+        self.building_db_path = Path(f"{self.prod_db_path}.building")
+        self._active_db_path = self.prod_db_path
         # Resolve dbt: prefer DBT_COMMAND env var, then venv dbt, then system dbt
         venv_dbt = str(self.project_root / ".venv" / "bin" / "dbt")
         self.dbt_executable = (
@@ -38,6 +50,10 @@ class PipelineOrchestrator:
         )
         self.python_executable = sys.executable
         self.start_time = datetime.now()
+
+    def active_db_path_str(self) -> str:
+        """Return the DuckDB path currently targeted by pipeline subprocesses."""
+        return str(self._active_db_path)
 
     def log(self, message: str, level: str = "INFO"):
         """Simple logging."""
@@ -63,6 +79,7 @@ class PipelineOrchestrator:
 
         # Ensure subprocesses can import oss_framework and scripts
         env = os.environ.copy()
+        env["DUCKDB_DATABASE_PATH"] = str(self._active_db_path)
         existing_path = env.get("PYTHONPATH", "")
         project_root_str = str(self.project_root)
         if project_root_str not in existing_path:
@@ -246,12 +263,15 @@ class PipelineOrchestrator:
             workdir=self.dbt_project_dir,
         )
 
-    def run_full_pipeline(self, skip_tests: bool = False) -> bool:
+    def run_full_pipeline(
+        self, skip_tests: bool = False, allow_test_failures: bool = False
+    ) -> bool:
         """
         Run the complete data pipeline.
 
         Args:
             skip_tests: If True, skip dbt test execution
+            allow_test_failures: If True, return True even when dbt tests fail
 
         Returns:
             True if all stages succeeded
@@ -260,47 +280,71 @@ class PipelineOrchestrator:
         self.log("║   LOCAL DATA STACK PIPELINE - FULL RUN          ║")
         self.log("╚═══════════════════════════════════════════════════╝")
 
-        # Stage 1: Ingestion
-        stage1_success = self.stage1_ingestion()
+        self.prod_db_path.parent.mkdir(parents=True, exist_ok=True)
+        for stale in (self.building_db_path, Path(f"{self.building_db_path}.wal")):
+            if stale.exists():
+                stale.unlink()
+        if self.prod_db_path.exists():
+            shutil.copy2(self.prod_db_path, self.building_db_path)
 
-        if not stage1_success:
-            self.log("Pipeline failed at Stage 1 (Ingestion)", "ERROR")
-            return False
+        prev_env_db = os.environ.get("DUCKDB_DATABASE_PATH")
+        self._active_db_path = self.building_db_path
+        os.environ["DUCKDB_DATABASE_PATH"] = str(self.building_db_path)
 
-        # Stage 2: Refinement
-        stage2_success = self.stage2_refinement()
+        try:
+            # Stage 1: Ingestion
+            if not self.stage1_ingestion():
+                self.log("Pipeline failed at Stage 1 (Ingestion)", "ERROR")
+                return False
 
-        if not stage2_success:
-            self.log("Pipeline failed at Stage 2 (Refinement)", "ERROR")
-            return False
+            # Stage 2: Refinement
+            if not self.stage2_refinement():
+                self.log("Pipeline failed at Stage 2 (Refinement)", "ERROR")
+                return False
 
-        # Stage 3: Analytics
-        stage3_success = self.stage3_analytics()
+            # Stage 3: Analytics
+            if not self.stage3_analytics():
+                self.log("Pipeline failed at Stage 3 (Analytics)", "ERROR")
+                return False
 
-        if not stage3_success:
-            self.log("Pipeline failed at Stage 3 (Analytics)", "ERROR")
-            return False
+            # Tests (optional)
+            if not skip_tests:
+                if not self.run_tests():
+                    if not allow_test_failures:
+                        self.log("Pipeline failed at Data Quality Tests", "ERROR")
+                        return False
+                    self.log(
+                        "Data quality tests failed (continuing due to --allow-test-failures)",
+                        "WARNING",
+                    )
 
-        # Stage 4: Export to Parquet
-        stage4_success = self.stage4_export()
+            # Stage 4: Export to Parquet
+            if not self.stage4_export():
+                self.log("Pipeline failed at Stage 4 (Export)", "ERROR")
+                return False
 
-        if not stage4_success:
-            self.log("Pipeline failed at Stage 4 (Export)", "ERROR")
-            return False
+            # Atomic Blue/Green DuckDB swap
+            if self.building_db_path.exists():
+                os.replace(self.building_db_path, self.prod_db_path)
+                wal_prod = Path(f"{self.prod_db_path}.wal")
+                if wal_prod.exists():
+                    wal_prod.unlink()
 
-        # Tests (optional)
-        if not skip_tests:
-            if not self.run_tests():
-                self.log("Data quality tests failed (pipeline completed)", "WARNING")
-
-        # Success summary
-        elapsed = datetime.now() - self.start_time
-        self.log("╔═══════════════════════════════════════════════════╗")
-        self.log("║   PIPELINE COMPLETED SUCCESSFULLY                ║")
-        self.log(f"║   Duration: {elapsed}                           ║")
-        self.log("╚═══════════════════════════════════════════════════╝")
-
-        return True
+            elapsed = datetime.now() - self.start_time
+            self.log("╔═══════════════════════════════════════════════════╗")
+            self.log("║   PIPELINE COMPLETED SUCCESSFULLY                ║")
+            self.log(f"║   Duration: {elapsed}                           ║")
+            self.log("╚═══════════════════════════════════════════════════╝")
+            return True
+        finally:
+            self._active_db_path = self.prod_db_path
+            if prev_env_db is None:
+                os.environ.pop("DUCKDB_DATABASE_PATH", None)
+            else:
+                os.environ["DUCKDB_DATABASE_PATH"] = prev_env_db
+            for leftover in (self.building_db_path, Path(f"{self.building_db_path}.wal")):
+                if leftover.exists():
+                    leftover.unlink()
 
 
 def main():
@@ -316,6 +360,11 @@ def main():
     )
     parser.add_argument(
         "--skip-tests", action="store_true", help="Skip dbt tests after pipeline run"
+    )
+    parser.add_argument(
+        "--allow-test-failures",
+        action="store_true",
+        help="Allow pipeline to succeed even if dbt data quality tests fail",
     )
     parser.add_argument(
         "--dbt-dir", type=str, help="Path to dbt project directory (default: oss_framework/dbt)"
@@ -335,7 +384,10 @@ def main():
     elif args.stage == "4":
         success = orchestrator.stage4_export()
     else:  # args.stage == "all"
-        success = orchestrator.run_full_pipeline(skip_tests=args.skip_tests)
+        success = orchestrator.run_full_pipeline(
+            skip_tests=args.skip_tests,
+            allow_test_failures=args.allow_test_failures,
+        )
 
     sys.exit(0 if success else 1)
 

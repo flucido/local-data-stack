@@ -1,0 +1,90 @@
+version: 2
+
+models:
+  - name: v_equity_outcomes_by_demographics
+    description: "Equity outcomes disaggregated by race, EL, SPED, and economically disadvantaged status with k >= 5 suppression."
+    data_tests:
+      - test_k_anonymity:
+          arguments:
+            column_name: student_count
+            min_k: 5
+
+  - name: math_8_cohort_tracking
+    description: "7th grade Math 8 to 8th grade Algebra 1 longitudinal cohort outcomes with k >= 5 suppression."
+    data_tests:
+      - test_k_anonymity:
+          arguments:
+            column_name: student_count
+            min_k: 5
+
+  - name: algebra_1_outcomes
+    description: "8th grade Algebra 1 completion outcomes by demographic cohort with k >= 5 suppression."
+    data_tests:
+      - test_k_anonymity:
+          arguments:
+            column_name: student_count
+            min_k: 5
+
+  - name: lead_program_enrollment
+    description: "LEAD program enrollment by year and demographic cohort with k >= 5 suppression."
+    data_tests:
+      - test_k_anonymity:
+          arguments:
+            column_name: student_count
+            min_k: 5
+
+  - name: math_pathways_7th_grade
+    description: "7th grade Math 8 vs Apex Math 8 pathway enrollment with k >= 5 suppression."
+    data_tests:
+      - test_k_anonymity:
+          arguments:
+            column_name: student_count
+            min_k: 5
+
+  - name: equity_by_race
+    description: "Aggregated equity outcomes by primary race with k >= 5 cohort and subgroup suppression."
+    data_tests:
+      - test_k_anonymity:
+          arguments:
+            column_name: student_count
+            min_k: 5
+
+  - name: school_summary
+    description: "School-level summary metrics with k >= 5 suppression."
+    data_tests:
+      - test_k_anonymity:
+          arguments:
+            column_name: student_count
+            min_k: 5
+
+  - name: fact_class_effectiveness
+    description: "Course/school/grade effectiveness metrics with k >= 5 cohort and subgroup suppression."
+    data_tests:
+      - test_k_anonymity:
+          arguments:
+            column_name: student_count
+            min_k: 5
+
+  - name: math_8_enrollment_by_year
+    description: "7th grade Math 8 enrollment by year and demographic cohort with k >= 5 suppression."
+    data_tests:
+      - test_k_anonymity:
+          arguments:
+            column_name: student_count
+            min_k: 5
+
+  - name: lead_enrollment_by_year
+    description: "LEAD program enrollment by year and demographic cohort with k >= 5 suppression."
+    data_tests:
+      - test_k_anonymity:
+          arguments:
+            column_name: student_count
+            min_k: 5
+
+  - name: apex_math_8_enrollment_by_year
+    description: "7th grade Apex Math 8 enrollment by year and demographic cohort with k >= 5 suppression."
+    data_tests:
+      - test_k_anonymity:
+          arguments:
+            column_name: student_count
+            min_k: 5

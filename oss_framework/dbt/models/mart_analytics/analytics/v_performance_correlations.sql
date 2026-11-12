@@ -20,6 +20,7 @@ WITH att_gpa_corr AS (
     FROM {{ ref('agg_attendance_windows') }} a
     JOIN {{ ref('fact_academic_performance') }} acad
         ON a.student_key = acad.student_key
+        AND a.academic_year = acad.academic_year
     WHERE a.window_type = 'term'
 ),
 
@@ -39,6 +40,7 @@ disc_grades_corr AS (
     FROM {{ ref('agg_discipline_windows') }} dis
     JOIN {{ ref('fact_academic_performance') }} acad
         ON dis.student_key = acad.student_key
+        AND dis.academic_year = acad.academic_year
     WHERE dis.window_type = 'term'
 ),
 
@@ -58,7 +60,9 @@ att_engagement_corr AS (
         CURRENT_TIMESTAMP AS _loaded_at
     FROM {{ ref('agg_attendance_windows') }} a
     LEFT JOIN {{ ref('agg_discipline_windows') }} dis
-        ON a.student_key = dis.student_key AND a.window_type = dis.window_type
+        ON a.student_key = dis.student_key
+        AND a.window_type = dis.window_type
+        AND a.academic_year = dis.academic_year
     WHERE a.window_type = 'term'
 )
 

@@ -1,16 +1,21 @@
-
 -- models/mart_features/features/fct_academic_features.sql
 -- Feature: Academic performance indicators
 
 {{ config(
     materialized='table',
     schema='features',
-    unique_key='student_id_hash',
+    unique_key=['student_id_hash', 'academic_year'],
     tags=['features', 'academic']
 ) }}
 
+WITH latest_academic AS (
+    SELECT MAX(created_at) AS max_created_at
+    FROM {{ ref('fact_academic_records') }}
+)
+
 SELECT
     ds.student_id_hash,
+    ds.academic_year,
     ds.school_id,
     ds.grade_level,
 
@@ -33,12 +38,12 @@ SELECT
     COALESCE(COUNT(CASE WHEN far.grade IN ('C+', 'C', 'C-') THEN 1 END), 0) as average_count,
     COALESCE(COUNT(CASE WHEN far.grade IN ('D+', 'D', 'D-', 'F', 'NP') THEN 1 END), 0) as below_average_count,
 
-    -- Grade trend (compare recent vs earlier gpa_points)
+    -- Grade trend anchored on snapshot max(created_at)
     CASE
-        WHEN AVG(CASE WHEN far.created_at >= CURRENT_DATE - INTERVAL '15 days' THEN far.gpa_points END) >
-             AVG(CASE WHEN far.created_at < CURRENT_DATE - INTERVAL '15 days' THEN far.gpa_points END) THEN 'IMPROVING'
-        WHEN AVG(CASE WHEN far.created_at >= CURRENT_DATE - INTERVAL '15 days' THEN far.gpa_points END) <
-             AVG(CASE WHEN far.created_at < CURRENT_DATE - INTERVAL '15 days' THEN far.gpa_points END) THEN 'DECLINING'
+        WHEN AVG(CASE WHEN far.created_at >= la.max_created_at - INTERVAL '15 days' THEN far.gpa_points END) >
+             AVG(CASE WHEN far.created_at < la.max_created_at - INTERVAL '15 days' THEN far.gpa_points END) THEN 'IMPROVING'
+        WHEN AVG(CASE WHEN far.created_at >= la.max_created_at - INTERVAL '15 days' THEN far.gpa_points END) <
+             AVG(CASE WHEN far.created_at < la.max_created_at - INTERVAL '15 days' THEN far.gpa_points END) THEN 'DECLINING'
         ELSE 'STABLE'
     END as grade_trend,
 
@@ -46,5 +51,8 @@ SELECT
     CURRENT_TIMESTAMP as dbt_processed_date
 
 FROM {{ ref('dim_students') }} ds
-LEFT JOIN {{ ref('fact_academic_records') }} far ON ds.student_id_hash = far.student_id_hash
-GROUP BY ds.student_id_hash, ds.school_id, ds.grade_level
+CROSS JOIN latest_academic la
+LEFT JOIN {{ ref('fact_academic_records') }} far
+    ON ds.student_id_hash = far.student_id_hash
+    AND ds.academic_year = far.school_year
+GROUP BY ds.student_id_hash, ds.academic_year, ds.school_id, ds.grade_level, la.max_created_at

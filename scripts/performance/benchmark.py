@@ -58,32 +58,32 @@ class PerformanceBenchmark:
         queries = {
             "student_count": "SELECT COUNT(*) FROM main_core.dim_students",
             "attendance_count": "SELECT COUNT(*) FROM main_core.fact_attendance_daily",
-            "grades_count": "SELECT COUNT(*) FROM main_core.fact_grades",
-            "discipline_count": "SELECT COUNT(*) FROM main_core.fact_discipline_incidents",
+            "grades_count": "SELECT COUNT(*) FROM main_core.fact_academic_records",
+            "discipline_count": "SELECT COUNT(*) FROM main_core.fact_discipline",
             "student_lookup": """
-                SELECT *
+                SELECT student_id_hash, school_id, grade_level, academic_year
                 FROM main_core.dim_students
-                WHERE student_id = 'STU0001'
+                WHERE student_id_hash IS NOT NULL
+                LIMIT 10
             """,
             "attendance_range": """
-                SELECT student_id, COUNT(*) as records
-                FROM main_core.fact_attendance_daily
-                WHERE attendance_date BETWEEN '2025-01-01' AND '2025-06-30'
-                GROUP BY student_id
+                SELECT student_id_hash, COUNT(*) as records
+                FROM main_core.fact_attendance
+                WHERE academic_year = '2024-2025'
+                GROUP BY student_id_hash
                 LIMIT 100
             """,
             "school_summary": """
                 SELECT
                     school_id,
-                    COUNT(*) as total_records,
-                    AVG(CASE WHEN present_flag THEN 1.0 ELSE 0.0 END) as attendance_rate
+                    SUM(total_students) as total_records,
+                    AVG(attendance_rate) as attendance_rate
                 FROM main_core.fact_attendance_daily
-                WHERE attendance_date >= '2025-01-01'
                 GROUP BY school_id
             """,
             "chronic_risk_dashboard": """
                 SELECT *
-                FROM main_scoring.score_chronic_absenteeism_risk
+                FROM main_scoring.score_chronic_absence_risk
                 WHERE risk_score > 50
                 ORDER BY risk_score DESC
                 LIMIT 100
@@ -91,13 +91,13 @@ class PerformanceBenchmark:
             "wellbeing_profile": """
                 SELECT
                     w.*,
-                    s.first_name,
-                    s.last_name,
                     s.grade_level
-                FROM main_scoring.score_wellbeing_risk w
-                JOIN main_core.dim_students s ON w.student_id = s.student_id
-                WHERE w.overall_risk_score > 60
-                ORDER BY w.overall_risk_score DESC
+                FROM main_analytics.v_wellbeing_risk_profiles w
+                JOIN main_core.dim_students s
+                  ON w.student_key = s.student_id_hash
+                 AND w.academic_year = s.academic_year
+                WHERE w.wellbeing_risk_score > 60
+                ORDER BY w.wellbeing_risk_score DESC
                 LIMIT 50
             """,
             "analytics_chronic_absenteeism": """
