@@ -364,9 +364,15 @@ class TestStage1ToStage2Contract:
         assert orch.run_full_pipeline(skip_tests=False) is False
         assert prod_db.read_bytes() == b"prod_v1"
 
-        # Passing run must build against .building and atomically swap into prod_db
+        # Passing run must build against the building db and atomically swap into prod_db.
+        # Regression guard for the dbt-duckdb catalog-name derivation: the building
+        # basename must contain exactly one dot so dbt's splitext-derived ref catalog
+        # name matches DuckDB's own attached catalog name (which strips at the first
+        # dot). "analytics.duckdb.building" breaks every compiled ref with:
+        # Binder Error: Catalog "analytics.duckdb" does not exist!
         monkeypatch.setattr(orch, "run_tests", lambda: True)
         assert orch.run_full_pipeline(skip_tests=False) is True
-        assert observed_env_paths[-1].endswith(".duckdb.building")
+        assert observed_env_paths[-1].endswith("analytics_building.duckdb")
+        assert orch.building_db_path.name.count(".") == 1
         assert prod_db.read_bytes() == b"building_v2"
-        assert not Path(f"{prod_db}.building").exists()
+        assert not orch.building_db_path.exists()

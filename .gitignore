@@ -14,6 +14,8 @@ venv/
 *.duckdb
 *.duckdb.building
 *.duckdb.building.wal
+*_building.duckdb
+*_building.duckdb.wal
 *.db
 *.db.wal
 *.parquet

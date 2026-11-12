@@ -383,6 +383,7 @@ def test_ci_workflow_packaging_and_benchmark_schema_contracts() -> None:
 
     gitignore = (REPO_ROOT / ".gitignore").read_text()
     assert "*.duckdb.building" in gitignore
+    assert "*_building.duckdb" in gitignore
 
     for perf_rel in (
         "scripts/performance/benchmark.py",

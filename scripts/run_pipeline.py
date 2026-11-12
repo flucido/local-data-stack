@@ -39,7 +39,16 @@ class PipelineOrchestrator:
         self.prod_db_path = Path(
             db_path or os.getenv("DUCKDB_DATABASE_PATH") or default_db
         ).resolve()
-        self.building_db_path = Path(f"{self.prod_db_path}.building")
+        # Blue/green building file must have a single-dot basename: dbt-duckdb
+        # derives the ref catalog name via os.path.splitext (strips only the final
+        # extension -> "analytics.duckdb" for "analytics.duckdb.building"), while
+        # DuckDB names the attached catalog by stripping from the first dot
+        # ("analytics"). Refs compiled against the splitext name do not bind and
+        # dbt dies with: Binder Error: Catalog "analytics.duckdb" does not exist!
+        # Sanitizing the stem guarantees exactly one dot in the building basename,
+        # so both derivations agree regardless of the prod filename.
+        building_stem = self.prod_db_path.stem.replace(".", "_")
+        self.building_db_path = self.prod_db_path.with_name(f"{building_stem}_building.duckdb")
         self._active_db_path = self.prod_db_path
         # Resolve dbt: prefer DBT_COMMAND env var, then venv dbt, then system dbt
         venv_dbt = str(self.project_root / ".venv" / "bin" / "dbt")
