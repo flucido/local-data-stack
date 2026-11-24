@@ -323,7 +323,7 @@ pub fn format_pruned_ddl(pruned: &SchemaCatalog) -> String {
                     let samples: Vec<String> = c
                         .sample_values
                         .iter()
-                        .take(4)
+                        .take(8)
                         .map(|s| format!("'{s}'"))
                         .collect();
                     base.push_str(&format!(" [e.g. {}]", samples.join(", ")));
