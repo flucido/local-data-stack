@@ -35,11 +35,13 @@ fn main() -> Result<()> {
         .join("data")
         .join("analytics.duckdb");
 
-    let catalog = Arc::new(load_unified_schema(&repo_root));
+    let mut catalog = load_unified_schema(&repo_root);
     let engine = Arc::new(MedallionEngine::new(
         &bronze_path,
         Some(edu_warehouse.as_path()),
     )?);
+    engine.enrich_schema_catalog(&mut catalog);
+    let catalog = Arc::new(catalog);
 
     if args.iter().any(|a| a == "--headless-self-test") {
         let entry = engine

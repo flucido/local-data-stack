@@ -1370,12 +1370,96 @@ def seed_all_warehouses(conn: duckdb.DuckDBPyConnection) -> None:
     seed_k12_warehouse(conn)
 
 
+# Warehouse columns added by the dbt/medallion pipeline that the seed does not emit.
+# Each maps to a SQL expression computed from the seeded columns during enrichment.
+_DERIVED_COLUMNS: dict[str, dict[str, str]] = {
+    "main_core.dim_students": {
+        "sped_status": "special_education_flag",
+        "sed_status": "free_reduced_lunch_flag",
+    },
+    "main_core.dim_student_demographics": {"is_suppressed": "FALSE"},
+    "main_analytics.v_equity_outcomes_by_demographics": {"student_count": "cohort_size"},
+}
+
+_ENRICH_TABLES = [
+    "main_core.dim_schools",
+    "main_core.dim_students",
+    "main_core.dim_student_demographics",
+    "main_core.fact_attendance",
+    "main_core.fact_academic_records",
+    "main_core.fact_discipline",
+    "main_core.fact_enrollment",
+    "main_analytics.equity_by_race",
+    "main_analytics.school_summary",
+    "main_analytics.v_chronic_absenteeism_risk",
+    "main_analytics.v_equity_outcomes_by_demographics",
+]
+
+
+def _transfer_seeded_table(
+    mem: duckdb.DuckDBPyConnection, conn: duckdb.DuckDBPyConnection, tbl: str
+) -> None:
+    """Replace `conn.tbl` with the seeded `mem.tbl`, matching the live schema by name.
+
+    The live warehouse carries extra pipeline columns the seed lacks; insert by explicit
+    column name (never position) and derive those extras. Fail loud on any unmapped column
+    so schema drift surfaces instead of silently nulling data.
+    """
+    existing = [r[0] for r in conn.execute(f"DESCRIBE {tbl}").fetchall()]
+    seeded = {r[0] for r in mem.execute(f"DESCRIBE {tbl}").fetchall()}
+    derive = _DERIVED_COLUMNS.get(tbl, {})
+    exprs = []
+    for col in existing:
+        if col in seeded:
+            exprs.append(f'"{col}"')
+        elif col in derive:
+            exprs.append(f'{derive[col]} AS "{col}"')
+        else:
+            raise ValueError(f"{tbl}: live column '{col}' has no seeded source or derivation")
+    rows = mem.execute(f"SELECT {', '.join(exprs)} FROM {tbl}").fetchall()
+    conn.execute(f"DELETE FROM {tbl}")
+    if rows:
+        collist = ", ".join(f'"{c}"' for c in existing)
+        placeholders = ", ".join(["?"] * len(existing))
+        conn.executemany(f"INSERT INTO {tbl} ({collist}) VALUES ({placeholders})", rows)
+
+
 def enrich_existing_warehouse(db_path: str | Path) -> None:
     """Enrich `oss_framework/data/analytics.duckdb` so local evaluations have complete
     `2021-2022` through `2024-2025` cohorts in `main_core` and full `equity_by_race` rows.
+
+    Schema-aware: the live warehouse may carry extra pipeline columns (e.g. `academic_year`
+    on `equity_by_race`/`school_summary`, `sped_status`/`sed_status` on `dim_students`); these
+    are derived rather than assumed positional. The rich CDE `mart` and `main_staging` tables
+    are preserved (only a non-destructive null-fill on the mart).
     """
     mem = duckdb.connect(":memory:")
     seed_all_warehouses(mem)
+
+    # The seed's equity_by_race / school_summary are year-less snapshots; expand them across
+    # the Aeries cohorts so year-filtered queries observe multi-year data.
+    years_literal = "['2021-2022', '2022-2023', '2023-2024', '2024-2025']"
+    mem.execute(
+        f"""
+        CREATE OR REPLACE TABLE main_analytics.equity_by_race AS
+        SELECT y.academic_year, e.*, CAST(0 AS BIGINT) AS incident_count
+        FROM main_analytics.equity_by_race e
+        CROSS JOIN (SELECT UNNEST({years_literal}) AS academic_year) y
+        """
+    )
+    mem.execute(
+        f"""
+        CREATE OR REPLACE TABLE main_analytics.school_summary AS
+        SELECT y.academic_year, s.*, d.school_name,
+               s.student_count AS total_students, CAST(0 AS BIGINT) AS total_incidents
+        FROM main_analytics.school_summary s
+        CROSS JOIN (SELECT UNNEST({years_literal}) AS academic_year) y
+        LEFT JOIN (
+            SELECT school_id, ANY_VALUE(school_name) AS school_name
+            FROM main_core.dim_schools GROUP BY school_id
+        ) d USING (school_id)
+        """
+    )
 
     conn = duckdb.connect(str(db_path), read_only=False)
     try:
@@ -1385,24 +1469,14 @@ def enrich_existing_warehouse(db_path: str | Path) -> None:
             "SELECT COUNT(*) FROM main_core.dim_students WHERE academic_year = '2023-2024'"
         ).fetchone()[0]
         if has_2324 == 0:
-            for tbl in [
-                "main_core.dim_schools",
-                "main_core.dim_students",
-                "main_core.dim_student_demographics",
-                "main_core.fact_attendance",
-                "main_core.fact_academic_records",
-                "main_core.fact_discipline",
-                "main_core.fact_enrollment",
-                "main_analytics.equity_by_race",
-                "main_analytics.school_summary",
-                "main_analytics.v_chronic_absenteeism_risk",
-                "main_analytics.v_equity_outcomes_by_demographics",
-            ]:
-                rows = mem.execute(f"SELECT * FROM {tbl}").fetchall()
-                conn.execute(f"DELETE FROM {tbl}")
-                if rows:
-                    placeholders = ", ".join(["?"] * len(rows[0]))
-                    conn.executemany(f"INSERT INTO {tbl} VALUES ({placeholders})", rows)
+            conn.execute("BEGIN TRANSACTION")
+            try:
+                for tbl in _ENRICH_TABLES:
+                    _transfer_seeded_table(mem, conn, tbl)
+                conn.execute("COMMIT")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
 
         # Populate stg_cde__assessment_caspp if empty
         caspp_cnt = conn.execute(
