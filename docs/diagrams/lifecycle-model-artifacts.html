@@ -5767,7 +5767,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <h3>Operational notes</h3>
         </div>
         <ul>
-          <li>Modal GPU jobs are deployed and spawned rather than run through a short-lived local command</li>
+          <li>LFM3 training is deployed and spawned rather than run through a short-lived local command; GGUF export runs as an isolated Modal container</li>
           <li>The lfed-training-data volume persists checkpoints and pairs between runs; deleting it starts generation or training over</li>
           <li>The bf16 and Q8_0 artifacts are uploaded by the Modal jobs, while the desktop GGUF is fetched into models/ manually</li>
           <li>The Q8_0 file is about 1.8 GB and fits unified memory on Apple Silicon</li>

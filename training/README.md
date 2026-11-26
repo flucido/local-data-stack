@@ -69,31 +69,6 @@ modal run --detach training/modal_generate.py
 
 The volume persists pairs between runs; delete it to start fresh.
 
-## Exporting the LFM3 Q8_0 GGUF
-
-The desktop app loads a calibrated Q8_0 GGUF. `modal_export_gguf.py` runs in
-its own Modal container, downloads the bf16 checkpoint from the Hub (or reads
-it from the `lfed-training-data` volume), converts it to f16 GGUF, computes an
-importance matrix with `llama-imatrix`, quantizes to Q8_0, and publishes the
-result to `KDDSTLC/lfed-lfm3-1.7b-two-hop-gguf`.
-
-Prerequisites:
-
-- Modal CLI authenticated.
-- Hugging Face secret `huggingface-secret` with `HF_TOKEN`.
-- The bf16 checkpoint published at
-  `KDDSTLC/lfed-lfm3-1.7b-two-hop-bf16`, or present in the training volume.
-
-Run:
-
-```bash
-modal run training/modal_export_gguf.py
-modal volume get lfed-gguf-export /gguf/lfed-lfm3-1.7b-two-hop-Q8_0.gguf models/
-```
-
-The local legacy Qwen Q4_K_M file in `models/` is a separate artifact and is
-not produced by this job.
-
 ## What this pipeline is and is not
 
 This pipeline reproduces an existing research-grade adapter for technical
@@ -129,3 +104,28 @@ The next-generation local-first desktop architecture executes a two-hop tool-cal
 | `modal_export_gguf.py` | Isolated Modal job converting bf16 to f16 GGUF, computing `llama-imatrix`, and quantizing to `Q8_0`. |
 | `reward_fn.py` | Verifiable reward: valid Hop 1 JSON and execution score positively, exact result-set match adds the largest bonus, and malformed or failing SQL is penalized. |
 | `eval_holdout_local.py` | Local private evaluation runner for testing the fine-tuned model against held-out K-12 questions. |
+
+## Exporting the LFM3 Q8_0 GGUF
+
+The desktop app loads a calibrated Q8_0 GGUF. `modal_export_gguf.py` runs in
+its own Modal container, downloads the bf16 checkpoint from the Hub (or reads
+it from the `lfed-training-data` volume), converts it to f16 GGUF, computes an
+importance matrix with `llama-imatrix`, quantizes to Q8_0, and publishes the
+result to `KDDSTLC/lfed-lfm3-1.7b-two-hop-gguf`.
+
+Prerequisites:
+
+- Modal CLI authenticated.
+- Hugging Face secret `huggingface-secret` with `HF_TOKEN`.
+- The bf16 checkpoint published at
+  `KDDSTLC/lfed-lfm3-1.7b-two-hop-bf16`, or present in the training volume.
+
+Run:
+
+```bash
+modal run training/modal_export_gguf.py
+modal volume get lfed-gguf-export /gguf/lfed-lfm3-1.7b-two-hop-Q8_0.gguf models/
+```
+
+The local legacy Qwen Q4_K_M file in `models/` is a separate artifact and is
+not produced by this job.
