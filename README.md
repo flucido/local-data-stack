@@ -52,7 +52,7 @@ Five interactive views of the same system, generated from the code with every no
 | [Trust boundaries](https://flucido.github.io/local-data-stack/diagrams/architecture-trust-boundaries.html) | What stays on local hardware versus what crosses to Modal or the Hub |
 | [Model and eval lifecycle](https://flucido.github.io/local-data-stack/diagrams/lifecycle-model-artifacts.html) | How the curated schema becomes two-hop trajectories, LFM3 builds, a desktop service, and the legacy rollback |
 
-Source links are pinned to revision `5f83a7b`. Each file in [`docs/diagrams/`](docs/diagrams) is standalone HTML with bundled fonts, so the diagrams also open offline without a server.
+Source links are pinned to revision `2dd6750`. Each file in [`docs/diagrams/`](docs/diagrams) is standalone HTML with bundled fonts, so the diagrams also open offline without a server.
 
 ## Built now; studied next
 
@@ -104,7 +104,7 @@ When no loopback model is available, the host falls back to a deterministic keyw
 
 ### 2. Two-Hop Tool Calling Protocol
 1. **Hop 1 — SQL Formulation & Validation**:
-   - The user's natural language question is combined with dynamic schema context: a deterministic BM25 + foreign-key pruner selects the five most relevant tables and formats them to roughly 800 tokens, with the curated column sample values from `training_schema.json` (`training/schema_pruner.py` / `schema_pruner.rs`).
+   - The user's natural language question is combined with dynamic schema context: a deterministic BM25 + foreign-key pruner selects the five most relevant tables and formats them to roughly 800 tokens. The desktop host then grounds categorical and year columns (`academic_year`, `reporting_category`, `primary_race`, and similar) with up to eight live values read from the warehouse, so the DDL uses real codes (`main.rs` → `enrich_schema_catalog`, `training/schema_pruner.py` / `schema_pruner.rs`).
    - The model generates DuckDB SQL under a GBNF grammar.
    - **Hop 1b Self-Healing Loop**: If execution encounters catalog, type, or syntax errors, the DuckDB `Candidate bindings` trace is fed back into the model for immediate self-correction (up to two retries).
 2. **Hop 2 — Generative UI Synthesis**:
@@ -144,7 +144,9 @@ cargo run --manifest-path desktop/Cargo.toml
   4. Scrub the filter bar (academic-year range, school or subgroup selectors, numeric ranges) to re-run the cached query without a model call; the UI reports the measured filter latency.
   5. Open **Show technical details** to inspect the Hop 1 tool call and SQL, the result summary, and the Hop 2 layout specification.
 
-If `llama-server` is running on the default endpoint, the host uses it. If it is not reachable, the host reports the deterministic demo mode and answers with the keyword backend.
+If `llama-server` is running on the default endpoint, the host uses it. If it is not reachable, the host shows a **Demo Mode** badge and answers with the deterministic keyword backend.
+
+For a scored, section-by-section human test script, see [`desktop/HUMAN_TEST_PLAN.md`](desktop/HUMAN_TEST_PLAN.md).
 
 ### Mode 2: Web Developer Workspace (Vite Dev Server)
 If you are iterating on the frontend UI, tweaking component archetypes, or testing responsive layouts:
