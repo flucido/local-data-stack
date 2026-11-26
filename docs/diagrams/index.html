@@ -96,41 +96,41 @@
       <a class="card" href="dataflow-end-to-end.html">
         <span class="kind">Data flow</span>
         <span class="name">End-to-end data flow</span>
-        <span class="desc">Aeries and CDE sources through dlt, dbt, and DuckDB into Rill, the NL-to-SQL app, evaluation, and training.</span>
+        <span class="desc">Aeries and CDE sources through dlt, dbt, and a blue/green DuckDB build into Rill, the NL-to-SQL surfaces, evaluation, and training.</span>
       </a>
     </li>
     <li>
       <a class="card" href="sequence-nl-sql-query.html">
         <span class="kind">Sequence</span>
         <span class="name">NL-to-SQL query path</span>
-        <span class="desc">One question through schema injection, streamed generation, the SQL guard, and read-only execution.</span>
+        <span class="desc">One question through schema pruning, streamed generation, the SQL guard, and read-only execution in the Gradio app.</span>
       </a>
     </li>
     <li>
       <a class="card" href="sequence-desktop-two-hop.html">
         <span class="kind">Sequence</span>
         <span class="name">Desktop two-hop hot path</span>
-        <span class="desc">A typed question through the Wry IPC bridge, the two-hop agent loop, DuckDB self-healing, and zero-copy arrow:// render.</span>
+        <span class="desc">A typed question through the Wry IPC bridge, the loopback LFM3 agent loop, DuckDB self-healing, and zero-copy arrow:// render.</span>
       </a>
     </li>
     <li>
       <a class="card" href="architecture-trust-boundaries.html">
         <span class="kind">Architecture</span>
         <span class="name">Trust boundaries</span>
-        <span class="desc">What stays local, what crosses to Modal, and what is published to or pulled from the Hugging Face Hub.</span>
+        <span class="desc">What stays local across the Gradio and desktop paths, what crosses to Modal, and what is published to or pulled from the Hugging Face Hub.</span>
       </a>
     </li>
     <li>
       <a class="card" href="lifecycle-model-artifacts.html">
         <span class="kind">Lifecycle</span>
         <span class="name">Model and eval artifacts</span>
-        <span class="desc">Curated schema to validated pairs, published dataset, r=64 adapter, device builds, gate, and rollback.</span>
+        <span class="desc">Curated schema to verified two-hop trajectories, LFM3 bf16 and Q8_0 builds, desktop serving, the held-out gate, and the legacy Qwen rollback.</span>
       </a>
     </li>
   </ul>
 
   <footer>
-    <p>Every diagram carries in-page source links pinned to revision <code>e275d05945117a827a10e5a6189c817f48a4830a</code>, except the desktop two-hop hot path, pinned to <code>b47fda222e4b244f452c5cfd219ba1aed9d61e7a</code>.</p>
+    <p>Every diagram carries in-page source links pinned to revision <code>2dd675071ade566b6f316b29a8b4d7e351970f87</code>.</p>
     <p>Rendered with Archify. Diagram sources are regenerated locally and are not committed.</p>
   </footer>
 </main>

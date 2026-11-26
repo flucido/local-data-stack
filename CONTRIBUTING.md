@@ -61,7 +61,8 @@ We welcome several types of contributions:
 - Python 3.12+
 - Git
 - 16GB+ RAM (32GB recommended for running the full pipeline + dashboards)
-- Optional: CUDA GPU for the NL-to-SQL model inference (14B 4-bit)
+- Optional: Node 22+ and a Rust toolchain for `desktop/`
+- Optional: CUDA GPU for legacy 14B NL-to-SQL inference, or a local llama-server for the desktop LFM3 path
 
 ### Local Setup
 
@@ -70,23 +71,26 @@ We welcome several types of contributions:
 git clone https://github.com/flucido/local-data-stack.git
 cd local-data-stack
 
-# 2. Create a virtual environment
-python3.12 -m venv .venv
-source .venv/bin/activate  # On Windows: venv\Scripts\activate
+# 2. Install dependencies (uv manages the virtual environment)
+uv sync --extra dev
 
-# 3. Install dependencies
-pip install -e '.[dev]'
+# 3. Configure required privacy secrets
+cp .env.example .env
+# Set PII_SALT, PII_ENCRYPTION_KEY, LFED_STUDENT_SALT, and LFED_STAFF_SALT.
+# Generate values with: python -c "import secrets; print(secrets.token_urlsafe(32))"
+set -a; . ./.env; set +a
 
 # 4. Run tests
-python -m pytest oss_framework/tests/
+uv run pytest oss_framework/tests nl_query/tests -q
 
-# 5. Initialize dbt
+# 5. Initialize and build dbt
 cd oss_framework/dbt
-dbt deps
-DBT_PROFILES_DIR=. dbt build
+uv run dbt deps
+DBT_PROFILES_DIR=. uv run dbt build
+cd ../..
 
-# 6. (Optional) Fetch the LoRA adapter for NL-to-SQL
-hf download KDDSTLC/lfed-qwen2.5-coder-14b-sql-lora-warehouse-r64 \
+# 6. (Optional) Fetch the legacy LoRA adapter for the Gradio app
+uv run hf download KDDSTLC/lfed-qwen2.5-coder-14b-sql-lora-warehouse-r64 \
   --local-dir models/lora-warehouse-r64
 ```
 
@@ -97,8 +101,12 @@ hf download KDDSTLC/lfed-qwen2.5-coder-14b-sql-lora-warehouse-r64 \
 git checkout -b feature/your-feature-name
 
 # Make changes and test
-python -m pytest oss_framework/tests/
-cd oss_framework/dbt && dbt test
+uv run pytest oss_framework/tests nl_query/tests -q
+cd oss_framework/dbt && DBT_PROFILES_DIR=. uv run dbt test && cd ../..
+
+# Desktop host and UI changes
+cargo test --manifest-path desktop/Cargo.toml
+npm --prefix desktop/ui run test
 
 # Commit with descriptive messages
 git add .
@@ -228,36 +236,40 @@ All code contributions must include appropriate tests:
 #### Python Tests (pytest)
 
 ```bash
-# Run all pipeline tests
-python -m pytest oss_framework/tests/
+# Run all pipeline and NL tests
+uv run pytest oss_framework/tests nl_query/tests
 
-# Run NL query layer tests (mocked LLM, no GPU needed)
-cd nl_query && python -m pytest tests/
-
-# Run specific test file
-python -m pytest oss_framework/tests/test_public_release_sanitization.py
+# Run a specific test file
+uv run pytest oss_framework/tests/test_public_release_sanitization.py
 
 # Run with coverage
-python -m pytest --cov=oss_framework oss_framework/tests/
+uv run pytest --cov=oss_framework oss_framework/tests/
 ```
 
 **Test locations:**
 - Pipeline tests: `oss_framework/tests/`
-- NL query tests: `nl_query/tests/`
+- NL query and two-hop tests: `nl_query/tests/`
 - Contract tests: `scripts/contracts/`
+
+#### Desktop Tests
+
+```bash
+cargo test --manifest-path desktop/Cargo.toml
+npm --prefix desktop/ui run test
+```
 
 #### dbt Tests
 
 ```bash
 # Run dbt tests
 cd oss_framework/dbt
-DBT_PROFILES_DIR=. dbt test
+DBT_PROFILES_DIR=. uv run dbt test
 
 # Test specific model
-DBT_PROFILES_DIR=. dbt test --select dim_students
+DBT_PROFILES_DIR=. uv run dbt test --select dim_students
 
 # Build with data refresh
-DBT_PROFILES_DIR=. dbt build
+DBT_PROFILES_DIR=. uv run dbt build
 ```
 
 **Required dbt tests:**

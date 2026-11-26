@@ -33,7 +33,8 @@ holdout questions.
 
 ```
 Question typed → window.sendRustRpc({cmd: "run_prompt"})
-  → BM25 top-5 schema pruning (20-table catalog from training/training_schema.json)
+  → BM25 top-5 schema pruning (20-table catalog from training/training_schema.json;
+    categorical/year columns grounded with live DuckDB sample values)
   → Hop 1: model emits JSON tool call execute_duckdb_query (GBNF-constrained)
   → DuckDB executes (in-memory medallion engine; up to 2 self-healing retries)
   → Hop 2: model emits render_workspace_ui with 1–4 components bound to result columns
@@ -44,7 +45,7 @@ Question typed → window.sendRustRpc({cmd: "run_prompt"})
   `models/lfed-lfm3-1.7b-two-hop-Q8_0.gguf` (full fine-tune of LFM3-1.7B on 3,000
   two-hop K-12 trajectories; temperature 0, GBNF grammar, 384-token budget per hop).
 - **Zero Network Egress**: only loopback plain-HTTP endpoints are accepted. Anything
-  else (https, non-loopback host) silently falls back to the keyword-stub backend.
+  else (https, non-loopback host) falls back to the keyword-stub backend and the Demo Mode badge.
 - **Local data reality**: the catalog advertises 20 tables (`main_core`,
   `main_analytics`, `main_staging`). The in-memory engine materializes the bronze sample
   (8 students, 16 school-summary rows, 10 equity rows, 7 accountability rows) plus

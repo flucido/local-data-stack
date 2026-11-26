@@ -32,9 +32,12 @@ repos:
         stages: [pre-commit]
       - id: end-of-file-fixer
         stages: [pre-commit]
-        exclude: \.parquet$
+        exclude: \.parquet$|^docs/diagrams/.*\.html$
       - id: trailing-whitespace
         stages: [pre-commit]
+        # Archify writes standalone generated HTML with template whitespace;
+        # reformatting it by hand would break the generated artifact.
+        exclude: ^docs/diagrams/.*\.html$
 
   # Ruff — fast Python linter (replaces flake8, isort, pyflakes)
   - repo: https://github.com/astral-sh/ruff-pre-commit
