@@ -9,7 +9,7 @@ flowchart TD
     subgraph UI ["Desktop Webview (React 19 + TypeScript + Vite)"]
         UI_Input["User Natural Language Query / Scenario Selector"]
         TwoHop_Trace["Two-Hop Inspector Drawer"]
-        GenUI_Registry["Canonical Component Registry\n(KPIGrid, TimeSeriesChart, CategoryBarChart, DataTable, FilterBar)"]
+        GenUI_Registry["Canonical Component Registry\n(KPIGrid, TimeSeriesChart, CategoryBarChart, BudgetVarianceChart, DataTable, FilterBar)"]
         Arrow_Client["Zero-Copy Arrow Client (tableFromIPC)"]
     end
 
@@ -17,7 +17,7 @@ flowchart TD
         IPC_Bridge["Bidirectional JSON-RPC Bridge (window.ipc)"]
         Arrow_Protocol["Custom Protocol Handler ('arrow://')"]
         Schema_Pruner["BM25 + 1-Hop FK Join Schema Pruner"]
-        Agent_Loop["Two-Hop + Self-Healing Agent Loop (llama.cpp / Mock)"]
+        Agent_Loop["Two-Hop + Self-Healing Agent Loop (llama-server / fallback)"]
     end
 
     subgraph Storage ["Medallion Local Data Engine"]
@@ -33,17 +33,17 @@ flowchart TD
     Silver_Gold_DuckDB -->|Arrow IPC Stream| Arrow_Protocol
     Arrow_Protocol -->|fetch('arrow://query_id')| Arrow_Client
     Arrow_Client --> GenUI_Registry
-    GenUI_Registry -->|FilterBar Mutation (<15ms)| IPC_Bridge
+    GenUI_Registry -->|FilterBar Mutation| IPC_Bridge
     IPC_Bridge -->|Parameterized CTE| Silver_Gold_DuckDB
     Bronze_SQLite -->|Reactive Sync| Silver_Gold_DuckDB
-    Edu_DuckDB -.->|ATTACH READ_ONLY| Silver_Gold_DuckDB
+    Edu_DuckDB -.->|0600 snapshot, ATTACH READ_ONLY, materialize| Silver_Gold_DuckDB
 ```
 
 An interactive, source-linked version of this hot path (question → `run_prompt` IPC → two-hop agent loop → DuckDB → `arrow://` render) is available as the [desktop two-hop sequence diagram](../docs/diagrams/sequence-desktop-two-hop.html), also listed in the [diagram index](https://flucido.github.io/local-data-stack/diagrams/).
 
 1. **Native Host (`desktop/src/`)**:
    - **Tao + Wry**: Native macOS windowing with cross-platform WebKit integration.
-   - **Medallion Engine (`medallion.rs`)**: Synchronizes Bronze SQLite ACID writes (`bronze_k12.db`) into in-memory DuckDB analytical tables (`main_core`, `main_analytics`) and attaches the K-12 education warehouse (`analytics.duckdb`).
+   - **Medallion Engine (`medallion.rs`)**: Synchronizes Bronze SQLite ACID writes (`bronze_k12.db`) into in-memory DuckDB analytical tables, then copies the K-12 education warehouse (`analytics.duckdb`) to a mode-0600 snapshot, attaches it read-only, materializes the allowed `main_core`/`main_analytics` tables with PII columns stripped, and deletes the snapshot.
    - **Zero-Copy Arrow IPC (`ipc.rs`)**: Custom `arrow://` URI protocol handler serving raw Apache Arrow binary streams directly to the frontend without JSON serialization overhead.
    - **Two-Hop Agent Loop (`agent_loop.rs`)**: Implements the continuous ChatML conversation loop reusing in-process KV-cache across Hop 1 (SQL), Hop 1b (self-healing `BinderError` retries), and Hop 2 (dynamic GBNF Generative UI binding).
 
@@ -53,9 +53,10 @@ An interactive, source-linked version of this hot path (question → `run_prompt
      - `KPIGrid`: 1–4 scalar metrics with delta badges and formatting.
      - `TimeSeriesChart`: Stacked bar, line, and area charts over temporal X-axes.
      - `CategoryBarChart`: Horizontal, vertical, and grouped categorical breakdowns.
+     - `BudgetVarianceChart`: Actual-versus-budget bars with variance formatting.
      - `DataTable`: Responsive TanStack Table with multi-column sorting and CSV export.
-     - `FilterBar`: Sub-15ms client controls (date range, multi-select, numeric range, search).
-   - **Zero-LLM Parameterized CTEs**: Modifying filters executes `WITH _base AS (<query>) SELECT * FROM _base WHERE ...` in DuckDB in `<15ms` with zero model inference calls.
+     - `FilterBar`: Date range, multi-select, numeric range, and search controls.
+   - **Zero-LLM Parameterized CTEs**: Modifying filters executes `WITH _base AS (<query>) SELECT * FROM _base WHERE ...` in DuckDB with zero model inference calls; the UI displays the measured filter latency.
 
 ---
 
@@ -78,10 +79,10 @@ cargo run --manifest-path desktop/Cargo.toml
 
 **What to test as a human user**:
 - **Ask a Question**: Type a plain-English question in the "Ask a question" box and press **Get answer** (or ⌘/Ctrl+Enter). The frontend sends `{cmd: "run_prompt", prompt}` over the Wry bridge; the Rust host runs the full two-hop agent loop (schema pruning → Hop 1 SQL → self-healing → Hop 2 GenUI) and streams the result back over `arrow://`.
-  > **Note**: `ipc.rs` currently routes `run_prompt` through the `DeterministicTwoHopBackend` (a keyword-matching stub in `agent_loop.rs`). No llama-server/GGUF backend is attached to the desktop host yet, so free-text questions produce deterministic SQL until a real `SlmBackend` is wired in. Preset scenarios are unaffected.
+  > **Model backend**: `ipc.rs` creates `LocalSlmBackend`, which calls a loopback `llama-server` at `http://127.0.0.1:8080` (override with `LFED_SLM_ENDPOINT`; non-loopback endpoints are rejected). If the server is unreachable, the host falls back to `DeterministicTwoHopBackend` and reports `mode: "deterministic_demo"`, so preset scenarios still work without a model.
 - **Analytical Scenarios**: Click preset buttons (`Multi-Year School Enrollment`, `Equity Outcomes by Race`, `CDE Subgroup Accountability`).
-- **Two-Hop Protocol Inspector**: Click **"Inspect Hop 1 SQL & Hop 2 JSON"** to view the exact Hop 1 SQL query, DuckDB result summary, and Hop 2 component payload.
-- **Zero-LLM Filter Interaction**: Click a pill or adjust a slider in the `FilterBar` and observe the instantaneous filter latency badge (`<15ms`).
+- **Two-Hop Protocol Inspector**: Click **"Show technical details"** to view the Hop 1 tool call and SQL, the DuckDB result summary, and the Hop 2 component payload.
+- **Zero-LLM Filter Interaction**: Click a pill or adjust a slider in the `FilterBar` and read the measured filter latency badge.
 - **Data Table Interactivity**: Sort columns, filter rows, or inspect exact student metrics.
 
 ### Method 2: Browser Dev Workspace (Instant Hot-Reload)
@@ -94,7 +95,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173` in your browser. The UI includes fallback Arrow decoders and client-side simulation when running outside the native Wry host.
+Open `http://localhost:5173` in your browser. Preset reports use seeded rows and a client-side Arrow simulation when running outside the native Wry host; free-text asking reports that it requires the native host.
 
 ---
 
