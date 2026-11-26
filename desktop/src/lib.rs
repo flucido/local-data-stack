@@ -627,4 +627,31 @@ mod tests {
 
         let _ = std::fs::remove_file(&bronze_path);
     }
+
+    #[test]
+    fn test_enrich_schema_catalog_grounds_live_sample_values() {
+        let bronze_path = temp_bronze_db();
+        let engine = MedallionEngine::new(&bronze_path, None).unwrap();
+        let mut catalog = load_unified_schema(&repo_root());
+
+        engine.enrich_schema_catalog(&mut catalog);
+
+        let pruned = select_top_k_tables(
+            "suspensions by reporting category in 2023-24",
+            &catalog,
+            5,
+        );
+        let ddl = format_pruned_ddl(&pruned);
+
+        assert!(
+            ddl.contains("[e.g."),
+            "Expected live sample values in pruned DDL, got:\n{ddl}"
+        );
+        assert!(
+            ddl.contains("'2023-24'") || ddl.contains("'2023-2024'"),
+            "Expected live academic_year sample values in pruned DDL, got:\n{ddl}"
+        );
+
+        let _ = std::fs::remove_file(&bronze_path);
+    }
 }

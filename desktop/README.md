@@ -77,9 +77,9 @@ cd ../..
 cargo run --manifest-path desktop/Cargo.toml
 ```
 
-**What to test as a human user**:
+**What to test as a human user** (a structured, scored version of this is [`HUMAN_TEST_PLAN.md`](./HUMAN_TEST_PLAN.md)):
 - **Ask a Question**: Type a plain-English question in the "Ask a question" box and press **Get answer** (or ⌘/Ctrl+Enter). The frontend sends `{cmd: "run_prompt", prompt}` over the Wry bridge; the Rust host runs the full two-hop agent loop (schema pruning → Hop 1 SQL → self-healing → Hop 2 GenUI) and streams the result back over `arrow://`.
-  > **Model backend**: `ipc.rs` creates `LocalSlmBackend`, which calls a loopback `llama-server` at `http://127.0.0.1:8080` (override with `LFED_SLM_ENDPOINT`; non-loopback endpoints are rejected). If the server is unreachable, the host falls back to `DeterministicTwoHopBackend` and reports `mode: "deterministic_demo"`, so preset scenarios still work without a model.
+  > **Note**: `ipc.rs` routes `run_prompt` through `LocalSlmBackend`, which uses a loopback `llama-server` (default `http://127.0.0.1:8080`, override with `LFED_SLM_ENDPOINT`) when one is running, and otherwise falls back to the `DeterministicTwoHopBackend` keyword stub in `agent_loop.rs` (`mode: "deterministic_demo"`, surfaced as a "Demo Mode" badge in the header). To exercise the real model-backed engine, start llama-server with `models/lfed-lfm3-1.7b-two-hop-Q8_0.gguf` first (see the [human test plan](./HUMAN_TEST_PLAN.md) setup section). Preset scenarios are unaffected.
 - **Analytical Scenarios**: Click preset buttons (`Multi-Year School Enrollment`, `Equity Outcomes by Race`, `CDE Subgroup Accountability`).
 - **Two-Hop Protocol Inspector**: Click **"Show technical details"** to view the Hop 1 tool call and SQL, the DuckDB result summary, and the Hop 2 component payload.
 - **Zero-LLM Filter Interaction**: Click a pill or adjust a slider in the `FilterBar` and read the measured filter latency badge.

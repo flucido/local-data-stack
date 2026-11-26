@@ -886,6 +886,54 @@ impl MedallionEngine {
 
         import_res
     }
+
+    /// Populate `sample_values` on low-cardinality categorical/year columns in `catalog`
+    /// directly from the live in-memory DuckDB tables so Hop 1 prompts stay grounded in
+    /// real warehouse values (years, CDE reporting category codes, race labels, etc.).
+    pub fn enrich_schema_catalog(&self, catalog: &mut crate::schema_pruner::SchemaCatalog) {
+        const GROUNDED_COLUMNS: &[&str] = &[
+            "academic_year",
+            "school_year",
+            "reporting_category",
+            "reporting_category_label",
+            "primary_race",
+            "race_ethnicity",
+            "aggregate_level",
+            "incident_type",
+            "severity",
+            "risk_level",
+        ];
+
+        let Ok(duck) = self.duck_conn.lock() else {
+            return;
+        };
+
+        for (table_key, cols) in catalog.iter_mut() {
+            let Some((schema, table)) = table_key.split_once('.') else {
+                continue;
+            };
+            let q_schema = format!("\"{}\"", schema.replace('"', "\"\""));
+            let q_table = format!("\"{}\"", table.replace('"', "\"\""));
+
+            for col in cols.iter_mut() {
+                if !GROUNDED_COLUMNS.contains(&col.name.as_str()) {
+                    continue;
+                }
+                let q_col = format!("\"{}\"", col.name.replace('"', "\"\""));
+                let sql = format!(
+                    "SELECT DISTINCT CAST({q_col} AS VARCHAR) FROM {q_schema}.{q_table} WHERE {q_col} IS NOT NULL ORDER BY 1 LIMIT 8"
+                );
+                if let Ok(mut stmt) = duck.prepare(&sql) {
+                    if let Ok(rows) = stmt.query_map([], |r| r.get::<_, String>(0)) {
+                        let vals: Vec<String> = rows.filter_map(|r| r.ok()).collect();
+                        if !vals.is_empty() {
+                            col.sample_values = vals;
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn copy_file_restricted_0600(src: &Path, dst: &Path) -> Result<()> {
